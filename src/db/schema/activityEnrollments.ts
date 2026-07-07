@@ -1,6 +1,8 @@
-import { pgTable, uuid, boolean, timestamp, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, boolean, timestamp, unique, pgEnum } from "drizzle-orm/pg-core";
 import { activityInstances } from "./activityInstances";
 import { people } from "./people";
+
+export const enrollmentRoleEnum = pgEnum("enrollment_role", ["participant", "facilitator"]);
 
 // Who's expected on an activity's roster — distinct from attendance history,
 // so a newly quick-added or newly enrolled person shows up before they've
@@ -15,6 +17,10 @@ export const activityEnrollments = pgTable(
     personId: uuid("person_id")
       .notNull()
       .references(() => people.id, { onDelete: "cascade" }),
+    // Roster split (participants shown separately from facilitators). Distinct
+    // from activity_facilitators, which links a real *user account* for
+    // login/permission purposes — a facilitator here may have no account yet.
+    role: enrollmentRoleEnum("role").notNull().default("participant"),
     enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
     active: boolean("active").notNull().default(true),
   },
