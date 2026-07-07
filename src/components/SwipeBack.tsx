@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-const EDGE_ZONE_PX = 48;
+const EDGE_ZONE_FRACTION = 0.35; // of screen width, not a fixed pixel value
 const MIN_SWIPE_PX = 30; // small deliberate swipes should count
 const FAST_FLICK_PX = 15; // a quick flick can be even shorter
 const FAST_FLICK_MS = 250;
@@ -23,7 +23,7 @@ export function SwipeBack() {
   useEffect(() => {
     function onTouchStart(e: TouchEvent) {
       const t = e.touches[0];
-      if (t.clientX <= EDGE_ZONE_PX) {
+      if (t.clientX <= window.innerWidth * EDGE_ZONE_FRACTION) {
         start.current = { x: t.clientX, y: t.clientY, time: Date.now() };
         last.current = { x: t.clientX, y: t.clientY };
       } else {
