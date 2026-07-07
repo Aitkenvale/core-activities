@@ -1,15 +1,14 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
 export function SignOutButton() {
-  const router = useRouter();
   return (
     <button
       onClick={async () => {
         await authClient.signOut();
-        router.push("/sign-in");
+        // Full page navigation so no stale cached /app content can show.
+        window.location.href = "/sign-in";
       }}
       style={{
         background: "none",

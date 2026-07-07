@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 
 export default function SignInPage() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -14,24 +12,30 @@ export default function SignInPage() {
     setError(null);
     setPending(true);
     const { error } = await authClient.signIn.passkey();
-    setPending(false);
     if (error) {
+      setPending(false);
       setError(error.message ?? "Sign-in failed. Try again.");
       return;
     }
-    router.push("/app");
+    // Full page navigation (not router.push) so the fresh session cookie
+    // is guaranteed to be picked up rather than a stale cached /app redirect.
+    window.location.href = "/app";
   }
 
   return (
     <main
       style={{
         minHeight: "100vh",
+        width: "100%",
+        boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         gap: 16,
         padding: "40px 16px",
+        maxWidth: 360,
+        margin: "0 auto",
         textAlign: "center",
       }}
     >
@@ -51,6 +55,8 @@ export default function SignInPage() {
           textTransform: "uppercase",
           border: "none",
           cursor: "pointer",
+          width: "100%",
+          boxSizing: "border-box",
         }}
       >
         {pending ? "Signing in…" : "Sign in with passkey"}

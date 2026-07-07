@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
 export default function SignUpPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,18 +20,22 @@ export default function SignUpPage() {
       name: "Primary passkey",
       context: JSON.stringify({ name: name.trim(), email: email.trim() }),
     });
-    setPending(false);
     if (error) {
+      setPending(false);
       setError(error.message ?? "Sign-up failed. Try again.");
       return;
     }
-    router.push("/app");
+    // Full page navigation (not router.push) so the fresh session cookie
+    // is guaranteed to be picked up rather than a stale cached /app redirect.
+    window.location.href = "/app";
   }
 
   return (
     <main
       style={{
         minHeight: "100vh",
+        width: "100%",
+        boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -54,14 +56,14 @@ export default function SignUpPage() {
         placeholder="Your name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 2 }}
+        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 2 }}
       />
       <input
         placeholder="Email"
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 2 }}
+        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 2 }}
       />
       <button
         onClick={handleSignUp}
