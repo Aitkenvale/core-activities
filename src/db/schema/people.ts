@@ -17,7 +17,8 @@ export const personSourceEnum = pgEnum("person_source", [
 export const people = pgTable("people", {
   id: uuid("id").primaryKey().defaultRandom(),
   householdId: uuid("household_id").references(() => households.id),
-  name: text("name").notNull(),
+  name: text("name").notNull(), // formal name
+  preferredName: text("preferred_name"), // friendly/AKA name — shown in rosters when set, falling back to `name`
   personType: personTypeEnum("person_type").notNull(),
   dob: date("dob"),
   mobile: text("mobile"),
