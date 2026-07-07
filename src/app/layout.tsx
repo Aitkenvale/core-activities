@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Aitkenvale Program Tracker",
+  title: "Aitkenvale Core Activities",
   description: "Attendance, activities and people tracker for the Aitkenvale Bahá'í community programs",
 };
 
@@ -19,7 +19,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <div className="phone-frame">{children}</div>
+      </body>
     </html>
   );
 }
