@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { setAttendance, setEnrollmentActive, searchPeople, enrollExistingPerson, quickAddPerson } from "./actions";
 
@@ -39,6 +39,15 @@ export function SessionClient({
   );
   const [editMode, setEditMode] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  // Switching the date pill re-renders this component with new props (same
+  // component instance, not a remount), so the initial useState value above
+  // only applies on first load. Without this, attendance marks from the
+  // first-viewed date stuck around no matter which date pill was tapped.
+  useEffect(() => {
+    setStatuses(statusByPersonId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   function goToDate(date: string) {
     router.push(`/app/attendance/${categoryId}/${activityInstanceId}/session?date=${date}`);

@@ -70,6 +70,19 @@ function extractWeekday(label: string): string | null {
   return m ? WEEKDAY_MAP[m[0].toLowerCase()] : null;
 }
 
+// The sheet's week-header dates are always the Monday that starts each week,
+// not each group's actual meeting day — offset by the difference (ISO
+// weekday minus Monday's 1) to get the real session date.
+const ISO_WEEKDAY: Record<string, number> = {
+  Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7,
+};
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 async function main() {
   const [aitkenvale] = await db.select().from(neighbourhoods).where(eq(neighbourhoods.name, "Aitkenvale"));
   if (!aitkenvale) throw new Error("Aitkenvale neighbourhood not seeded — run src/db/seed.ts first.");
@@ -160,6 +173,7 @@ async function main() {
         .filter((r) => (r[5] || "").trim() === "fac.")
         .map((r) => (r[2] || "").trim());
       const weekday = extractWeekday(groupLabel);
+      const dayOffset = weekday ? ISO_WEEKDAY[weekday] - 1 : 0;
 
       const [activity] = await db
         .insert(activityInstances)
@@ -188,7 +202,7 @@ async function main() {
           .insert(attendanceEvents)
           .values({
             activityInstanceId: activity.id,
-            sessionDate: wc.date,
+            sessionDate: addDays(wc.date, dayOffset),
             wasGeneratedFromCadence: true,
             createdByUserId: importUser.id,
           })
