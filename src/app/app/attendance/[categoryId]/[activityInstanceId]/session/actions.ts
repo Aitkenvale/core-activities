@@ -48,6 +48,22 @@ export async function setAttendance(
     });
 }
 
+export async function getLockStatus(activityInstanceId: string, sessionDate: string): Promise<boolean> {
+  await requireUserId();
+  const existing = await db.query.attendanceEvents.findFirst({
+    where: and(eq(attendanceEvents.activityInstanceId, activityInstanceId), eq(attendanceEvents.sessionDate, sessionDate)),
+  });
+  return existing?.locked ?? false;
+}
+
+// Confirm = lock (attendance becomes read-only). Clicking the status pill
+// while locked unlocks it again so edits can be made.
+export async function setLockStatus(activityInstanceId: string, sessionDate: string, locked: boolean) {
+  const userId = await requireUserId();
+  const eventId = await getOrCreateEventId(activityInstanceId, sessionDate, userId);
+  await db.update(attendanceEvents).set({ locked }).where(eq(attendanceEvents.id, eventId));
+}
+
 export async function searchPeople(query: string) {
   await requireUserId();
   const q = query.trim();

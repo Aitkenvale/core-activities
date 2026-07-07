@@ -1,8 +1,17 @@
 "use client";
 
-import { useState, useTransition, useRef, useEffect } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { setAttendance, setEnrollmentActive, searchPeople, enrollExistingPerson, quickAddPerson } from "./actions";
+import {
+  setAttendance,
+  setEnrollmentActive,
+  searchPeople,
+  enrollExistingPerson,
+  quickAddPerson,
+  getLockStatus,
+  setLockStatus,
+} from "./actions";
 
 type RosterRow = {
   personId: string;
@@ -38,7 +47,9 @@ export function SessionClient({
     Object.fromEntries(roster.map((r) => [r.personId, r.active])),
   );
   const [editMode, setEditMode] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [pillSlot, setPillSlot] = useState<HTMLElement | null>(null);
 
   // Switching the date pill re-renders this component with new props (same
   // component instance, not a remount), so the initial useState value above
@@ -49,11 +60,20 @@ export function SessionClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
+  useEffect(() => {
+    getLockStatus(activityInstanceId, selectedDate).then(setLocked);
+  }, [activityInstanceId, selectedDate]);
+
+  useEffect(() => {
+    setPillSlot(document.getElementById("lock-status-slot"));
+  }, []);
+
   function goToDate(date: string) {
     router.push(`/app/attendance/${categoryId}/${activityInstanceId}/session?date=${date}`);
   }
 
   function toggle(personId: string, next: Status) {
+    if (locked) return;
     setStatuses((s) => ({ ...s, [personId]: next }));
     if (next) startTransition(() => setAttendance(activityInstanceId, selectedDate, personId, next));
   }
@@ -64,12 +84,20 @@ export function SessionClient({
     startTransition(() => setEnrollmentActive(activityInstanceId, personId, next));
   }
 
+  function toggleLocked() {
+    const next = !locked;
+    setLocked(next);
+    startTransition(() => setLockStatus(activityInstanceId, selectedDate, next));
+  }
+
   const visible = (r: RosterRow) => editMode || activeByPersonId[r.personId];
   const participants = roster.filter((r) => r.role === "participant" && visible(r));
   const facilitators = roster.filter((r) => r.role === "facilitator" && visible(r));
 
   return (
     <>
+      {pillSlot && createPortal(<LockStatusPill locked={locked} onToggle={toggleLocked} />, pillSlot)}
+
       <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", margin: "0 0 4px" }}>
         {activityName}
       </h2>
@@ -87,6 +115,7 @@ export function SessionClient({
         editMode={editMode}
         activeByPersonId={activeByPersonId}
         onToggleActive={toggleActive}
+        locked={locked}
       />
       <RosterSection
         title="Facilitators"
@@ -99,9 +128,25 @@ export function SessionClient({
         editMode={editMode}
         activeByPersonId={activeByPersonId}
         onToggleActive={toggleActive}
+        locked={locked}
       />
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+        <button
+          onClick={toggleLocked}
+          disabled={locked}
+          style={{
+            padding: "8px 20px",
+            borderRadius: 20,
+            border: "1px solid var(--green)",
+            background: locked ? "var(--border)" : "#fff",
+            color: locked ? "var(--muted)" : "var(--green)",
+            fontSize: "0.8rem",
+            cursor: locked ? "default" : "pointer",
+          }}
+        >
+          {locked ? "Confirmed" : "Confirm"}
+        </button>
         <button
           onClick={() => setEditMode((v) => !v)}
           style={{
@@ -123,6 +168,28 @@ export function SessionClient({
   );
 }
 
+function LockStatusPill({ locked, onToggle }: { locked: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      style={{
+        padding: "6px 14px",
+        borderRadius: 20,
+        border: `1px solid ${locked ? "var(--red)" : "var(--green)"}`,
+        background: locked ? "var(--red)" : "#fff",
+        color: locked ? "#fff" : "var(--green)",
+        fontSize: "0.7rem",
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {locked ? "Locked" : "Unlocked"}
+    </button>
+  );
+}
+
 function DatePicker({
   selectedDate,
   recentDates,
@@ -132,7 +199,6 @@ function DatePicker({
   recentDates: string[];
   onPick: (date: string) => void;
 }) {
-  const dateInputRef = useRef<HTMLInputElement>(null);
   const pillStyle = {
     flexShrink: 0,
     padding: "8px 14px",
@@ -142,13 +208,6 @@ function DatePicker({
     lineHeight: "normal",
     boxSizing: "border-box" as const,
   };
-
-  function openPicker() {
-    const el = dateInputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
-    if (!el) return;
-    if (el.showPicker) el.showPicker();
-    else el.click();
-  }
 
   return (
     <div style={{ marginBottom: 28, display: "flex", alignItems: "stretch", gap: 8 }}>
@@ -168,12 +227,28 @@ function DatePicker({
           </button>
         ))}
       </div>
+      {/* The date input itself is the clickable element (opacity 0 but on
+          top, so tapping it reliably opens the native picker on every
+          browser) — a separate "Pick date" label sits visually on top with
+          pointer-events disabled so clicks pass through to the input
+          beneath it. Proxying via showPicker()/click() from a sibling
+          button was unreliable on iOS Safari. */}
       <div style={{ position: "relative", flexShrink: 0 }}>
-        <button
-          onClick={openPicker}
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => e.target.value && onPick(e.target.value)}
+          style={{ ...pillStyle, height: "100%", opacity: 0, border: "none" }}
+        />
+        <div
           style={{
             ...pillStyle,
-            height: "100%",
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
             border: "1px dashed var(--gold)",
             background: "var(--cream2)",
             color: "var(--warm)",
@@ -181,15 +256,7 @@ function DatePicker({
           }}
         >
           Pick date
-        </button>
-        <input
-          ref={dateInputRef}
-          type="date"
-          value={selectedDate}
-          onChange={(e) => e.target.value && onPick(e.target.value)}
-          style={{ position: "absolute", inset: 0, opacity: 0, pointerEvents: "none" }}
-          tabIndex={-1}
-        />
+        </div>
       </div>
     </div>
   );
@@ -211,6 +278,7 @@ function RosterSection({
   editMode,
   activeByPersonId,
   onToggleActive,
+  locked,
 }: {
   title: string;
   rows: RosterRow[];
@@ -222,6 +290,7 @@ function RosterSection({
   editMode: boolean;
   activeByPersonId: Record<string, boolean>;
   onToggleActive: (personId: string) => void;
+  locked: boolean;
 }) {
   const [adding, setAdding] = useState(false);
 
@@ -285,6 +354,7 @@ function RosterSection({
                 <div style={{ display: "flex", gap: 6 }}>
                   <button
                     onClick={() => onToggle(r.personId, "present")}
+                    disabled={locked}
                     style={{
                       padding: "6px 12px",
                       borderRadius: 2,
@@ -292,13 +362,15 @@ function RosterSection({
                       background: statuses[r.personId] === "present" ? "var(--green)" : "#fff",
                       color: statuses[r.personId] === "present" ? "#fff" : "var(--green)",
                       fontSize: "0.75rem",
-                      cursor: "pointer",
+                      cursor: locked ? "default" : "pointer",
+                      opacity: locked ? 0.6 : 1,
                     }}
                   >
                     Present
                   </button>
                   <button
                     onClick={() => onToggle(r.personId, "absent")}
+                    disabled={locked}
                     style={{
                       padding: "6px 12px",
                       borderRadius: 2,
@@ -306,7 +378,8 @@ function RosterSection({
                       background: statuses[r.personId] === "absent" ? "var(--red)" : "#fff",
                       color: statuses[r.personId] === "absent" ? "#fff" : "var(--red)",
                       fontSize: "0.75rem",
-                      cursor: "pointer",
+                      cursor: locked ? "default" : "pointer",
+                      opacity: locked ? 0.6 : 1,
                     }}
                   >
                     Absent

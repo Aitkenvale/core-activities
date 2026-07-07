@@ -12,6 +12,9 @@ export const attendanceEvents = pgTable(
       .references(() => activityInstances.id, { onDelete: "cascade" }),
     sessionDate: date("session_date").notNull(),
     wasGeneratedFromCadence: boolean("was_generated_from_cadence").notNull().default(false),
+    // Confirmed by a facilitator once the roll is finalized — present/absent
+    // marks become read-only until explicitly unlocked again.
+    locked: boolean("locked").notNull().default(false),
     notes: text("notes"),
     createdByUserId: text("created_by_user_id")
       .notNull()

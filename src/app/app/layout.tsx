@@ -1,23 +1,25 @@
 import Link from "next/link";
 import { SwipeBack } from "@/components/SwipeBack";
-import { SignOutButton } from "@/components/SignOutButton";
+import { ConditionalSignOut } from "@/components/ConditionalSignOut";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <SwipeBack />
       <main style={{ padding: "40px 5%" }}>
-        <Link href="/app" style={{ display: "inline-block", marginBottom: 24 }}>
-          <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.05rem", color: "var(--deep)" }}>
-            Aitkenvale Core Activities
-          </h1>
-        </Link>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <Link href="/app" style={{ display: "inline-block" }}>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.05rem", color: "var(--deep)" }}>
+              Aitkenvale Core Activities
+            </h1>
+          </Link>
+          {/* SessionClient portals its lock-status pill in here when viewing a session; empty everywhere else. */}
+          <div id="lock-status-slot" />
+        </div>
 
         {children}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 32 }}>
-          <SignOutButton />
-        </div>
+        <ConditionalSignOut />
       </main>
     </>
   );
