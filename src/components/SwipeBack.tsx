@@ -18,7 +18,7 @@ function getParentPath(pathname: string): string | null {
 
   const sessionMatch = pathname.match(/^\/app\/attendance\/[^/]+\/[^/]+\/session$/);
   if (sessionMatch) {
-    const [, categoryId] = pathname.split("/attendance/")[1].split("/");
+    const [categoryId] = pathname.split("/attendance/")[1].split("/");
     return `/app/attendance/${categoryId}`;
   }
 
