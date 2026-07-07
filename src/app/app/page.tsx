@@ -4,9 +4,9 @@ import { auth } from "@/lib/auth";
 import { SignOutButton } from "@/components/SignOutButton";
 
 const TILES = [
-  { href: "/app/attendance", label: "Edit Attendance", adminOnly: false },
+  { href: "/app/attendance", label: "Update Attendance", adminOnly: false },
   { href: "/app/activities", label: "Create New Activity", adminOnly: true },
-  { href: "/app/people", label: "Update People Details", adminOnly: true },
+  { href: "/app/people", label: "Find Person", adminOnly: true },
   { href: "/app/cpp-training", label: "CPP Training", adminOnly: false },
   { href: "/app/qr", label: "Share Registration QR Code", adminOnly: false },
 ];
