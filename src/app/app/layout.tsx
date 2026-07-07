@@ -6,7 +6,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <SwipeBack />
-      <main style={{ maxWidth: 640, margin: "0 auto", padding: "40px 16px" }}>
+      <main style={{ padding: "40px 5%" }}>
         <Link href="/app" style={{ display: "inline-block", marginBottom: 24 }}>
           <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.05rem", color: "var(--deep)" }}>
             Aitkenvale Core Activities
