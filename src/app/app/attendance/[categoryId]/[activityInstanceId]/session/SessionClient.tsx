@@ -60,10 +60,10 @@ export function SessionClient({
   const facilitators = roster.filter((r) => r.role === "facilitator" && visible(r));
 
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: "40px 16px" }}>
-      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", margin: "0 0 4px" }}>
+    <>
+      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", margin: "0 0 4px" }}>
         {activityName}
-      </h1>
+      </h2>
 
       <DatePicker selectedDate={selectedDate} recentDates={recentDates} onPick={goToDate} />
 
@@ -110,7 +110,7 @@ export function SessionClient({
       </div>
 
       {pending && <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: 12 }}>Saving…</p>}
-    </main>
+    </>
   );
 }
 

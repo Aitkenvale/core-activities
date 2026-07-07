@@ -6,8 +6,6 @@ import { db } from "@/db/client";
 import { activityCategories } from "@/db/schema/activityCategories";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { activityFacilitators } from "@/db/schema/activityFacilitators";
-import { termDates } from "@/db/schema/termDates";
-import { getNextExpectedDate, type CadenceConfig, type CadenceType } from "@/lib/cadence";
 
 export default async function ActivityInstanceList({
   params,
@@ -17,10 +15,9 @@ export default async function ActivityInstanceList({
   const { categoryId } = await params;
 
   // Independent queries — fire together instead of one round trip at a time.
-  const [session, [category], terms] = await Promise.all([
+  const [session, [category]] = await Promise.all([
     auth.api.getSession({ headers: await headers() }),
     db.select().from(activityCategories).where(eq(activityCategories.id, categoryId)),
-    db.select().from(termDates),
   ]);
   const isAdmin = session?.user?.role === "admin";
 
@@ -41,43 +38,34 @@ export default async function ActivityInstanceList({
         .then((rows) => rows.map((r) => r.activityInstances));
 
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: "40px 16px" }}>
-      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", color: "var(--deep)", margin: "0 0 24px" }}>
+    <>
+      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", margin: "0 0 20px" }}>
         {category?.label}
-      </h1>
+      </h2>
       {instances.length === 0 && (
         <p style={{ color: "var(--muted)" }}>
           {isAdmin ? "No activities yet in this category." : "You're not assigned to any activities in this category yet."}
         </p>
       )}
-      <div style={{ display: "grid", gap: 12 }}>
-        {instances.map((instance) => {
-          const next = getNextExpectedDate(
-            instance.cadenceType as CadenceType,
-            instance.cadenceConfig as CadenceConfig,
-            terms.map((t) => ({ startDate: t.startDate, endDate: t.endDate })),
-          );
-          return (
-            <Link
-              key={instance.id}
-              href={`/app/attendance/${categoryId}/${instance.id}/session`}
-              style={{
-                display: "block",
-                background: "#fff",
-                border: "1px solid var(--border)",
-                borderRadius: 4,
-                padding: 20,
-                color: "var(--text)",
-              }}
-            >
-              <div style={{ fontSize: "0.95rem" }}>{instance.name}</div>
-              <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: 4 }}>
-                {next ? `Next expected: ${next}` : "No fixed schedule"}
-              </div>
-            </Link>
-          );
-        })}
+      <div style={{ display: "grid", gap: 6 }}>
+        {instances.map((instance) => (
+          <Link
+            key={instance.id}
+            href={`/app/attendance/${categoryId}/${instance.id}/session`}
+            style={{
+              display: "block",
+              background: "#fff",
+              border: "1px solid var(--border)",
+              borderRadius: 4,
+              padding: "12px 14px",
+              fontSize: "0.9rem",
+              color: "var(--text)",
+            }}
+          >
+            {instance.name}
+          </Link>
+        ))}
       </div>
-    </main>
+    </>
   );
 }

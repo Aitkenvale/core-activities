@@ -11,10 +11,10 @@ export default async function AttendanceCategoryPicker() {
     .orderBy(asc(activityCategories.sortOrder));
 
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: "40px 16px" }}>
-      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", color: "var(--deep)", margin: "0 0 24px" }}>
+    <>
+      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", margin: "0 0 24px" }}>
         Update Attendance
-      </h1>
+      </h2>
       <div style={{ display: "grid", gap: 12 }}>
         {categories.map((cat) => (
           <Link
@@ -34,6 +34,6 @@ export default async function AttendanceCategoryPicker() {
           </Link>
         ))}
       </div>
-    </main>
+    </>
   );
 }

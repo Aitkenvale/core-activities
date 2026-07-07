@@ -1,7 +1,6 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { SignOutButton } from "@/components/SignOutButton";
 
 const TILES = [
   { href: "/app/attendance", label: "Update Attendance", adminOnly: false },
@@ -18,19 +17,10 @@ export default async function AppHome() {
   const tiles = TILES.filter((tile) => !tile.adminOnly || user?.role === "admin");
 
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: "40px 16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
-        <div>
-          <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", color: "var(--deep)" }}>
-            Aitkenvale Program Tracker
-          </h1>
-          <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-            Logged in as {user?.name} ({user?.role})
-          </p>
-        </div>
-        <SignOutButton />
-      </div>
-
+    <>
+      <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: 16 }}>
+        Logged in as {user?.name} ({user?.role})
+      </p>
       <div style={{ display: "grid", gap: 12 }}>
         {tiles.map((tile) => (
           <Link
@@ -50,6 +40,6 @@ export default async function AppHome() {
           </Link>
         ))}
       </div>
-    </main>
+    </>
   );
 }
