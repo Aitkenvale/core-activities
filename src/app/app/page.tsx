@@ -4,10 +4,11 @@ import { auth } from "@/lib/auth";
 
 const TILES = [
   { href: "/app/attendance", label: "Update Attendance", adminOnly: false },
-  { href: "/app/activities", label: "Create New Activity", adminOnly: true },
-  { href: "/app/people", label: "Find Person", adminOnly: true },
+  { href: "/app/activities", label: "Create New Activity", adminOnly: false },
+  { href: "/app/people", label: "Find Person", adminOnly: false },
   { href: "/app/cpp-training", label: "CPP Training", adminOnly: false },
   { href: "/app/qr", label: "Share Registration QR Code", adminOnly: false },
+  { href: "/app/admin", label: "Admin", adminOnly: true },
 ];
 
 export default async function AppHome() {
