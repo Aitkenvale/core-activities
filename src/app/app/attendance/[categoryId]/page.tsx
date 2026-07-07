@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import Link from "next/link";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { activityCategories } from "@/db/schema/activityCategories";
@@ -22,7 +22,11 @@ export default async function ActivityInstanceList({
   const isAdmin = session?.user?.role === "admin";
 
   const instances = isAdmin
-    ? await db.select().from(activityInstances).where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active")))
+    ? await db
+        .select()
+        .from(activityInstances)
+        .where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active")))
+        .orderBy(asc(activityInstances.name))
     : await db
         .select({ activityInstances })
         .from(activityInstances)
@@ -35,6 +39,7 @@ export default async function ActivityInstanceList({
           ),
         )
         .where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active")))
+        .orderBy(asc(activityInstances.name))
         .then((rows) => rows.map((r) => r.activityInstances));
 
   return (
