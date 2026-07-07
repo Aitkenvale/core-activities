@@ -40,7 +40,7 @@ export default async function SessionPage({
   const cadenceType = activity.cadenceType as CadenceType;
   const cadenceConfig = activity.cadenceConfig as CadenceConfig;
   const nextExpected = getNextExpectedDate(cadenceType, cadenceConfig, termRanges);
-  const recentDates = getRecentExpectedDates(cadenceType, cadenceConfig, termRanges, 2);
+  const recentDates = getRecentExpectedDates(cadenceType, cadenceConfig, termRanges, 3);
   const selectedDate = date || nextExpected || new Date().toISOString().slice(0, 10);
 
   const existingEvent = await db.query.attendanceEvents.findFirst({

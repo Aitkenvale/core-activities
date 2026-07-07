@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { setAttendance, searchPeople, enrollExistingPerson, quickAddPerson } from "./actions";
 
 type RosterRow = {
@@ -50,10 +49,7 @@ export function SessionClient({
 
   return (
     <main style={{ maxWidth: 640, margin: "0 auto", padding: "40px 16px" }}>
-      <Link href={`/app/attendance/${categoryId}`} style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-        ← Back
-      </Link>
-      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", margin: "16px 0 4px" }}>
+      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", margin: "0 0 4px" }}>
         {activityName}
       </h1>
 
@@ -92,9 +88,18 @@ function DatePicker({
   recentDates: string[];
   onPick: (date: string) => void;
 }) {
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  function openPicker() {
+    const el = dateInputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+    if (!el) return;
+    if (el.showPicker) el.showPicker();
+    else el.click();
+  }
+
   return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
+    <div style={{ marginBottom: 28, display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8, flex: 1 }}>
         {recentDates.map((d) => (
           <button
             key={d}
@@ -114,16 +119,30 @@ function DatePicker({
           </button>
         ))}
       </div>
-      <div style={{ marginTop: 8 }}>
-        <label style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-          Or pick another date:{" "}
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => e.target.value && onPick(e.target.value)}
-            style={{ fontSize: "0.85rem", padding: 4 }}
-          />
-        </label>
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        <button
+          onClick={openPicker}
+          style={{
+            padding: "8px 14px",
+            borderRadius: 20,
+            border: "1px dashed var(--gold)",
+            background: "var(--cream2)",
+            color: "var(--warm)",
+            fontSize: "0.8rem",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Pick date
+        </button>
+        <input
+          ref={dateInputRef}
+          type="date"
+          value={selectedDate}
+          onChange={(e) => e.target.value && onPick(e.target.value)}
+          style={{ position: "absolute", inset: 0, opacity: 0, pointerEvents: "none" }}
+          tabIndex={-1}
+        />
       </div>
     </div>
   );

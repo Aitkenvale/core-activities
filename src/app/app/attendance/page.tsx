@@ -12,10 +12,7 @@ export default async function AttendanceCategoryPicker() {
 
   return (
     <main style={{ maxWidth: 640, margin: "0 auto", padding: "40px 16px" }}>
-      <Link href="/app" style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-        ← Back
-      </Link>
-      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", color: "var(--deep)", margin: "16px 0 24px" }}>
+      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", color: "var(--deep)", margin: "0 0 24px" }}>
         Update Attendance
       </h1>
       <div style={{ display: "grid", gap: 12 }}>
