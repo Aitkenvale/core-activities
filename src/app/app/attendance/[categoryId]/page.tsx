@@ -15,10 +15,14 @@ export default async function ActivityInstanceList({
   params: Promise<{ categoryId: string }>;
 }) {
   const { categoryId } = await params;
-  const session = await auth.api.getSession({ headers: await headers() });
-  const isAdmin = session?.user?.role === "admin";
 
-  const [category] = await db.select().from(activityCategories).where(eq(activityCategories.id, categoryId));
+  // Independent queries — fire together instead of one round trip at a time.
+  const [session, [category], terms] = await Promise.all([
+    auth.api.getSession({ headers: await headers() }),
+    db.select().from(activityCategories).where(eq(activityCategories.id, categoryId)),
+    db.select().from(termDates),
+  ]);
+  const isAdmin = session?.user?.role === "admin";
 
   const instances = isAdmin
     ? await db.select().from(activityInstances).where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active")))
@@ -35,8 +39,6 @@ export default async function ActivityInstanceList({
         )
         .where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active")))
         .then((rows) => rows.map((r) => r.activityInstances));
-
-  const terms = await db.select().from(termDates);
 
   return (
     <main style={{ maxWidth: 640, margin: "0 auto", padding: "40px 16px" }}>
