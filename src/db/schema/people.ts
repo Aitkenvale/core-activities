@@ -1,7 +1,11 @@
 import { pgTable, uuid, text, date, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { households } from "./households";
 
-export const personTypeEnum = pgEnum("person_type", ["child", "guardian"]);
+// "adult" is deliberately broader than "guardian" — real PSEC/JYSEP data
+// includes facilitators/teachers who aren't a parent of anyone in the
+// system. Whether an adult is a specific child's guardian is captured by
+// guardian_relationships, not by this field.
+export const personTypeEnum = pgEnum("person_type", ["child", "adult"]);
 export const personLinkStatusEnum = pgEnum("person_link_status", ["linked", "pending"]);
 export const personSourceEnum = pgEnum("person_source", [
   "registration_form",

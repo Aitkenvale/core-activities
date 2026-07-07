@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, timestamp, pgEnum, jsonb } from "drizzle-orm/pg-core";
 import { activityCategories } from "./activityCategories";
+import { neighbourhoods } from "./neighbourhoods";
 
 export const activityStatusEnum = pgEnum("activity_status", ["active", "paused", "archived"]);
 export const cadenceTypeEnum = pgEnum("cadence_type", [
@@ -14,7 +15,10 @@ export const activityInstances = pgTable("activity_instances", {
   categoryId: text("category_id")
     .notNull()
     .references(() => activityCategories.id),
-  name: text("name").notNull(), // e.g. "PSEC — Tuesday Group A"
+  neighbourhoodId: uuid("neighbourhood_id")
+    .notNull()
+    .references(() => neighbourhoods.id),
+  name: text("name").notNull(), // e.g. "Aitkenvale — Tuesday — Grade 1"
   description: text("description"),
   status: activityStatusEnum("status").notNull().default("active"),
   cadenceType: cadenceTypeEnum("cadence_type").notNull(),

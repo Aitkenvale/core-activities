@@ -2,6 +2,7 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import * as authSchema from "./schema/auth";
 import * as households from "./schema/households";
+import * as neighbourhoods from "./schema/neighbourhoods";
 import * as people from "./schema/people";
 import * as guardianRelationships from "./schema/guardianRelationships";
 import * as activityCategories from "./schema/activityCategories";
@@ -15,6 +16,7 @@ import * as attendanceRecords from "./schema/attendanceRecords";
 const schema = {
   ...authSchema,
   ...households,
+  ...neighbourhoods,
   ...people,
   ...guardianRelationships,
   ...activityCategories,
