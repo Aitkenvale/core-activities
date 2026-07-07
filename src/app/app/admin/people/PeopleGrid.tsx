@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { updatePerson, searchHouseholds, type PersonPatch } from "./actions";
+import { getCategoryLabel } from "@/lib/category";
 
 type Row = {
   id: string;
@@ -9,26 +10,25 @@ type Row = {
   preferredName: string | null;
   householdId: string | null;
   householdName: string | null;
-  personType: "child" | "adult";
   dob: string | null;
   mobile: string | null;
   email: string | null;
-  category: string | null;
+  regoYear: number | null;
   hidden: boolean;
   linkStatus: "linked" | "pending";
   comment: string | null;
 };
 
-type SortKey = keyof Row;
+type SortKey = keyof Row | "category";
 
 const COLUMNS: { key: SortKey; label: string; width: number }[] = [
   { key: "name", label: "Name", width: 160 },
   { key: "preferredName", label: "AKA", width: 120 },
   { key: "householdName", label: "Household", width: 180 },
-  { key: "personType", label: "Type", width: 90 },
   { key: "dob", label: "DOB", width: 130 },
-  { key: "mobile", label: "Mobile", width: 130 },
   { key: "category", label: "Category", width: 140 },
+  { key: "regoYear", label: "Rego Year", width: 90 },
+  { key: "mobile", label: "Mobile", width: 130 },
   { key: "linkStatus", label: "Linked", width: 90 },
   { key: "hidden", label: "Hidden", width: 70 },
   { key: "comment", label: "Comment", width: 220 },
@@ -74,22 +74,24 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
     }
   }
 
+  function sortValue(r: Row, key: SortKey): string {
+    const v = key === "category" ? getCategoryLabel(r.dob) : r[key];
+    return v === null || v === undefined ? "" : String(v);
+  }
+
   const visibleRows = useMemo(() => {
     const q = filterText.trim().toLowerCase();
     let filtered = rows;
     if (q) {
       filtered = rows.filter((r) =>
-        [r.name, r.preferredName, r.householdName, r.category, r.comment].some((v) => v?.toLowerCase().includes(q)),
+        [r.name, r.preferredName, r.householdName, getCategoryLabel(r.dob), r.comment].some((v) => v?.toLowerCase().includes(q)),
       );
     }
     return [...filtered].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
-      const as = av === null || av === undefined ? "" : String(av);
-      const bs = bv === null || bv === undefined ? "" : String(bv);
-      const cmp = as.localeCompare(bs);
+      const cmp = sortValue(a, sortKey).localeCompare(sortValue(b, sortKey));
       return sortAsc ? cmp : -cmp;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, filterText, sortKey, sortAsc]);
 
   return (
@@ -163,20 +165,6 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
                     save(r.id, { householdId });
                   }}
                 />
-                <td style={cellStyle}>
-                  <select
-                    value={r.personType}
-                    onChange={(e) => {
-                      const v = e.target.value as Row["personType"];
-                      patchLocal(r.id, { personType: v });
-                      save(r.id, { personType: v });
-                    }}
-                    style={{ ...inputStyle, border: "1px solid var(--border)" }}
-                  >
-                    <option value="child">child</option>
-                    <option value="adult">adult</option>
-                  </select>
-                </td>
                 <TextCell
                   type="date"
                   value={r.dob}
@@ -188,6 +176,19 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
                   onEdit={() => setEditing({ id: r.id, field: "dob" })}
                   onDone={() => setEditing(null)}
                 />
+                {/* Computed live from DOB (matches the old sheet's LOOKUP formula) — not stored, not editable, so it never goes stale as someone ages. */}
+                <td style={cellStyle}>{getCategoryLabel(r.dob) || <span style={{ color: "var(--border)" }}>—</span>}</td>
+                <TextCell
+                  value={r.regoYear === null ? null : String(r.regoYear)}
+                  onSave={(v) => {
+                    const n = v.trim() ? parseInt(v, 10) : null;
+                    patchLocal(r.id, { regoYear: n });
+                    save(r.id, { regoYear: n });
+                  }}
+                  editing={editing?.id === r.id && editing.field === "regoYear"}
+                  onEdit={() => setEditing({ id: r.id, field: "regoYear" })}
+                  onDone={() => setEditing(null)}
+                />
                 <TextCell
                   value={r.mobile}
                   onSave={(v) => {
@@ -196,16 +197,6 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
                   }}
                   editing={editing?.id === r.id && editing.field === "mobile"}
                   onEdit={() => setEditing({ id: r.id, field: "mobile" })}
-                  onDone={() => setEditing(null)}
-                />
-                <TextCell
-                  value={r.category}
-                  onSave={(v) => {
-                    patchLocal(r.id, { category: v || null });
-                    save(r.id, { category: v || null });
-                  }}
-                  editing={editing?.id === r.id && editing.field === "category"}
-                  onEdit={() => setEditing({ id: r.id, field: "category" })}
                   onDone={() => setEditing(null)}
                 />
                 <td style={cellStyle}>
@@ -312,7 +303,7 @@ function HouseholdCell({
   onDone: () => void;
   onSave: (householdId: string | null, householdName: string | null) => void;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(row.householdName || "");
   const [results, setResults] = useState<{ id: string; name: string }[]>([]);
 
   if (!editing) {
@@ -335,6 +326,7 @@ function HouseholdCell({
         placeholder="Search household…"
         value={query}
         onChange={(e) => handleChange(e.target.value)}
+        onFocus={(e) => e.target.select()}
         onKeyDown={(e) => {
           if (e.key === "Escape") onDone();
         }}

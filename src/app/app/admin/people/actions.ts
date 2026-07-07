@@ -15,12 +15,10 @@ async function requireAdmin() {
 export type PersonPatch = Partial<{
   name: string;
   preferredName: string | null;
-  personType: "child" | "adult";
   dob: string | null;
   mobile: string | null;
   email: string | null;
-  bahaiStatus: string | null;
-  category: string | null;
+  regoYear: number | null;
   comment: string | null;
   hidden: boolean;
   linkStatus: "linked" | "pending";

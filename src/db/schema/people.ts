@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, date, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, date, integer, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { households } from "./households";
 
 // "adult" is deliberately broader than "guardian" — real PSEC/JYSEP data
@@ -24,7 +24,12 @@ export const people = pgTable("people", {
   mobile: text("mobile"),
   email: text("email"),
   bahaiStatus: text("bahai_status"),
-  category: text("category"),
+  category: text("category"), // legacy free-text from the old sheet — superseded by the computed age-based category (src/lib/category.ts), kept only for historical reference
+  // The year a parent/guardian signed the registration form for the
+  // person's CURRENT program stage (only meaningful for under-15s who
+  // can't consent themselves). A new year gets recorded when they
+  // transition between multi-year programs (e.g. PSEC -> JYSEP).
+  regoYear: integer("rego_year"),
   healthNotes: text("health_notes"),
   hidden: boolean("hidden").notNull().default(false),
   // "pending" = quick-added by a facilitator, incomplete, awaiting reconciliation.

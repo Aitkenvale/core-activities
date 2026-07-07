@@ -64,6 +64,9 @@ export async function setLockStatus(activityInstanceId: string, sessionDate: str
   await db.update(attendanceEvents).set({ locked }).where(eq(attendanceEvents.id, eventId));
 }
 
+// Hidden people don't show up here — "hidden" means regular users can no
+// longer find them. Admins can still see and un-hide them in the Edit All
+// People spreadsheet.
 export async function searchPeople(query: string) {
   await requireUserId();
   const q = query.trim();
@@ -71,7 +74,7 @@ export async function searchPeople(query: string) {
   return db
     .select({ id: people.id, name: people.name, preferredName: people.preferredName, linkStatus: people.linkStatus })
     .from(people)
-    .where(ilike(people.name, `%${q}%`))
+    .where(and(ilike(people.name, `%${q}%`), eq(people.hidden, false)))
     .limit(8);
 }
 
