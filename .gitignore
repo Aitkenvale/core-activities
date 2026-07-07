@@ -41,5 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# clerk configuration (can include secrets)
+# Local Netlify folder
+.netlify
+
+# Clerk artifacts (unused now, but keep ignored in case anything regenerates it)
 /.clerk/
