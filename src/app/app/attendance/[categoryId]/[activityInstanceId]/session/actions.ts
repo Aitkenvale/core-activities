@@ -61,7 +61,23 @@ export async function searchPeople(query: string) {
 
 export async function enrollExistingPerson(activityInstanceId: string, personId: string, role: "participant" | "facilitator") {
   await requireUserId();
-  await db.insert(activityEnrollments).values({ activityInstanceId, personId, role }).onConflictDoNothing();
+  await db
+    .insert(activityEnrollments)
+    .values({ activityInstanceId, personId, role })
+    .onConflictDoUpdate({
+      target: [activityEnrollments.activityInstanceId, activityEnrollments.personId],
+      set: { role, active: true },
+    });
+}
+
+// Hide = stop showing this person on the day-to-day roster without deleting
+// their attendance history. Show = bring them back.
+export async function setEnrollmentActive(activityInstanceId: string, personId: string, active: boolean) {
+  await requireUserId();
+  await db
+    .update(activityEnrollments)
+    .set({ active })
+    .where(and(eq(activityEnrollments.activityInstanceId, activityInstanceId), eq(activityEnrollments.personId, personId)));
 }
 
 export async function quickAddPerson(activityInstanceId: string, name: string, role: "participant" | "facilitator") {

@@ -30,10 +30,11 @@ export default async function SessionPage({
         preferredName: people.preferredName,
         linkStatus: people.linkStatus,
         role: activityEnrollments.role,
+        active: activityEnrollments.active,
       })
       .from(activityEnrollments)
       .innerJoin(people, eq(people.id, activityEnrollments.personId))
-      .where(and(eq(activityEnrollments.activityInstanceId, activityInstanceId), eq(activityEnrollments.active, true))),
+      .where(eq(activityEnrollments.activityInstanceId, activityInstanceId)),
   ]);
 
   const termRanges = terms.map((t) => ({ startDate: t.startDate, endDate: t.endDate }));
