@@ -1,16 +1,18 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
-const isProtectedRoute = createRouteMatcher(["/app(.*)"]);
-
-export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
-    await auth.protect();
+export default function proxy(req: NextRequest) {
+  if (req.nextUrl.pathname.startsWith("/app")) {
+    // Lightweight cookie-presence check only — no DB round trip here.
+    // Server components re-verify the real session via auth.api.getSession().
+    const sessionCookie = getSessionCookie(req);
+    if (!sessionCookie) {
+      return NextResponse.redirect(new URL("/sign-in", req.url));
+    }
   }
-});
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
-  ],
+  matcher: ["/app(.*)"],
 };

@@ -1,6 +1,7 @@
-import { UserButton } from "@clerk/nextjs";
+import { headers } from "next/headers";
 import Link from "next/link";
-import { getOrCreateAppUser } from "@/lib/auth";
+import { auth } from "@/lib/auth";
+import { SignOutButton } from "@/components/SignOutButton";
 
 const TILES = [
   { href: "/app/attendance", label: "Edit Attendance", adminOnly: false },
@@ -11,9 +12,10 @@ const TILES = [
 ];
 
 export default async function AppHome() {
-  const appUser = await getOrCreateAppUser();
+  const session = await auth.api.getSession({ headers: await headers() });
+  const user = session?.user;
 
-  const tiles = TILES.filter((tile) => !tile.adminOnly || appUser?.role === "admin");
+  const tiles = TILES.filter((tile) => !tile.adminOnly || user?.role === "admin");
 
   return (
     <main style={{ maxWidth: 640, margin: "0 auto", padding: "40px 16px" }}>
@@ -23,10 +25,10 @@ export default async function AppHome() {
             Aitkenvale Program Tracker
           </h1>
           <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-            Logged in as {appUser?.name} ({appUser?.role})
+            Logged in as {user?.name} ({user?.role})
           </p>
         </div>
-        <UserButton />
+        <SignOutButton />
       </div>
 
       <div style={{ display: "grid", gap: 12 }}>
