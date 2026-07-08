@@ -22,6 +22,11 @@ function getParentPath(pathname: string): string | null {
     return `/app/attendance/${categoryId}`;
   }
 
+  // Admin tools (Edit All People, Edit Households) live directly on the hub
+  // as tiles — there's no real "/app/admin" page to pop back to, so those
+  // go straight to the hub instead of the generic one-segment-up rule.
+  if (/^\/app\/admin\/[^/]+$/.test(pathname)) return "/app";
+
   const segments = pathname.split("/").filter(Boolean);
   segments.pop();
   return "/" + segments.join("/");
