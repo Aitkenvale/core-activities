@@ -5,7 +5,14 @@ import { createTermDate, updateTermDate } from "./actions";
 
 type TermRow = { id: string; year: number; termNumber: number; startDate: string; endDate: string };
 
+// Fixed row height so a cell doesn't grow taller when it switches from
+// display text to an input — native date inputs in particular render taller
+// than a plain text input unless explicitly constrained, which was causing
+// the row to visibly jitter.
+const ROW_HEIGHT = 34;
+
 const cellStyle: React.CSSProperties = {
+  height: ROW_HEIGHT,
   padding: "6px 8px",
   borderBottom: "1px solid var(--border)",
   fontSize: "0.85rem",
@@ -14,6 +21,7 @@ const cellStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
+  height: ROW_HEIGHT - 2,
   boxSizing: "border-box",
   fontSize: "0.85rem",
   padding: "4px 6px",
@@ -53,10 +61,10 @@ export function TermDatesEditor({ initialTerms }: { initialTerms: TermRow[] }) {
         Term Dates
       </h3>
       <div style={{ overflow: "hidden", overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-        {/* Fixed widths, same reasoning as ActivitiesGrid — a column must
-            not resize when a cell switches between display text and an
-            input, or the whole row visibly jitters. */}
-        <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: 520, background: "var(--card-bg)" }}>
+        {/* width:100% + minWidth, same reasoning as ActivitiesGrid — fills a
+            wide container instead of leaving empty space, but won't shrink
+            below a usable size on a narrow screen (scrolls instead). */}
+        <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: 520, background: "var(--card-bg)" }}>
           <thead>
             <tr>
               {[

@@ -70,20 +70,29 @@ function categoryAbbrev(categoryId: string): string {
   return categoryId.toUpperCase();
 }
 
-// Fixed widths so a column never resizes when a cell switches between
-// display text and an input/select — that resize was the page "jitter".
+// Column ratios — used as-is on narrow screens (where the table sits at its
+// minWidth floor and the wrapper scrolls horizontally), and stretched
+// proportionally to fill wider containers (table width:100%), so there's
+// never leftover empty space next to the last column on a wide screen.
 const COLUMN_WIDTHS = {
   name: 260,
-  category: 80,
+  category: 110,
   neighbourhood: 130,
   cadence: 170,
-  startDate: 120,
+  startDate: 150,
   status: 150,
   hidden: 60,
   notes: 150, // ~30% narrower than name's old shared width
 };
 
+// Fixed row height so a cell never grows taller when it switches from
+// display text to an input/select/date-input — that vertical resize was
+// part of the page "jitter" (native date inputs in particular render taller
+// than a plain text input unless explicitly constrained).
+const ROW_HEIGHT = 34;
+
 const cellStyle: React.CSSProperties = {
+  height: ROW_HEIGHT,
   padding: "6px 8px",
   borderBottom: "1px solid var(--border)",
   fontSize: "0.85rem",
@@ -92,6 +101,7 @@ const cellStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
+  height: ROW_HEIGHT - 2,
   boxSizing: "border-box",
   fontSize: "0.85rem",
   padding: "4px 6px",
@@ -169,14 +179,18 @@ export function ActivitiesGrid({
       </div>
 
       <div style={{ overflow: "hidden", overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-        {/* table-layout:fixed + an explicit total width so columns never
-            resize when a cell switches between display text and an
-            input/select (that was the page "jitter"). */}
+        {/* width:100% + minWidth (not a fixed width) — stretches to fill a
+            wide desktop container (no empty space after the last column),
+            but won't shrink columns below a usable size on a narrow screen
+            (the wrapper scrolls horizontally instead). table-layout:fixed
+            keeps columns from resizing when a cell switches between
+            display text and an input (that was the page "jitter"). */}
         <table
           style={{
             borderCollapse: "collapse",
             tableLayout: "fixed",
-            width: Object.values(COLUMN_WIDTHS).reduce((a, b) => a + b, 0),
+            width: "100%",
+            minWidth: Object.values(COLUMN_WIDTHS).reduce((a, b) => a + b, 0),
             background: "var(--card-bg)",
           }}
         >
