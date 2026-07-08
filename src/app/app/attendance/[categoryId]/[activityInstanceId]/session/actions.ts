@@ -9,10 +9,29 @@ import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
 
-async function requireUserId() {
+async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) throw new Error("Not signed in");
+  return session;
+}
+
+async function requireUserId() {
+  const session = await requireSession();
   return session.user.id;
+}
+
+// Facilitators can only edit recent history — admins are unrestricted, for
+// corrections. Reinforces the `locked` flag rather than replacing it: this
+// still applies even if a session was never explicitly confirmed/locked.
+const NON_ADMIN_EDIT_WINDOW_MONTHS = 3;
+
+function assertWithinEditWindow(sessionDate: string, role: string) {
+  if (role === "admin") return;
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - NON_ADMIN_EDIT_WINDOW_MONTHS);
+  if (sessionDate < cutoff.toISOString().slice(0, 10)) {
+    throw new Error(`Only an admin can edit sessions more than ${NON_ADMIN_EDIT_WINDOW_MONTHS} months old.`);
+  }
 }
 
 async function getOrCreateEventId(activityInstanceId: string, sessionDate: string, userId: string) {
@@ -37,7 +56,9 @@ export async function setAttendance(
   personId: string,
   status: "present" | "absent",
 ) {
-  const userId = await requireUserId();
+  const session = await requireSession();
+  assertWithinEditWindow(sessionDate, session.user.role);
+  const userId = session.user.id;
   const eventId = await getOrCreateEventId(activityInstanceId, sessionDate, userId);
   await db
     .insert(attendanceRecords)
@@ -57,10 +78,13 @@ export async function getLockStatus(activityInstanceId: string, sessionDate: str
 }
 
 // Confirm = lock (attendance becomes read-only). Clicking the status pill
-// while locked unlocks it again so edits can be made.
+// while locked unlocks it again so edits can be made — gated the same as
+// setAttendance, otherwise a facilitator could just unlock an old session
+// to get around the edit window.
 export async function setLockStatus(activityInstanceId: string, sessionDate: string, locked: boolean) {
-  const userId = await requireUserId();
-  const eventId = await getOrCreateEventId(activityInstanceId, sessionDate, userId);
+  const session = await requireSession();
+  assertWithinEditWindow(sessionDate, session.user.role);
+  const eventId = await getOrCreateEventId(activityInstanceId, sessionDate, session.user.id);
   await db.update(attendanceEvents).set({ locked }).where(eq(attendanceEvents.id, eventId));
 }
 

@@ -1,4 +1,6 @@
+import { headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
@@ -20,7 +22,8 @@ export default async function SessionPage({
   const { date } = await searchParams;
 
   // Independent queries — fire together instead of one round trip at a time.
-  const [[activity], terms, roster] = await Promise.all([
+  const [session, [activity], terms, roster] = await Promise.all([
+    auth.api.getSession({ headers: await headers() }),
     db.select().from(activityInstances).where(eq(activityInstances.id, activityInstanceId)),
     db.select().from(termDates),
     db
@@ -36,6 +39,7 @@ export default async function SessionPage({
       .innerJoin(people, eq(people.id, activityEnrollments.personId))
       .where(eq(activityEnrollments.activityInstanceId, activityInstanceId)),
   ]);
+  const isAdmin = session?.user?.role === "admin";
 
   const termRanges = terms.map((t) => ({ startDate: t.startDate, endDate: t.endDate }));
   const cadenceType = activity.cadenceType as CadenceType;
@@ -63,6 +67,7 @@ export default async function SessionPage({
       recentDates={recentDates}
       roster={roster}
       statusByPersonId={statusByPersonId}
+      isAdmin={isAdmin}
     />
   );
 }

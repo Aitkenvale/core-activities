@@ -24,6 +24,17 @@ type RosterRow = {
 
 type Status = "present" | "absent" | undefined;
 
+// Must match NON_ADMIN_EDIT_WINDOW_MONTHS in actions.ts — this is only a UI
+// hint (disabling controls so nothing looks saved when the server would
+// reject it); the actual rule is enforced server-side regardless.
+const NON_ADMIN_EDIT_WINDOW_MONTHS = 3;
+
+function isOutsideEditWindow(sessionDate: string): boolean {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - NON_ADMIN_EDIT_WINDOW_MONTHS);
+  return sessionDate < cutoff.toISOString().slice(0, 10);
+}
+
 export function SessionClient({
   categoryId,
   activityInstanceId,
@@ -32,6 +43,7 @@ export function SessionClient({
   recentDates,
   roster,
   statusByPersonId,
+  isAdmin,
 }: {
   categoryId: string;
   activityInstanceId: string;
@@ -40,6 +52,7 @@ export function SessionClient({
   recentDates: string[];
   roster: RosterRow[];
   statusByPersonId: Record<string, Status>;
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [statuses, setStatuses] = useState<Record<string, Status>>(statusByPersonId);
@@ -50,6 +63,12 @@ export function SessionClient({
   const [locked, setLocked] = useState(false);
   const [pending, startTransition] = useTransition();
   const [pillSlot, setPillSlot] = useState<HTMLElement | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Facilitators can't edit sessions past the window at all, regardless of
+  // the locked flag (locked can still be toggled off by an admin later).
+  const readOnly = locked || (!isAdmin && isOutsideEditWindow(selectedDate));
+  const canToggleLock = isAdmin || !isOutsideEditWindow(selectedDate);
 
   // Switching the date pill re-renders this component with new props (same
   // component instance, not a remount), so the initial useState value above
@@ -73,9 +92,18 @@ export function SessionClient({
   }
 
   function toggle(personId: string, next: Status) {
-    if (locked) return;
+    if (readOnly) return;
+    setError(null);
+    const previous = statuses[personId];
     setStatuses((s) => ({ ...s, [personId]: next }));
-    if (next) startTransition(() => setAttendance(activityInstanceId, selectedDate, personId, next));
+    if (next) {
+      startTransition(() => {
+        setAttendance(activityInstanceId, selectedDate, personId, next).catch((e) => {
+          setStatuses((s) => ({ ...s, [personId]: previous }));
+          setError(e instanceof Error ? e.message : "Couldn't save that change.");
+        });
+      });
+    }
   }
 
   function toggleActive(personId: string) {
@@ -85,9 +113,16 @@ export function SessionClient({
   }
 
   function toggleLocked() {
+    if (!canToggleLock) return;
+    setError(null);
     const next = !locked;
     setLocked(next);
-    startTransition(() => setLockStatus(activityInstanceId, selectedDate, next));
+    startTransition(() => {
+      setLockStatus(activityInstanceId, selectedDate, next).catch((e) => {
+        setLocked(!next);
+        setError(e instanceof Error ? e.message : "Couldn't save that change.");
+      });
+    });
   }
 
   const visible = (r: RosterRow) => editMode || activeByPersonId[r.personId];
@@ -96,13 +131,19 @@ export function SessionClient({
 
   return (
     <>
-      {pillSlot && createPortal(<LockStatusPill locked={locked} onToggle={toggleLocked} />, pillSlot)}
+      {pillSlot && createPortal(<LockStatusPill locked={locked} onToggle={toggleLocked} disabled={!canToggleLock} />, pillSlot)}
 
       <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 4px" }}>
         {activityName}
       </h2>
 
       <DatePicker selectedDate={selectedDate} recentDates={recentDates} onPick={goToDate} />
+
+      {!isAdmin && !canToggleLock && (
+        <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginBottom: "var(--space-4)" }}>
+          This session is more than {NON_ADMIN_EDIT_WINDOW_MONTHS} months old — only an admin can make changes.
+        </p>
+      )}
 
       <RosterSection
         title="Participants"
@@ -115,7 +156,7 @@ export function SessionClient({
         editMode={editMode}
         activeByPersonId={activeByPersonId}
         onToggleActive={toggleActive}
-        locked={locked}
+        readOnly={readOnly}
       />
       <RosterSection
         title="Facilitators"
@@ -128,13 +169,13 @@ export function SessionClient({
         editMode={editMode}
         activeByPersonId={activeByPersonId}
         onToggleActive={toggleActive}
-        locked={locked}
+        readOnly={readOnly}
       />
 
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--space-2)" }}>
         <button
           onClick={toggleLocked}
-          disabled={locked}
+          disabled={locked || !canToggleLock}
           style={{
             minHeight: "var(--tap-min)",
             padding: "0 24px",
@@ -143,7 +184,8 @@ export function SessionClient({
             background: locked ? "var(--border)" : "var(--card-bg)",
             color: locked ? "var(--muted)" : "var(--green)",
             fontSize: "0.85rem",
-            cursor: locked ? "default" : "pointer",
+            cursor: locked || !canToggleLock ? "default" : "pointer",
+            opacity: canToggleLock ? 1 : 0.6,
           }}
         >
           {locked ? "Confirmed" : "Confirm"}
@@ -166,14 +208,16 @@ export function SessionClient({
       </div>
 
       {pending && <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: 12 }}>Saving…</p>}
+      {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 12 }}>{error}</p>}
     </>
   );
 }
 
-function LockStatusPill({ locked, onToggle }: { locked: boolean; onToggle: () => void }) {
+function LockStatusPill({ locked, onToggle, disabled }: { locked: boolean; onToggle: () => void; disabled: boolean }) {
   return (
     <button
       onClick={onToggle}
+      disabled={disabled}
       style={{
         padding: "6px 14px",
         borderRadius: "var(--radius-pill)",
@@ -183,7 +227,8 @@ function LockStatusPill({ locked, onToggle }: { locked: boolean; onToggle: () =>
         fontSize: "0.7rem",
         letterSpacing: "0.04em",
         textTransform: "uppercase",
-        cursor: "pointer",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.6 : 1,
         whiteSpace: "nowrap",
       }}
     >
@@ -286,7 +331,7 @@ function RosterSection({
   editMode,
   activeByPersonId,
   onToggleActive,
-  locked,
+  readOnly,
 }: {
   title: string;
   rows: RosterRow[];
@@ -298,7 +343,7 @@ function RosterSection({
   editMode: boolean;
   activeByPersonId: Record<string, boolean>;
   onToggleActive: (personId: string) => void;
-  locked: boolean;
+  readOnly: boolean;
 }) {
   const [adding, setAdding] = useState(false);
 
@@ -364,7 +409,7 @@ function RosterSection({
                 <div style={{ display: "flex", gap: "var(--space-2)" }}>
                   <button
                     onClick={() => onToggle(r.personId, "present")}
-                    disabled={locked}
+                    disabled={readOnly}
                     style={{
                       minHeight: 36,
                       padding: "0 var(--space-3)",
@@ -373,15 +418,15 @@ function RosterSection({
                       background: statuses[r.personId] === "present" ? "var(--green)" : "var(--card-bg)",
                       color: statuses[r.personId] === "present" ? "var(--cream)" : "var(--green)",
                       fontSize: "0.75rem",
-                      cursor: locked ? "default" : "pointer",
-                      opacity: locked ? 0.6 : 1,
+                      cursor: readOnly ? "default" : "pointer",
+                      opacity: readOnly ? 0.6 : 1,
                     }}
                   >
                     Present
                   </button>
                   <button
                     onClick={() => onToggle(r.personId, "absent")}
-                    disabled={locked}
+                    disabled={readOnly}
                     style={{
                       minHeight: 36,
                       padding: "0 var(--space-3)",
@@ -390,8 +435,8 @@ function RosterSection({
                       background: statuses[r.personId] === "absent" ? "var(--red)" : "var(--card-bg)",
                       color: statuses[r.personId] === "absent" ? "var(--cream)" : "var(--red)",
                       fontSize: "0.75rem",
-                      cursor: locked ? "default" : "pointer",
-                      opacity: locked ? 0.6 : 1,
+                      cursor: readOnly ? "default" : "pointer",
+                      opacity: readOnly ? 0.6 : 1,
                     }}
                   >
                     Absent
