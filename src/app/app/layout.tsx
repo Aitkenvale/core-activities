@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { SwipeBack } from "@/components/SwipeBack";
 import { AccountMenu } from "@/components/AccountMenu";
 import { BottomTabBar } from "@/components/BottomTabBar";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <SwipeBack />
       <main style={{ flex: 1, padding: "32px 5% calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 24px)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <Link href="/app" style={{ display: "inline-block" }}>
