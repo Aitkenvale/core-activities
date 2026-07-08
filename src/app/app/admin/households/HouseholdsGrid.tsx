@@ -101,7 +101,9 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 0" }}>
-      <div style={{ position: "sticky", top: "var(--app-header-height)", zIndex: 30, background: "var(--page-bg)", paddingBottom: 12 }}>
+      {/* 9px = the table's 1px border + its cells' 8px left padding, so the
+          title/search line up with the actual text in the rows below. */}
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px 12px" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
           Edit Households ({visibleRows.length})
         </h2>
