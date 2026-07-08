@@ -4,10 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 
-const TABS = [
+const MAIN_TABS = [
   { href: "/app", label: "Home", icon: HomeIcon, match: (p: string) => p === "/app" },
   { href: "/app/attendance", label: "Attendance", icon: AttendanceIcon, match: (p: string) => p.startsWith("/app/attendance") },
   { href: "/app/people", label: "People", icon: PeopleIcon, match: (p: string) => p.startsWith("/app/people") },
+];
+
+// The admin data grids are full desktop width (see PhoneFrame) and have
+// their own distinct set of destinations, so they get a separate tab set
+// rather than the main app's Home/Attendance/People one.
+const ADMIN_TABS = [
+  { href: "/app", label: "Home", icon: HomeIcon, match: (p: string) => p === "/app" },
+  { href: "/app/admin/people", label: "People", icon: PeopleIcon, match: (p: string) => p.startsWith("/app/admin/people") },
+  { href: "/app/admin/households", label: "Households", icon: HouseholdIcon, match: (p: string) => p.startsWith("/app/admin/households") },
+  { href: "/app/admin/activities", label: "Activities", icon: ActivityIcon, match: (p: string) => p.startsWith("/app/admin/activities") },
 ];
 
 // A persistent bottom tab bar for the app's primary sections, per Apple HIG's
@@ -20,11 +30,8 @@ export function BottomTabBar() {
   const pathname = usePathname();
   const { data } = useSession();
 
-  // Admin grids are deliberately full desktop width (see PhoneFrame), where a
-  // mobile-style tab bar would look out of place. The "/app/admin" menu page
-  // itself is a normal mobile tile menu, so it keeps the tab bar.
-  if (pathname.startsWith("/app/admin/")) return null;
   if (!data?.user) return null;
+  const tabs = pathname.startsWith("/app/admin/") ? ADMIN_TABS : MAIN_TABS;
 
   return (
     <nav
@@ -38,7 +45,7 @@ export function BottomTabBar() {
         zIndex: 40,
       }}
     >
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = tab.match(pathname);
         const Icon = tab.icon;
         return (
@@ -90,6 +97,34 @@ function PeopleIcon({ active }: { active: boolean }) {
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="8" r="3.5" />
       <path d="M5 20c0-3.6 3.13-6 7-6s7 2.4 7 6" />
+    </svg>
+  );
+}
+
+// Three overlapping figures — distinct from the single-person People icon,
+// for "Households" (a group, not an individual).
+function HouseholdIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="7.2" r="2.7" />
+      <path d="M7.4 19.2c0-2.8 2.2-4.6 4.6-4.6s4.6 1.8 4.6 4.6" />
+      <circle cx="4.8" cy="9.3" r="2.1" />
+      <path d="M2 19.2c0-2.2 1.4-3.7 2.8-3.7" />
+      <circle cx="19.2" cy="9.3" r="2.1" />
+      <path d="M22 19.2c0-2.2-1.4-3.7-2.8-3.7" />
+    </svg>
+  );
+}
+
+// A plain calendar grid — distinct from the Attendance icon's checkmark,
+// since this is about managing the activities/classes themselves, not
+// marking a roll.
+function ActivityIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="5" width="16" height="15" rx="2.5" />
+      <path d="M8 3v4M16 3v4M4 10h16" />
+      <path d="M8 14h2M14 14h2M8 17h2M14 17h2" />
     </svg>
   );
 }
