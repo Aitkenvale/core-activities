@@ -58,6 +58,8 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
   const [sortAsc, setSortAsc] = useState(true);
   const [filterText, setFilterText] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
+  const [noRegoOnly, setNoRegoOnly] = useState(false);
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
 
   function toggleCategory(label: string) {
@@ -92,7 +94,10 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
 
   const visibleRows = useMemo(() => {
     const q = filterText.trim().toLowerCase();
-    let filtered = rows;
+    let filtered = showHidden ? rows : rows.filter((r) => !r.hidden);
+    if (noRegoOnly) {
+      filtered = filtered.filter((r) => r.regoYear === null);
+    }
     if (categoryFilter.size > 0) {
       filtered = filtered.filter((r) => categoryFilter.has(getCategoryLabel(r.dob) ?? ""));
     }
@@ -106,7 +111,7 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
       return sortAsc ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, filterText, categoryFilter, sortKey, sortAsc]);
+  }, [rows, filterText, categoryFilter, showHidden, noRegoOnly, sortKey, sortAsc]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 3%" }}>
@@ -121,29 +126,17 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
             onChange={(e) => setFilterText(e.target.value)}
             style={{ ...inputStyle, width: 320, border: "1px solid var(--border)" }}
           />
-          {CATEGORY_LABELS.map((label) => {
-            const active = categoryFilter.has(label);
-            return (
-              <button
-                key={label}
-                onClick={() => toggleCategory(label)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 20,
-                  border: `1px solid ${active ? "var(--deep)" : "var(--border)"}`,
-                  background: active ? "var(--deep)" : "#fff",
-                  color: active ? "var(--cream)" : "var(--muted)",
-                  fontSize: "0.75rem",
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
+          <Pill active={showHidden} onClick={() => setShowHidden((v) => !v)}>
+            Hidden
+          </Pill>
+          {CATEGORY_LABELS.map((label) => (
+            <Pill key={label} active={categoryFilter.has(label)} onClick={() => toggleCategory(label)}>
+              {label}
+            </Pill>
+          ))}
+          <Pill active={noRegoOnly} onClick={() => setNoRegoOnly((v) => !v)}>
+            No Rego
+          </Pill>
         </div>
       </div>
 
@@ -278,6 +271,28 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
         </table>
       </div>
     </div>
+  );
+}
+
+function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "6px 14px",
+        borderRadius: 20,
+        border: `1px solid ${active ? "var(--deep)" : "var(--border)"}`,
+        background: active ? "var(--deep)" : "#fff",
+        color: active ? "var(--cream)" : "var(--muted)",
+        fontSize: "0.75rem",
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
