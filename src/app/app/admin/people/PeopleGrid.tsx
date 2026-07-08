@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { updatePerson, searchHouseholds, type PersonPatch } from "./actions";
-import { getCategoryLabel } from "@/lib/category";
+import { getCategoryLabel, CATEGORY_LABELS } from "@/lib/category";
 
 type Row = {
   id: string;
@@ -56,7 +57,17 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
   const [filterText, setFilterText] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
+
+  function toggleCategory(label: string) {
+    setCategoryFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
 
   function patchLocal(id: string, patch: Partial<Row>) {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -82,8 +93,11 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
   const visibleRows = useMemo(() => {
     const q = filterText.trim().toLowerCase();
     let filtered = rows;
+    if (categoryFilter.size > 0) {
+      filtered = filtered.filter((r) => categoryFilter.has(getCategoryLabel(r.dob) ?? ""));
+    }
     if (q) {
-      filtered = rows.filter((r) =>
+      filtered = filtered.filter((r) =>
         [r.name, r.preferredName, r.householdName, getCategoryLabel(r.dob), r.comment].some((v) => v?.toLowerCase().includes(q)),
       );
     }
@@ -92,20 +106,45 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
       return sortAsc ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, filterText, sortKey, sortAsc]);
+  }, [rows, filterText, categoryFilter, sortKey, sortAsc]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 3%" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--cream)", paddingBottom: 12 }}>
+        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", marginBottom: 12 }}>
           Edit All People ({visibleRows.length})
         </h2>
-        <input
-          placeholder="Filter by name, household, category…"
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          style={{ ...inputStyle, width: 320, border: "1px solid var(--border)" }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <input
+            placeholder="Search by name, household, category…"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            style={{ ...inputStyle, width: 320, border: "1px solid var(--border)" }}
+          />
+          {CATEGORY_LABELS.map((label) => {
+            const active = categoryFilter.has(label);
+            return (
+              <button
+                key={label}
+                onClick={() => toggleCategory(label)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 20,
+                  border: `1px solid ${active ? "var(--deep)" : "var(--border)"}`,
+                  background: active ? "var(--deep)" : "#fff",
+                  color: active ? "var(--cream)" : "var(--muted)",
+                  fontSize: "0.75rem",
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 4 }}>
@@ -305,6 +344,27 @@ function HouseholdCell({
 }) {
   const [query, setQuery] = useState(row.householdName || "");
   const [results, setResults] = useState<{ id: string; name: string }[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  // The table wraps in an overflow:auto container to allow horizontal
+  // scrolling, which also clips any absolutely-positioned child — so the
+  // dropdown gets cut off instead of floating over the rest of the page.
+  // Portal it to <body> with fixed coordinates to escape that clipping.
+  useLayoutEffect(() => {
+    if (!editing) return;
+    function updatePos() {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (rect) setMenuPos({ top: rect.bottom, left: rect.left, width: rect.width });
+    }
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [editing]);
 
   if (!editing) {
     return (
@@ -320,8 +380,9 @@ function HouseholdCell({
   }
 
   return (
-    <td style={{ ...cellStyle, position: "relative" }}>
+    <td style={cellStyle}>
       <input
+        ref={inputRef}
         autoFocus
         placeholder="Search household…"
         value={query}
@@ -332,42 +393,47 @@ function HouseholdCell({
         }}
         style={inputStyle}
       />
-      <div
-        style={{
-          position: "absolute",
-          top: "100%",
-          left: 0,
-          zIndex: 10,
-          background: "#fff",
-          border: "1px solid var(--border)",
-          borderRadius: 2,
-          minWidth: 220,
-          maxHeight: 200,
-          overflowY: "auto",
-        }}
-      >
-        <button
-          onClick={() => {
-            onSave(null, null);
-            onDone();
-          }}
-          style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 10px", fontSize: "0.8rem", color: "var(--muted)", border: "none", background: "none", cursor: "pointer" }}
-        >
-          (no household)
-        </button>
-        {results.map((h) => (
-          <button
-            key={h.id}
-            onClick={() => {
-              onSave(h.id, h.name);
-              onDone();
+      {menuPos &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: menuPos.top,
+              left: menuPos.left,
+              width: Math.max(menuPos.width, 220),
+              zIndex: 1000,
+              background: "#fff",
+              border: "1px solid var(--border)",
+              borderRadius: 2,
+              maxHeight: 200,
+              overflowY: "auto",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
             }}
-            style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 10px", fontSize: "0.8rem", border: "none", background: "none", cursor: "pointer" }}
           >
-            {h.name}
-          </button>
-        ))}
-      </div>
+            <button
+              onClick={() => {
+                onSave(null, null);
+                onDone();
+              }}
+              style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 10px", fontSize: "0.8rem", color: "var(--muted)", border: "none", background: "none", cursor: "pointer" }}
+            >
+              (no household)
+            </button>
+            {results.map((h) => (
+              <button
+                key={h.id}
+                onClick={() => {
+                  onSave(h.id, h.name);
+                  onDone();
+                }}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 10px", fontSize: "0.8rem", border: "none", background: "none", cursor: "pointer" }}
+              >
+                {h.name}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </td>
   );
 }

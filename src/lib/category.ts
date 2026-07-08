@@ -4,6 +4,7 @@
 // stale the moment a birthday passes.
 const BREAKPOINTS = [0, 5, 9, 12, 15, 25];
 const LABELS = ["1. Infant", "2. Young Child", "3. Older Child", "4. Junior Youth", "5. Youth", "6. Adult"];
+export const CATEGORY_LABELS = LABELS;
 
 export function calculateAge(dob: string): number {
   const birth = new Date(`${dob}T00:00:00Z`);

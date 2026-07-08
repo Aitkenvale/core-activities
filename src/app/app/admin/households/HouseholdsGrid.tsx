@@ -100,61 +100,63 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 3%" }}>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", marginBottom: 16 }}>
-        Edit Households ({visibleRows.length})
-      </h2>
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--cream)", paddingBottom: 12 }}>
+        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", marginBottom: 12 }}>
+          Edit Households ({visibleRows.length})
+        </h2>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 16, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input
-            placeholder="Search by name, address, notes…"
-            value={filterText}
-            onChange={(e) => setFilterText(e.target.value)}
-            style={{ ...inputStyle, width: 320, border: "1px solid var(--border)" }}
-          />
-          <button
-            onClick={() => setShowHidden((v) => !v)}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 20,
-              border: `1px solid ${showHidden ? "var(--deep)" : "var(--border)"}`,
-              background: showHidden ? "var(--deep)" : "#fff",
-              color: showHidden ? "var(--cream)" : "var(--muted)",
-              fontSize: "0.75rem",
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Hidden
-          </button>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            placeholder="New household name…"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleCreate();
-            }}
-            style={{ ...inputStyle, width: 220, border: "1px solid var(--border)" }}
-          />
-          <button
-            onClick={handleCreate}
-            disabled={creating || !newName.trim()}
-            style={{
-              padding: "4px 14px",
-              fontSize: "0.85rem",
-              border: "1px solid var(--deep)",
-              background: "var(--deep)",
-              color: "var(--cream)",
-              borderRadius: 2,
-              cursor: "pointer",
-            }}
-          >
-            Add
-          </button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              placeholder="Search by name, address, notes…"
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              style={{ ...inputStyle, width: 320, border: "1px solid var(--border)" }}
+            />
+            <button
+              onClick={() => setShowHidden((v) => !v)}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 20,
+                border: `1px solid ${showHidden ? "var(--deep)" : "var(--border)"}`,
+                background: showHidden ? "var(--deep)" : "#fff",
+                color: showHidden ? "var(--cream)" : "var(--muted)",
+                fontSize: "0.75rem",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Hidden
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              placeholder="New household name…"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreate();
+              }}
+              style={{ ...inputStyle, width: 220, border: "1px solid var(--border)" }}
+            />
+            <button
+              onClick={handleCreate}
+              disabled={creating || !newName.trim()}
+              style={{
+                padding: "4px 14px",
+                fontSize: "0.85rem",
+                border: "1px solid var(--deep)",
+                background: "var(--deep)",
+                color: "var(--cream)",
+                borderRadius: 2,
+                cursor: "pointer",
+              }}
+            >
+              Add
+            </button>
+          </div>
         </div>
       </div>
 
