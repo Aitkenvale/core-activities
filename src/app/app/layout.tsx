@@ -11,7 +11,7 @@ import { BottomTabBar } from "@/components/BottomTabBar";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <main style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "32px 5% 24px" }}>
+      <main style={{ flex: 1, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", padding: "32px 5% 24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <Link href="/app" style={{ display: "inline-block" }}>
             <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.35rem", color: "var(--heading)" }}>

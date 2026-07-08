@@ -325,7 +325,7 @@ function RosterSection({
                 opacity: isHidden ? 0.5 : 1,
               }}
             >
-              <span style={{ fontSize: "0.9rem" }}>
+              <span style={{ fontSize: "0.9rem", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {r.preferredName || r.name}
                 {r.linkStatus === "pending" && (
                   <span
