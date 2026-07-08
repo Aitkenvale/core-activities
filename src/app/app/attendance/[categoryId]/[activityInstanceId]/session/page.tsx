@@ -44,8 +44,8 @@ export default async function SessionPage({
   const termRanges = terms.map((t) => ({ startDate: t.startDate, endDate: t.endDate }));
   const cadenceType = activity.cadenceType as CadenceType;
   const cadenceConfig = activity.cadenceConfig as CadenceConfig;
-  const nextExpected = getNextExpectedDate(cadenceType, cadenceConfig, termRanges);
-  const recentDates = getRecentExpectedDates(cadenceType, cadenceConfig, termRanges, 3);
+  const nextExpected = getNextExpectedDate(cadenceType, cadenceConfig, termRanges, activity.startDate);
+  const recentDates = getRecentExpectedDates(cadenceType, cadenceConfig, termRanges, 3, activity.startDate);
   const selectedDate = date || nextExpected || new Date().toISOString().slice(0, 10);
 
   const existingEvent = await db.query.attendanceEvents.findFirst({

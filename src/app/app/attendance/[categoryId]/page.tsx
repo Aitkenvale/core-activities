@@ -25,7 +25,7 @@ export default async function ActivityInstanceList({
     ? await db
         .select()
         .from(activityInstances)
-        .where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active")))
+        .where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active"), eq(activityInstances.hidden, false)))
         .orderBy(asc(activityInstances.name))
     : await db
         .select({ activityInstances })
@@ -38,7 +38,7 @@ export default async function ActivityInstanceList({
             eq(activityFacilitators.active, true),
           ),
         )
-        .where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active")))
+        .where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active"), eq(activityInstances.hidden, false)))
         .orderBy(asc(activityInstances.name))
         .then((rows) => rows.map((r) => r.activityInstances));
 

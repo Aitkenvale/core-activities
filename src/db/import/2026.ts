@@ -185,8 +185,8 @@ async function main() {
             ? `Facilitators (not yet linked to an account): ${facilitatorNames.join(", ")}`
             : null,
           status: "active",
-          cadenceType: weekday ? "weekly_term" : "ad_hoc",
-          cadenceConfig: weekday ? { weekday, term_calendar_ref: "school_term_calendar" } : {},
+          cadenceType: weekday ? "school_term" : "ad_hoc",
+          cadenceConfig: weekday ? { weekdays: [weekday] } : {},
         })
         .returning();
       activitiesCreated++;
