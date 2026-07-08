@@ -236,12 +236,12 @@ function DatePicker({
           pointer-events disabled so clicks pass through to the input
           beneath it. Proxying via showPicker()/click() from a sibling
           button was unreliable on iOS Safari. */}
-      <div style={{ position: "relative", flexShrink: 0 }}>
+      <div style={{ position: "relative", flexShrink: 0, width: 104 }}>
         <input
           type="date"
           value={selectedDate}
           onChange={(e) => e.target.value && onPick(e.target.value)}
-          style={{ ...pillStyle, height: "100%", opacity: 0, border: "none" }}
+          style={{ ...pillStyle, width: "100%", height: "100%", opacity: 0, border: "none" }}
         />
         <div
           style={{
@@ -265,9 +265,14 @@ function DatePicker({
   );
 }
 
+// toLocaleDateString's "short" month can render the full month name on some
+// devices/browsers (seen on iOS) — spell out the abbreviation ourselves so
+// "16 Jun" is guaranteed everywhere.
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 function formatShort(iso: string) {
   const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+  return `${d.getDate()} ${MONTH_ABBR[d.getMonth()]}`;
 }
 
 function RosterSection({

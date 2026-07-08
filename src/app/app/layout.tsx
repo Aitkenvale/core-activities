@@ -15,7 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <Link href="/app" style={{ display: "inline-block" }}>
             <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.35rem", color: "var(--heading)" }}>
-              Aitkenvale Core Activities
+              Core Activities
             </h1>
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
