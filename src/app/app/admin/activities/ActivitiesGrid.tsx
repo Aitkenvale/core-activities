@@ -70,20 +70,21 @@ function categoryAbbrev(categoryId: string): string {
   return categoryId.toUpperCase();
 }
 
-// Column ratios — used as-is on narrow screens (where the table sits at its
-// minWidth floor and the wrapper scrolls horizontally), and stretched
-// proportionally to fill wider containers (table width:100%), so there's
-// never leftover empty space next to the last column on a wide screen.
+// Every column except Notes gets a genuinely fixed width, on a narrow AND a
+// wide screen alike — Notes is the one left with no width set below, so
+// (with table-layout:fixed + table width:100%) it's the only column that
+// absorbs whatever space is left over, instead of every column stretching
+// proportionally and leaving Start Date/Status oddly bloated.
 const COLUMN_WIDTHS = {
   name: 260,
   category: 110,
   neighbourhood: 130,
   cadence: 170,
-  startDate: 150,
-  status: 150,
+  startDate: 110,
+  status: 100,
   hidden: 60,
-  notes: 150, // ~30% narrower than name's old shared width
 };
+const NOTES_MIN_WIDTH = 150;
 
 // Fixed row height so a cell never grows taller when it switches from
 // display text to an input/select/date-input — that vertical resize was
@@ -190,7 +191,7 @@ export function ActivitiesGrid({
             borderCollapse: "collapse",
             tableLayout: "fixed",
             width: "100%",
-            minWidth: Object.values(COLUMN_WIDTHS).reduce((a, b) => a + b, 0),
+            minWidth: Object.values(COLUMN_WIDTHS).reduce((a, b) => a + b, 0) + NOTES_MIN_WIDTH,
             background: "var(--card-bg)",
           }}
         >
@@ -204,7 +205,7 @@ export function ActivitiesGrid({
                 { label: "Start Date", width: COLUMN_WIDTHS.startDate },
                 { label: "Status", width: COLUMN_WIDTHS.status },
                 { label: "Hidden", width: COLUMN_WIDTHS.hidden },
-                { label: "Notes", width: COLUMN_WIDTHS.notes },
+                { label: "Notes", width: undefined }, // no width set — absorbs whatever space is left
               ].map((col) => (
                 <th
                   key={col.label}
@@ -451,7 +452,7 @@ function TextCell({
           if (e.key === "Enter") commit();
           if (e.key === "Escape") onDone();
         }}
-        style={inputStyle}
+        style={type === "date" ? { ...inputStyle, fontSize: "0.75rem" } : inputStyle}
       />
     </td>
   );

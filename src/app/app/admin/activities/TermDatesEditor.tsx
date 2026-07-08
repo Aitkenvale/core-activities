@@ -63,17 +63,21 @@ export function TermDatesEditor({ initialTerms }: { initialTerms: TermRow[] }) {
       <div style={{ overflow: "hidden", overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
         {/* width:100% + minWidth, same reasoning as ActivitiesGrid — fills a
             wide container instead of leaving empty space, but won't shrink
-            below a usable size on a narrow screen (scrolls instead). */}
-        <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: 520, background: "var(--card-bg)" }}>
+            below a usable size on a narrow screen (scrolls instead). The
+            trailing spacer column (no width set) is the one that actually
+            absorbs any leftover space, so Year/Term/Start/End stay compact
+            and close together instead of stretching apart. */}
+        <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%", minWidth: 420, background: "var(--card-bg)" }}>
           <thead>
             <tr>
               {[
                 { label: "Year", width: 90 },
                 { label: "Term", width: 90 },
-                { label: "Start", width: 170 },
-                { label: "End", width: 170 },
-              ].map((col) => (
-                <th key={col.label} style={{ ...cellStyle, textAlign: "left", background: "var(--table-header-bg)", fontWeight: 500, width: col.width }}>
+                { label: "Start", width: 120 },
+                { label: "End", width: 120 },
+                { label: "", width: undefined },
+              ].map((col, i) => (
+                <th key={i} style={{ ...cellStyle, textAlign: "left", background: "var(--table-header-bg)", fontWeight: 500, width: col.width }}>
                   {col.label}
                 </th>
               ))}
@@ -86,6 +90,7 @@ export function TermDatesEditor({ initialTerms }: { initialTerms: TermRow[] }) {
                 <NumberCell value={t.termNumber} onSave={(v) => { patchLocal(t.id, { termNumber: v }); save(t.id, { termNumber: v }); }} />
                 <DateCell value={t.startDate} onSave={(v) => { patchLocal(t.id, { startDate: v }); save(t.id, { startDate: v }); }} />
                 <DateCell value={t.endDate} onSave={(v) => { patchLocal(t.id, { endDate: v }); save(t.id, { endDate: v }); }} />
+                <td style={cellStyle} />
               </tr>
             ))}
             {adding ? (
@@ -97,11 +102,12 @@ export function TermDatesEditor({ initialTerms }: { initialTerms: TermRow[] }) {
                   <input type="number" value={draft.termNumber} onChange={(e) => setDraft((d) => ({ ...d, termNumber: parseInt(e.target.value, 10) || d.termNumber }))} style={inputStyle} />
                 </td>
                 <td style={cellStyle}>
-                  <input type="date" value={draft.startDate} onChange={(e) => setDraft((d) => ({ ...d, startDate: e.target.value }))} style={inputStyle} />
+                  <input type="date" value={draft.startDate} onChange={(e) => setDraft((d) => ({ ...d, startDate: e.target.value }))} style={{ ...inputStyle, fontSize: "0.75rem" }} />
                 </td>
                 <td style={cellStyle}>
-                  <input type="date" value={draft.endDate} onChange={(e) => setDraft((d) => ({ ...d, endDate: e.target.value }))} style={inputStyle} />
+                  <input type="date" value={draft.endDate} onChange={(e) => setDraft((d) => ({ ...d, endDate: e.target.value }))} style={{ ...inputStyle, fontSize: "0.75rem" }} />
                 </td>
+                <td style={cellStyle} />
               </tr>
             ) : null}
           </tbody>
@@ -193,7 +199,7 @@ function DateCell({ value, onSave }: { value: string; onSave: (v: string) => voi
           if (e.key === "Enter") commit();
           if (e.key === "Escape") setEditing(false);
         }}
-        style={inputStyle}
+        style={{ ...inputStyle, fontSize: "0.75rem" }}
       />
     </td>
   );
