@@ -14,11 +14,11 @@ type Row = {
 
 type SortKey = keyof Row;
 
-const COLUMNS: { key: SortKey; label: string; width: number }[] = [
+const COLUMNS: { key: SortKey; label: string; width: number; align?: "left" | "center" }[] = [
   { key: "name", label: "Name", width: 200 },
   { key: "address", label: "Address", width: 260 },
-  { key: "peopleCount", label: "People", width: 70 },
-  { key: "hidden", label: "Hidden", width: 70 },
+  { key: "peopleCount", label: "People", width: 70, align: "center" },
+  { key: "hidden", label: "Hidden", width: 70, align: "center" },
   { key: "notes", label: "Notes", width: 260 },
 ];
 
@@ -44,6 +44,7 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
   const [filterText, setFilterText] = useState("");
+  const [showHidden, setShowHidden] = useState(false);
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -86,23 +87,49 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
 
   const visibleRows = useMemo(() => {
     const q = filterText.trim().toLowerCase();
-    let filtered = rows;
+    let filtered = showHidden ? rows : rows.filter((r) => !r.hidden);
     if (q) {
-      filtered = rows.filter((r) => [r.name, r.address, r.notes].some((v) => v?.toLowerCase().includes(q)));
+      filtered = filtered.filter((r) => [r.name, r.address, r.notes].some((v) => v?.toLowerCase().includes(q)));
     }
     return [...filtered].sort((a, b) => {
       const cmp = sortValue(a, sortKey).localeCompare(sortValue(b, sortKey));
       return sortAsc ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, filterText, sortKey, sortAsc]);
+  }, [rows, filterText, showHidden, sortKey, sortAsc]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 3%" }}>
+      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", marginBottom: 16 }}>
+        Edit Households ({visibleRows.length})
+      </h2>
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 16, flexWrap: "wrap" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)" }}>
-          Edit Households ({visibleRows.length})
-        </h2>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            placeholder="Search by name, address, notes…"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            style={{ ...inputStyle, width: 320, border: "1px solid var(--border)" }}
+          />
+          <button
+            onClick={() => setShowHidden((v) => !v)}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 20,
+              border: `1px solid ${showHidden ? "var(--deep)" : "var(--border)"}`,
+              background: showHidden ? "var(--deep)" : "#fff",
+              color: showHidden ? "var(--cream)" : "var(--muted)",
+              fontSize: "0.75rem",
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Hidden
+          </button>
+        </div>
         <div style={{ display: "flex", gap: 8 }}>
           <input
             placeholder="New household name…"
@@ -129,12 +156,6 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
             Add
           </button>
         </div>
-        <input
-          placeholder="Filter by name, address, notes…"
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          style={{ ...inputStyle, width: 320, border: "1px solid var(--border)" }}
-        />
       </div>
 
       <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 4 }}>
@@ -147,7 +168,7 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
                   onClick={() => toggleSort(col.key)}
                   style={{
                     ...cellStyle,
-                    textAlign: "left",
+                    textAlign: col.align ?? "left",
                     background: "var(--cream2)",
                     cursor: "pointer",
                     userSelect: "none",
