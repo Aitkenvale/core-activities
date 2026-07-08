@@ -53,12 +53,20 @@ export function TermDatesEditor({ initialTerms }: { initialTerms: TermRow[] }) {
         Term Dates
       </h3>
       <div style={{ overflow: "hidden", overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", background: "var(--card-bg)" }}>
+        {/* Fixed widths, same reasoning as ActivitiesGrid — a column must
+            not resize when a cell switches between display text and an
+            input, or the whole row visibly jitters. */}
+        <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: 520, background: "var(--card-bg)" }}>
           <thead>
             <tr>
-              {["Year", "Term", "Start", "End"].map((label) => (
-                <th key={label} style={{ ...cellStyle, textAlign: "left", background: "var(--table-header-bg)", fontWeight: 500 }}>
-                  {label}
+              {[
+                { label: "Year", width: 90 },
+                { label: "Term", width: 90 },
+                { label: "Start", width: 170 },
+                { label: "End", width: 170 },
+              ].map((col) => (
+                <th key={col.label} style={{ ...cellStyle, textAlign: "left", background: "var(--table-header-bg)", fontWeight: 500, width: col.width }}>
+                  {col.label}
                 </th>
               ))}
             </tr>

@@ -96,6 +96,14 @@ a {
   text-decoration: none;
 }
 
+/* Native date inputs otherwise render their calendar-picker icon dark
+   regardless of page theme — near-invisible against a dark card background.
+   This tells the browser to use its own dark-themed form chrome (icon
+   included) when the OS is in dark mode, matching our own --page-bg switch. */
+input[type="date"] {
+  color-scheme: light dark;
+}
+
 /* On desktop/tablet widths, constrain to a phone-sized column so the app
    looks and behaves like it will on an actual phone — useful for testing
    and so screen-share viewers see the mobile layout they'll actually use. */

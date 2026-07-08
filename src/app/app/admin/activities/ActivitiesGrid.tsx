@@ -63,6 +63,26 @@ function weeksPaused(pausedAt: string | null): number | null {
   return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
 }
 
+// PSEC / JYSEP / SC / CAMP — the category's own internal code, uppercased,
+// rather than the full label ("Junior Youth Group"), to keep this column
+// narrow.
+function categoryAbbrev(categoryId: string): string {
+  return categoryId.toUpperCase();
+}
+
+// Fixed widths so a column never resizes when a cell switches between
+// display text and an input/select — that resize was the page "jitter".
+const COLUMN_WIDTHS = {
+  name: 260,
+  category: 80,
+  neighbourhood: 130,
+  cadence: 170,
+  startDate: 120,
+  status: 150,
+  hidden: 60,
+  notes: 150, // ~30% narrower than name's old shared width
+};
+
 const cellStyle: React.CSSProperties = {
   padding: "6px 8px",
   borderBottom: "1px solid var(--border)",
@@ -149,15 +169,34 @@ export function ActivitiesGrid({
       </div>
 
       <div style={{ overflow: "hidden", overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", background: "var(--card-bg)" }}>
+        {/* table-layout:fixed + an explicit total width so columns never
+            resize when a cell switches between display text and an
+            input/select (that was the page "jitter"). */}
+        <table
+          style={{
+            borderCollapse: "collapse",
+            tableLayout: "fixed",
+            width: Object.values(COLUMN_WIDTHS).reduce((a, b) => a + b, 0),
+            background: "var(--card-bg)",
+          }}
+        >
           <thead>
             <tr>
-              {["Name", "Category", "Neighbourhood", "Cadence", "Start Date", "Status", "Hidden", "Notes"].map((label) => (
+              {[
+                { label: "Name", width: COLUMN_WIDTHS.name },
+                { label: "Category", width: COLUMN_WIDTHS.category },
+                { label: "Neighbourhood", width: COLUMN_WIDTHS.neighbourhood },
+                { label: "Cadence", width: COLUMN_WIDTHS.cadence },
+                { label: "Start Date", width: COLUMN_WIDTHS.startDate },
+                { label: "Status", width: COLUMN_WIDTHS.status },
+                { label: "Hidden", width: COLUMN_WIDTHS.hidden },
+                { label: "Notes", width: COLUMN_WIDTHS.notes },
+              ].map((col) => (
                 <th
-                  key={label}
-                  style={{ ...cellStyle, textAlign: "left", background: "var(--table-header-bg)", whiteSpace: "nowrap", fontWeight: 500 }}
+                  key={col.label}
+                  style={{ ...cellStyle, textAlign: "left", background: "var(--table-header-bg)", whiteSpace: "nowrap", fontWeight: 500, width: col.width }}
                 >
-                  {label}
+                  {col.label}
                 </th>
               ))}
             </tr>
@@ -190,7 +229,7 @@ export function ActivitiesGrid({
                     >
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.label}
+                          {categoryAbbrev(c.id)}
                         </option>
                       ))}
                     </select>
@@ -641,7 +680,7 @@ function AddActivityModal({
         <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} style={{ ...inputStyle, border: "1px solid var(--border)" }}>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.label}
+              {categoryAbbrev(c.id)}
             </option>
           ))}
         </select>
