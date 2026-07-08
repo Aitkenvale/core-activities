@@ -28,7 +28,7 @@ export default async function AttendanceCategoryPicker() {
               borderRadius: "var(--radius-lg)",
               boxShadow: "var(--shadow-card)",
               padding: "var(--space-5)",
-              fontSize: "0.95rem",
+              fontSize: "1.05rem",
               color: "var(--text)",
             }}
           >

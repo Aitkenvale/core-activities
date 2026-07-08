@@ -12,8 +12,10 @@ const TABS = [
 
 // A persistent bottom tab bar for the app's primary sections, per Apple HIG's
 // tab bar pattern — replaces relying on the top title bar + swipe-back alone
-// for getting around. Sticky (not fixed) so it stays within the phone-frame
-// column on desktop instead of spanning the full viewport width.
+// for getting around. True position:fixed (not sticky) so it's genuinely
+// pinned regardless of scroll — the desktop phone-frame simulator gives it a
+// transformed containing block (see globals.css) so "fixed" stays within the
+// simulated phone column instead of the real browser window.
 export function BottomTabBar() {
   const pathname = usePathname();
   const { data } = useSession();
@@ -26,7 +28,9 @@ export function BottomTabBar() {
   return (
     <nav
       style={{
-        position: "sticky",
+        position: "fixed",
+        left: 0,
+        right: 0,
         bottom: 0,
         display: "flex",
         background: "var(--card-bg)",

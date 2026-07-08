@@ -24,20 +24,16 @@ const tileStyle = {
   borderRadius: "var(--radius-lg)",
   boxShadow: "var(--shadow-card)",
   padding: "var(--space-5)",
-  fontSize: "0.95rem",
+  fontSize: "1.05rem",
   color: "var(--text)",
 };
 
 export default async function AppHome() {
   const session = await auth.api.getSession({ headers: await headers() });
-  const user = session?.user;
-  const isAdmin = user?.role === "admin";
+  const isAdmin = session?.user?.role === "admin";
 
   return (
     <>
-      <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "var(--space-4)" }}>
-        Logged in as {user?.name} ({user?.role})
-      </p>
       <div style={{ display: "grid", gap: "var(--space-3)" }}>
         {USER_TILES.map((tile) => (
           <Link key={tile.href} href={tile.href} style={tileStyle}>

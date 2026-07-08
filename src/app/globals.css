@@ -40,6 +40,11 @@
 
   /* Apple HIG minimum comfortable tap target. */
   --tap-min: 44px;
+
+  /* Fixed bottom tab bar's own rendered height, excluding safe-area inset —
+     kept as a token so the tab bar and the page's reserved bottom padding
+     can never drift out of sync. */
+  --tabbar-height: 64px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -105,8 +110,15 @@ a {
   }
   .phone-frame {
     max-width: 430px;
+    height: 100vh;
     margin: 0 auto;
     background: var(--page-bg);
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 20px 60px rgba(0, 0, 0, 0.35);
+    overflow-y: auto;
+    /* A transform creates a new containing block for descendant
+       position:fixed elements (like the bottom tab bar), so "fixed"
+       children stay pinned to this simulated phone column instead of
+       escaping to the real browser window's edges. */
+    transform: translateZ(0);
   }
 }
