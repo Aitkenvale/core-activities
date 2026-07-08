@@ -11,7 +11,10 @@ const USER_TILES = [
 ];
 
 // Admin-only — everything not listed here is a user function.
-const ADMIN_TILES = [{ href: "/app/admin/people", label: "Edit All People" }];
+const ADMIN_TILES = [
+  { href: "/app/admin/people", label: "Edit All People" },
+  { href: "/app/admin/households", label: "Edit Households" },
+];
 
 const tileStyle = {
   display: "block",
