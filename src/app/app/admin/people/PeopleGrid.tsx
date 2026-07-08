@@ -50,6 +50,7 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid var(--gold)",
   borderRadius: 2,
   background: "var(--card-bg)",
+  color: "var(--text)",
 };
 
 export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
@@ -114,8 +115,8 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
   }, [rows, filterText, categoryFilter, showHidden, noRegoOnly, sortKey, sortAsc]);
 
   return (
-    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 3%" }}>
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", paddingBottom: 12 }}>
+    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 0" }}>
+      <div style={{ position: "sticky", top: "var(--app-header-height)", zIndex: 30, background: "var(--page-bg)", paddingBottom: 12 }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
           Edit All People ({visibleRows.length})
         </h2>
@@ -129,14 +130,10 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
           <Pill active={showHidden} onClick={() => setShowHidden((v) => !v)}>
             Hidden
           </Pill>
-          {CATEGORY_LABELS.map((label) => (
-            <Pill key={label} active={categoryFilter.has(label)} onClick={() => toggleCategory(label)}>
-              {label}
-            </Pill>
-          ))}
           <Pill active={noRegoOnly} onClick={() => setNoRegoOnly((v) => !v)}>
             No Rego
           </Pill>
+          <CategoryDropdown selected={categoryFilter} onToggle={toggleCategory} />
         </div>
       </div>
 
@@ -151,7 +148,7 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
                   style={{
                     ...cellStyle,
                     textAlign: "left",
-                    background: "var(--cream2)",
+                    background: "var(--table-header-bg)",
                     cursor: "pointer",
                     userSelect: "none",
                     whiteSpace: "nowrap",
@@ -270,6 +267,49 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function CategoryDropdown({ selected, onToggle }: { selected: Set<string>; onToggle: (label: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const active = selected.size > 0;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <Pill active={active} onClick={() => setOpen((v) => !v)}>
+        Category{active ? ` (${selected.size})` : ""}
+      </Pill>
+      {open && (
+        <>
+          {/* Full-screen invisible backdrop to close the menu on outside tap. */}
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 45 }} />
+          <div
+            style={{
+              position: "absolute",
+              top: "calc(100% + 6px)",
+              left: 0,
+              zIndex: 50,
+              minWidth: 200,
+              background: "var(--card-bg)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              boxShadow: "var(--shadow-elevated)",
+              padding: "var(--space-2)",
+            }}
+          >
+            {CATEGORY_LABELS.map((label) => (
+              <label
+                key={label}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: "0.8rem", color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}
+              >
+                <input type="checkbox" checked={selected.has(label)} onChange={() => onToggle(label)} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

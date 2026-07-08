@@ -11,6 +11,7 @@
   /* Theme-adaptive tokens — these are the ones that flip in dark mode. */
   --page-bg: var(--cream);
   --card-bg: #FFFFFF;
+  --table-header-bg: var(--cream2);
   --heading: var(--deep);
   --border: #D9C9A8;
   --text: #2C1F0E;
@@ -40,6 +41,11 @@
 
   /* Apple HIG minimum comfortable tap target. */
   --tap-min: 44px;
+
+  /* Rendered height of the sticky app header (title + account icon row),
+     so a page's own inner sticky bar (e.g. the admin grids' search/filter
+     row) can stack directly beneath it instead of overlapping. */
+  --app-header-height: 76px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -52,6 +58,7 @@
     --muted: #B7A488;
     --green: #6FAE82;
     --red: #D97A63;
+    --table-header-bg: #2F2C25;
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.4);
     --shadow-elevated: 0 2px 10px rgba(0, 0, 0, 0.4), 0 16px 40px rgba(0, 0, 0, 0.5);
   }

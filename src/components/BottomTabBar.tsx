@@ -21,8 +21,9 @@ export function BottomTabBar() {
   const { data } = useSession();
 
   // Admin grids are deliberately full desktop width (see PhoneFrame), where a
-  // mobile-style tab bar would look out of place.
-  if (pathname.startsWith("/app/admin")) return null;
+  // mobile-style tab bar would look out of place. The "/app/admin" menu page
+  // itself is a normal mobile tile menu, so it keeps the tab bar.
+  if (pathname.startsWith("/app/admin/")) return null;
   if (!data?.user) return null;
 
   return (

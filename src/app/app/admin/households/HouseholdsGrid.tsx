@@ -37,6 +37,7 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid var(--gold)",
   borderRadius: 2,
   background: "var(--card-bg)",
+  color: "var(--text)",
 };
 
 export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
@@ -99,8 +100,8 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
   }, [rows, filterText, showHidden, sortKey, sortAsc]);
 
   return (
-    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 3%" }}>
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", paddingBottom: 12 }}>
+    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 0" }}>
+      <div style={{ position: "sticky", top: "var(--app-header-height)", zIndex: 30, background: "var(--page-bg)", paddingBottom: 12 }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
           Edit Households ({visibleRows.length})
         </h2>
@@ -171,7 +172,7 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
                   style={{
                     ...cellStyle,
                     textAlign: col.align ?? "left",
-                    background: "var(--cream2)",
+                    background: "var(--table-header-bg)",
                     cursor: "pointer",
                     userSelect: "none",
                     whiteSpace: "nowrap",
