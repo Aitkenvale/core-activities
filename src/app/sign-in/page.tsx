@@ -39,17 +39,18 @@ export default function SignInPage() {
         textAlign: "center",
       }}
     >
-      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", color: "var(--deep)" }}>
+      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", color: "var(--heading)" }}>
         Sign In
       </h1>
       <button
         onClick={handleSignIn}
         disabled={pending}
         style={{
+          minHeight: "var(--tap-min)",
           background: "var(--deep)",
           color: "var(--cream)",
-          padding: "12px 28px",
-          borderRadius: 2,
+          padding: "0 28px",
+          borderRadius: "var(--radius-pill)",
           fontSize: "0.85rem",
           letterSpacing: "0.08em",
           textTransform: "uppercase",

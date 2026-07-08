@@ -46,7 +46,7 @@ export default function SignUpPage() {
         margin: "0 auto",
       }}
     >
-      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", color: "var(--deep)" }}>
+      <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", color: "var(--heading)" }}>
         Create Account
       </h1>
       <p style={{ color: "var(--muted)", fontSize: "0.8rem", textAlign: "center" }}>
@@ -56,23 +56,24 @@ export default function SignUpPage() {
         placeholder="Your name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 2 }}
+        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, minHeight: "var(--tap-min)", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}
       />
       <input
         placeholder="Email"
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 2 }}
+        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, minHeight: "var(--tap-min)", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}
       />
       <button
         onClick={handleSignUp}
         disabled={pending}
         style={{
+          minHeight: "var(--tap-min)",
           background: "var(--deep)",
           color: "var(--cream)",
-          padding: "12px 28px",
-          borderRadius: 2,
+          padding: "0 28px",
+          borderRadius: "var(--radius-pill)",
           fontSize: "0.85rem",
           letterSpacing: "0.08em",
           textTransform: "uppercase",

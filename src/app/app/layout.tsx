@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { SwipeBack } from "@/components/SwipeBack";
 import { ConditionalSignOut } from "@/components/ConditionalSignOut";
+import { BottomTabBar } from "@/components/BottomTabBar";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <SwipeBack />
-      <main style={{ padding: "40px 5%" }}>
+      <main style={{ flex: 1, padding: "32px 5% 24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <Link href="/app" style={{ display: "inline-block" }}>
-            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.05rem", color: "var(--deep)" }}>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.05rem", color: "var(--heading)" }}>
               Aitkenvale Core Activities
             </h1>
           </Link>
@@ -21,6 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         <ConditionalSignOut />
       </main>
+      <BottomTabBar />
     </>
   );
 }

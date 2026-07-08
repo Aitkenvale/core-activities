@@ -12,20 +12,22 @@ export default async function AttendanceCategoryPicker() {
 
   return (
     <>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", margin: "0 0 24px" }}>
+      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-6)" }}>
         Update Attendance
       </h2>
-      <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ display: "grid", gap: "var(--space-3)" }}>
         {categories.map((cat) => (
           <Link
             key={cat.id}
             href={`/app/attendance/${cat.id}`}
             style={{
-              display: "block",
-              background: "#fff",
-              border: "1px solid var(--border)",
-              borderRadius: 4,
-              padding: 20,
+              display: "flex",
+              alignItems: "center",
+              minHeight: "var(--tap-min)",
+              background: "var(--card-bg)",
+              borderRadius: "var(--radius-lg)",
+              boxShadow: "var(--shadow-card)",
+              padding: "var(--space-5)",
               fontSize: "0.95rem",
               color: "var(--text)",
             }}

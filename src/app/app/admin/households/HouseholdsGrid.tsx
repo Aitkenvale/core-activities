@@ -36,7 +36,7 @@ const inputStyle: React.CSSProperties = {
   padding: "4px 6px",
   border: "1px solid var(--gold)",
   borderRadius: 2,
-  background: "#fff",
+  background: "var(--card-bg)",
 };
 
 export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
@@ -100,8 +100,8 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 3%" }}>
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--cream)", paddingBottom: 12 }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", marginBottom: 12 }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", paddingBottom: 12 }}>
+        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
           Edit Households ({visibleRows.length})
         </h2>
 
@@ -119,7 +119,7 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
                 padding: "6px 14px",
                 borderRadius: 20,
                 border: `1px solid ${showHidden ? "var(--deep)" : "var(--border)"}`,
-                background: showHidden ? "var(--deep)" : "#fff",
+                background: showHidden ? "var(--deep)" : "var(--card-bg)",
                 color: showHidden ? "var(--cream)" : "var(--muted)",
                 fontSize: "0.75rem",
                 letterSpacing: "0.04em",
@@ -160,8 +160,8 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
         </div>
       </div>
 
-      <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 4 }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", background: "#fff" }}>
+      <div style={{ overflow: "hidden", overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", background: "var(--card-bg)" }}>
           <thead>
             <tr>
               {COLUMNS.map((col) => (

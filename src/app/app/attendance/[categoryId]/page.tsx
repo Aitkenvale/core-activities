@@ -44,7 +44,7 @@ export default async function ActivityInstanceList({
 
   return (
     <>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", margin: "0 0 20px" }}>
+      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-5)" }}>
         {category?.label}
       </h2>
       {instances.length === 0 && (
@@ -52,17 +52,19 @@ export default async function ActivityInstanceList({
           {isAdmin ? "No activities yet in this category." : "You're not assigned to any activities in this category yet."}
         </p>
       )}
-      <div style={{ display: "grid", gap: 6 }}>
+      {/* Kept deliberately compact (not the full --tap-min height) so ~12
+          classes fit on screen without scrolling. */}
+      <div style={{ display: "grid", gap: "var(--space-2)" }}>
         {instances.map((instance) => (
           <Link
             key={instance.id}
             href={`/app/attendance/${categoryId}/${instance.id}/session`}
             style={{
               display: "block",
-              background: "#fff",
-              border: "1px solid var(--border)",
-              borderRadius: 4,
-              padding: "12px 14px",
+              background: "var(--card-bg)",
+              borderRadius: "var(--radius-md)",
+              boxShadow: "var(--shadow-card)",
+              padding: "var(--space-3) var(--space-4)",
               fontSize: "0.9rem",
               color: "var(--text)",
             }}

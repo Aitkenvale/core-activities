@@ -1,14 +1,60 @@
 :root {
+  /* Fixed brand accents — used as filled chip/button backgrounds paired with
+     --cream text on top, so they stay constant across light/dark themes
+     rather than flipping with the page. */
   --gold: #C9974A;
   --deep: #2C1F0E;
   --warm: #6B4C2A;
   --cream: #FAF6EF;
   --cream2: #F3EDE1;
+
+  /* Theme-adaptive tokens — these are the ones that flip in dark mode. */
+  --page-bg: var(--cream);
+  --card-bg: #FFFFFF;
+  --heading: var(--deep);
   --border: #D9C9A8;
   --text: #2C1F0E;
   --muted: #8B7355;
   --green: #3D6B4A;
   --red: #8B3A2A;
+
+  /* Spacing scale (4px grid, per Apple HIG's 8pt layout convention). */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* Corner radius scale for card-based surfaces. */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* Soft elevation shadows. */
+  --shadow-card: 0 1px 2px rgba(44, 31, 14, 0.06), 0 4px 16px rgba(44, 31, 14, 0.08);
+  --shadow-elevated: 0 2px 8px rgba(44, 31, 14, 0.1), 0 12px 32px rgba(44, 31, 14, 0.18);
+
+  /* Apple HIG minimum comfortable tap target. */
+  --tap-min: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-bg: #1C1B18;
+    --card-bg: #26241F;
+    --heading: #E7C687;
+    --border: #4A4436;
+    --text: #EDE6D8;
+    --muted: #B7A488;
+    --green: #6FAE82;
+    --red: #D97A63;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.4);
+    --shadow-elevated: 0 2px 10px rgba(0, 0, 0, 0.4), 0 16px 40px rgba(0, 0, 0, 0.5);
+  }
 }
 
 html {
@@ -26,7 +72,7 @@ body {
   display: flex;
   flex-direction: column;
   color: var(--text);
-  background: var(--cream);
+  background: var(--page-bg);
   font-family: 'Jost', Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -60,7 +106,7 @@ a {
   .phone-frame {
     max-width: 430px;
     margin: 0 auto;
-    background: var(--cream);
+    background: var(--page-bg);
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 20px 60px rgba(0, 0, 0, 0.35);
   }
 }

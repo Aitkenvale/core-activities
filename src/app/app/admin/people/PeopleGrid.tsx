@@ -49,7 +49,7 @@ const inputStyle: React.CSSProperties = {
   padding: "4px 6px",
   border: "1px solid var(--gold)",
   borderRadius: 2,
-  background: "#fff",
+  background: "var(--card-bg)",
 };
 
 export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
@@ -115,8 +115,8 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 3%" }}>
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--cream)", paddingBottom: 12 }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", marginBottom: 12 }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", paddingBottom: 12 }}>
+        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
           Edit All People ({visibleRows.length})
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -140,8 +140,8 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
         </div>
       </div>
 
-      <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 4 }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", background: "#fff" }}>
+      <div style={{ overflow: "hidden", overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", background: "var(--card-bg)" }}>
           <thead>
             <tr>
               {COLUMNS.map((col) => (
@@ -282,7 +282,7 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
         padding: "6px 14px",
         borderRadius: 20,
         border: `1px solid ${active ? "var(--deep)" : "var(--border)"}`,
-        background: active ? "var(--deep)" : "#fff",
+        background: active ? "var(--deep)" : "var(--card-bg)",
         color: active ? "var(--cream)" : "var(--muted)",
         fontSize: "0.75rem",
         letterSpacing: "0.04em",
@@ -417,7 +417,7 @@ function HouseholdCell({
               left: menuPos.left,
               width: Math.max(menuPos.width, 220),
               zIndex: 1000,
-              background: "#fff",
+              background: "var(--card-bg)",
               border: "1px solid var(--border)",
               borderRadius: 2,
               maxHeight: 200,

@@ -17,11 +17,13 @@ const ADMIN_TILES = [
 ];
 
 const tileStyle = {
-  display: "block",
-  background: "#fff",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  padding: 20,
+  display: "flex",
+  alignItems: "center",
+  minHeight: "var(--tap-min)",
+  background: "var(--card-bg)",
+  borderRadius: "var(--radius-lg)",
+  boxShadow: "var(--shadow-card)",
+  padding: "var(--space-5)",
   fontSize: "0.95rem",
   color: "var(--text)",
 };
@@ -33,10 +35,10 @@ export default async function AppHome() {
 
   return (
     <>
-      <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: 16 }}>
+      <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "var(--space-4)" }}>
         Logged in as {user?.name} ({user?.role})
       </p>
-      <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ display: "grid", gap: "var(--space-3)" }}>
         {USER_TILES.map((tile) => (
           <Link key={tile.href} href={tile.href} style={tileStyle}>
             {tile.label}
@@ -46,8 +48,8 @@ export default async function AppHome() {
 
       {isAdmin && (
         <>
-          <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "24px 0" }} />
-          <div style={{ display: "grid", gap: 12 }}>
+          <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "var(--space-6) 0" }} />
+          <div style={{ display: "grid", gap: "var(--space-3)" }}>
             {ADMIN_TILES.map((tile) => (
               <Link key={tile.href} href={tile.href} style={tileStyle}>
                 {tile.label}

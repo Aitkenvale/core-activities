@@ -98,7 +98,7 @@ export function SessionClient({
     <>
       {pillSlot && createPortal(<LockStatusPill locked={locked} onToggle={toggleLocked} />, pillSlot)}
 
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--deep)", margin: "0 0 4px" }}>
+      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 4px" }}>
         {activityName}
       </h2>
 
@@ -131,17 +131,18 @@ export function SessionClient({
         locked={locked}
       />
 
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--space-2)" }}>
         <button
           onClick={toggleLocked}
           disabled={locked}
           style={{
-            padding: "8px 20px",
-            borderRadius: 20,
+            minHeight: "var(--tap-min)",
+            padding: "0 24px",
+            borderRadius: "var(--radius-pill)",
             border: "1px solid var(--green)",
-            background: locked ? "var(--border)" : "#fff",
+            background: locked ? "var(--border)" : "var(--card-bg)",
             color: locked ? "var(--muted)" : "var(--green)",
-            fontSize: "0.8rem",
+            fontSize: "0.85rem",
             cursor: locked ? "default" : "pointer",
           }}
         >
@@ -150,12 +151,13 @@ export function SessionClient({
         <button
           onClick={() => setEditMode((v) => !v)}
           style={{
-            padding: "8px 20px",
-            borderRadius: 20,
+            minHeight: "var(--tap-min)",
+            padding: "0 24px",
+            borderRadius: "var(--radius-pill)",
             border: "1px solid var(--border)",
-            background: editMode ? "var(--deep)" : "#fff",
+            background: editMode ? "var(--deep)" : "var(--card-bg)",
             color: editMode ? "var(--cream)" : "var(--text)",
-            fontSize: "0.8rem",
+            fontSize: "0.85rem",
             cursor: "pointer",
           }}
         >
@@ -174,10 +176,10 @@ function LockStatusPill({ locked, onToggle }: { locked: boolean; onToggle: () =>
       onClick={onToggle}
       style={{
         padding: "6px 14px",
-        borderRadius: 20,
+        borderRadius: "var(--radius-pill)",
         border: `1px solid ${locked ? "var(--red)" : "var(--green)"}`,
-        background: locked ? "var(--red)" : "#fff",
-        color: locked ? "#fff" : "var(--green)",
+        background: locked ? "var(--red)" : "var(--card-bg)",
+        color: locked ? "var(--cream)" : "var(--green)",
         fontSize: "0.7rem",
         letterSpacing: "0.04em",
         textTransform: "uppercase",
@@ -201,8 +203,9 @@ function DatePicker({
 }) {
   const pillStyle = {
     flexShrink: 0,
-    padding: "8px 14px",
-    borderRadius: 20,
+    minHeight: "var(--tap-min)",
+    padding: "8px 16px",
+    borderRadius: "var(--radius-pill)",
     fontSize: "0.8rem",
     cursor: "pointer",
     lineHeight: "normal",
@@ -210,8 +213,8 @@ function DatePicker({
   };
 
   return (
-    <div style={{ marginBottom: 28, display: "flex", alignItems: "stretch", gap: 8 }}>
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", flex: 1 }}>
+    <div style={{ marginBottom: "var(--space-7)", display: "flex", alignItems: "stretch", gap: "var(--space-2)" }}>
+      <div style={{ display: "flex", gap: "var(--space-2)", overflowX: "auto", flex: 1 }}>
         {recentDates.map((d) => (
           <button
             key={d}
@@ -219,7 +222,7 @@ function DatePicker({
             style={{
               ...pillStyle,
               border: "1px solid var(--border)",
-              background: d === selectedDate ? "var(--deep)" : "#fff",
+              background: d === selectedDate ? "var(--deep)" : "var(--card-bg)",
               color: d === selectedDate ? "var(--cream)" : "var(--text)",
             }}
           >
@@ -299,7 +302,7 @@ function RosterSection({
       <h2 style={{ fontSize: "0.78rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
         {title}
       </h2>
-      <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "grid", gap: "var(--space-2)" }}>
         {rows.map((r) => {
           const isHidden = editMode && !activeByPersonId[r.personId];
           return (
@@ -309,10 +312,11 @@ function RosterSection({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                background: "#fff",
-                border: "1px solid var(--border)",
-                borderRadius: 4,
-                padding: "10px 14px",
+                minHeight: "var(--tap-min)",
+                background: "var(--card-bg)",
+                borderRadius: "var(--radius-md)",
+                boxShadow: "var(--shadow-card)",
+                padding: "10px var(--space-4)",
                 opacity: isHidden ? 0.5 : 1,
               }}
             >
@@ -339,11 +343,12 @@ function RosterSection({
                 <button
                   onClick={() => onToggleActive(r.personId)}
                   style={{
-                    padding: "6px 14px",
-                    borderRadius: 2,
+                    minHeight: 36,
+                    padding: "0 var(--space-4)",
+                    borderRadius: "var(--radius-sm)",
                     border: "1px solid var(--border)",
-                    background: activeByPersonId[r.personId] ? "#fff" : "var(--muted)",
-                    color: activeByPersonId[r.personId] ? "var(--text)" : "#fff",
+                    background: activeByPersonId[r.personId] ? "var(--card-bg)" : "var(--muted)",
+                    color: activeByPersonId[r.personId] ? "var(--text)" : "var(--cream)",
                     fontSize: "0.75rem",
                     cursor: "pointer",
                   }}
@@ -351,16 +356,17 @@ function RosterSection({
                   {activeByPersonId[r.personId] ? "Hide" : "Show"}
                 </button>
               ) : (
-                <div style={{ display: "flex", gap: 6 }}>
+                <div style={{ display: "flex", gap: "var(--space-2)" }}>
                   <button
                     onClick={() => onToggle(r.personId, "present")}
                     disabled={locked}
                     style={{
-                      padding: "6px 12px",
-                      borderRadius: 2,
+                      minHeight: 36,
+                      padding: "0 var(--space-3)",
+                      borderRadius: "var(--radius-sm)",
                       border: "1px solid var(--green)",
-                      background: statuses[r.personId] === "present" ? "var(--green)" : "#fff",
-                      color: statuses[r.personId] === "present" ? "#fff" : "var(--green)",
+                      background: statuses[r.personId] === "present" ? "var(--green)" : "var(--card-bg)",
+                      color: statuses[r.personId] === "present" ? "var(--cream)" : "var(--green)",
                       fontSize: "0.75rem",
                       cursor: locked ? "default" : "pointer",
                       opacity: locked ? 0.6 : 1,
@@ -372,11 +378,12 @@ function RosterSection({
                     onClick={() => onToggle(r.personId, "absent")}
                     disabled={locked}
                     style={{
-                      padding: "6px 12px",
-                      borderRadius: 2,
+                      minHeight: 36,
+                      padding: "0 var(--space-3)",
+                      borderRadius: "var(--radius-sm)",
                       border: "1px solid var(--red)",
-                      background: statuses[r.personId] === "absent" ? "var(--red)" : "#fff",
-                      color: statuses[r.personId] === "absent" ? "#fff" : "var(--red)",
+                      background: statuses[r.personId] === "absent" ? "var(--red)" : "var(--card-bg)",
+                      color: statuses[r.personId] === "absent" ? "var(--cream)" : "var(--red)",
                       fontSize: "0.75rem",
                       cursor: locked ? "default" : "pointer",
                       opacity: locked ? 0.6 : 1,
@@ -406,12 +413,13 @@ function RosterSection({
           <button
             onClick={() => setAdding(true)}
             style={{
-              marginTop: 8,
+              marginTop: "var(--space-2)",
               width: "100%",
+              minHeight: "var(--tap-min)",
               background: "none",
               border: "1px dashed var(--border)",
-              borderRadius: 3,
-              padding: 10,
+              borderRadius: "var(--radius-md)",
+              padding: "var(--space-3)",
               fontSize: "0.8rem",
               color: "var(--warm)",
               cursor: "pointer",
@@ -467,22 +475,23 @@ function AddPersonForm({
   }
 
   return (
-    <div style={{ marginTop: 8, background: "#fff", border: "1px solid var(--border)", borderRadius: 4, padding: 12 }}>
+    <div style={{ marginTop: "var(--space-2)", background: "var(--card-bg)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card)", padding: "var(--space-3)" }}>
       <input
         autoFocus
         placeholder="Type a name…"
         value={query}
         onChange={(e) => handleChange(e.target.value)}
-        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 2 }}
+        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, minHeight: "var(--tap-min)", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}
       />
-      <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
+      <div style={{ marginTop: "var(--space-2)", display: "grid", gap: "var(--space-1)" }}>
         <button
           onClick={handleCreateNew}
           disabled={busy || !query.trim()}
           style={{
             textAlign: "left",
+            minHeight: "var(--tap-min)",
             padding: "8px 10px",
-            borderRadius: 2,
+            borderRadius: "var(--radius-sm)",
             border: "1px dashed var(--gold)",
             background: "var(--cream2)",
             color: "var(--warm)",
@@ -499,10 +508,11 @@ function AddPersonForm({
             disabled={busy}
             style={{
               textAlign: "left",
+              minHeight: "var(--tap-min)",
               padding: "8px 10px",
-              borderRadius: 2,
+              borderRadius: "var(--radius-sm)",
               border: "1px solid var(--border)",
-              background: "#fff",
+              background: "var(--card-bg)",
               fontSize: "0.85rem",
               cursor: "pointer",
             }}
@@ -514,7 +524,7 @@ function AddPersonForm({
       </div>
       <button
         onClick={onCancel}
-        style={{ marginTop: 8, background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer" }}
+        style={{ marginTop: "var(--space-2)", background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer" }}
       >
         Cancel
       </button>
