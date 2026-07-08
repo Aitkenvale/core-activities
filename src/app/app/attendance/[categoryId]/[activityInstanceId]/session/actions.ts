@@ -1,7 +1,8 @@
 "use server";
 
 import { headers } from "next/headers";
-import { and, eq, ilike } from "drizzle-orm";
+import { and, eq, ilike, notExists } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
@@ -136,4 +137,67 @@ export async function quickAddPerson(activityInstanceId: string, name: string, r
     .returning();
   await db.insert(activityEnrollments).values({ activityInstanceId, personId: created.id, role });
   return created;
+}
+
+// Folds a "Not Linked" (quick-added, pending) person's enrollments and
+// attendance history onto an already-existing real person — for when a
+// facilitator quick-added someone who, it turns out, was already a proper
+// People record under a fuller name. Admin-only, matching every other
+// People-data change in the app. Not wrapped in a transaction: the neon-http
+// driver doesn't support one, but each step is a NOT EXISTS-guarded
+// move-or-drop, so re-running a partially-completed merge is harmless.
+export async function mergePendingPerson(pendingPersonId: string, targetPersonId: string) {
+  const session = await requireSession();
+  if (session.user.role !== "admin") throw new Error("Admin only");
+  if (pendingPersonId === targetPersonId) throw new Error("Can't merge a person into themselves");
+
+  const enrollmentsTarget = alias(activityEnrollments, "enrollments_target");
+  await db
+    .update(activityEnrollments)
+    .set({ personId: targetPersonId })
+    .where(
+      and(
+        eq(activityEnrollments.personId, pendingPersonId),
+        notExists(
+          db
+            .select()
+            .from(enrollmentsTarget)
+            .where(
+              and(
+                eq(enrollmentsTarget.activityInstanceId, activityEnrollments.activityInstanceId),
+                eq(enrollmentsTarget.personId, targetPersonId),
+              ),
+            ),
+        ),
+      ),
+    );
+  // Anything left is a duplicate the target was already enrolled in.
+  await db.delete(activityEnrollments).where(eq(activityEnrollments.personId, pendingPersonId));
+
+  const recordsTarget = alias(attendanceRecords, "records_target");
+  await db
+    .update(attendanceRecords)
+    .set({ personId: targetPersonId })
+    .where(
+      and(
+        eq(attendanceRecords.personId, pendingPersonId),
+        notExists(
+          db
+            .select()
+            .from(recordsTarget)
+            .where(
+              and(
+                eq(recordsTarget.attendanceEventId, attendanceRecords.attendanceEventId),
+                eq(recordsTarget.personId, targetPersonId),
+              ),
+            ),
+        ),
+      ),
+    );
+  // Anything left is a duplicate mark for a session the target already has a record for.
+  await db.delete(attendanceRecords).where(eq(attendanceRecords.personId, pendingPersonId));
+
+  // The duplicate is now empty — hide it so it stops surfacing anywhere
+  // (Find Person, quick-add search, etc.).
+  await db.update(people).set({ hidden: true }).where(eq(people.id, pendingPersonId));
 }

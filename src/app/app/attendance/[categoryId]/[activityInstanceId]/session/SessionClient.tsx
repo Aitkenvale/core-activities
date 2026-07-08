@@ -11,6 +11,7 @@ import {
   quickAddPerson,
   getLockStatus,
   setLockStatus,
+  mergePendingPerson,
 } from "./actions";
 
 type RosterRow = {
@@ -157,6 +158,7 @@ export function SessionClient({
         activeByPersonId={activeByPersonId}
         onToggleActive={toggleActive}
         readOnly={readOnly}
+        isAdmin={isAdmin}
       />
       <RosterSection
         title="Facilitators"
@@ -170,6 +172,7 @@ export function SessionClient({
         activeByPersonId={activeByPersonId}
         onToggleActive={toggleActive}
         readOnly={readOnly}
+        isAdmin={isAdmin}
       />
 
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--space-2)" }}>
@@ -332,6 +335,7 @@ function RosterSection({
   activeByPersonId,
   onToggleActive,
   readOnly,
+  isAdmin,
 }: {
   title: string;
   rows: RosterRow[];
@@ -344,6 +348,7 @@ function RosterSection({
   activeByPersonId: Record<string, boolean>;
   onToggleActive: (personId: string) => void;
   readOnly: boolean;
+  isAdmin: boolean;
 }) {
   const [adding, setAdding] = useState(false);
 
@@ -370,25 +375,15 @@ function RosterSection({
                 opacity: isHidden ? 0.5 : 1,
               }}
             >
-              <span style={{ fontSize: "0.9rem", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {r.preferredName || r.name}
-                {r.linkStatus === "pending" && (
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      fontSize: "0.65rem",
-                      color: "var(--warm)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 10,
-                      padding: "1px 6px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    Not linked
-                  </span>
-                )}
-              </span>
+              {/* The "Not Linked" badge is a sibling, not nested inside the
+                  name span — that span's overflow:hidden (for the ellipsis)
+                  would otherwise clip the badge's popover. */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: "0.9rem", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {r.preferredName || r.name}
+                </span>
+                {r.linkStatus === "pending" && <NotLinkedBadge personId={r.personId} isAdmin={isAdmin} onMerged={onChanged} />}
+              </div>
               {editMode ? (
                 <button
                   onClick={() => onToggleActive(r.personId)}
@@ -483,6 +478,113 @@ function RosterSection({
 }
 
 type SearchResult = { id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" };
+
+const badgeStyle: React.CSSProperties = {
+  flexShrink: 0,
+  fontSize: "0.65rem",
+  color: "var(--warm)",
+  border: "1px solid var(--border)",
+  borderRadius: 10,
+  padding: "1px 6px",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
+// Admins can click "Not Linked" to search People and fold this quick-added
+// person's enrollments + attendance history onto an existing real record —
+// for when a facilitator quick-added someone under an informal name who,
+// it turns out, was already a proper People entry. Non-admins just see the
+// plain badge, matching every other People-data change being admin-only.
+function NotLinkedBadge({ personId, isAdmin, onMerged }: { personId: string; isAdmin: boolean; onMerged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  if (!isAdmin) return <span style={badgeStyle}>Not linked</span>;
+
+  async function handleChange(value: string) {
+    setQuery(value);
+    if (value.trim().length < 2) {
+      setResults([]);
+      return;
+    }
+    setResults((await searchPeople(value)).filter((r) => r.id !== personId));
+  }
+
+  async function handlePick(targetId: string, targetName: string) {
+    if (!window.confirm(`Move this person's attendance history onto "${targetName}"? This can't be easily undone.`)) return;
+    setBusy(true);
+    try {
+      await mergePendingPerson(personId, targetId);
+      onMerged();
+    } finally {
+      setBusy(false);
+      setOpen(false);
+    }
+  }
+
+  return (
+    <span style={{ position: "relative" }}>
+      <button onClick={() => setOpen((v) => !v)} style={{ ...badgeStyle, background: "none", cursor: "pointer" }}>
+        Not linked
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 45 }} />
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              marginTop: 4,
+              zIndex: 50,
+              width: 220,
+              background: "var(--card-bg)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              boxShadow: "var(--shadow-elevated)",
+              padding: "var(--space-2)",
+            }}
+          >
+            <input
+              autoFocus
+              placeholder="Search People…"
+              value={query}
+              onChange={(e) => handleChange(e.target.value)}
+              style={{ width: "100%", boxSizing: "border-box", fontSize: 14, padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", background: "var(--card-bg)" }}
+            />
+            <div style={{ marginTop: 6, display: "grid", gap: 4, maxHeight: 160, overflowY: "auto" }}>
+              {results.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => handlePick(r.id, r.preferredName || r.name)}
+                  disabled={busy}
+                  style={{
+                    textAlign: "left",
+                    padding: "6px 8px",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border)",
+                    background: "var(--card-bg)",
+                    fontSize: "0.8rem",
+                    color: "var(--text)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {r.preferredName || r.name}
+                  {r.linkStatus === "pending" && <span style={{ color: "var(--muted)" }}> (pending)</span>}
+                </button>
+              ))}
+              {query.trim().length >= 2 && results.length === 0 && (
+                <p style={{ fontSize: "0.75rem", color: "var(--muted)", padding: "4px 8px" }}>No matches.</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
 
 function AddPersonForm({
   activityInstanceId,
