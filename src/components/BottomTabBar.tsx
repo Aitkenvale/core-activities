@@ -16,10 +16,10 @@ const MAIN_TABS = [
 // rather than the main app's Home/Attendance/People one.
 const ADMIN_TABS = [
   { href: "/app", label: "Home", icon: HomeIcon, match: (p: string) => p === "/app" },
-  { href: "/app/admin/people", label: "People", icon: PeopleIcon, match: (p: string) => p.startsWith("/app/admin/people") },
-  { href: "/app/admin/households", label: "Households", icon: HouseholdIcon, match: (p: string) => p.startsWith("/app/admin/households") },
   { href: "/app/admin/activities", label: "Activities", icon: ActivityIcon, match: (p: string) => p.startsWith("/app/admin/activities") },
   { href: "/app/admin/attendance", label: "Attendance", icon: AttendanceIcon, match: (p: string) => p.startsWith("/app/admin/attendance") },
+  { href: "/app/admin/people", label: "People", icon: PeopleIcon, match: (p: string) => p.startsWith("/app/admin/people") },
+  { href: "/app/admin/households", label: "Households", icon: HouseholdIcon, match: (p: string) => p.startsWith("/app/admin/households") },
   { href: "/app/admin/settings", label: "Settings", icon: SettingsIcon, match: (p: string) => p.startsWith("/app/admin/settings") },
 ];
 
