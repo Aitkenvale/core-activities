@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { activityInstances } from "@/db/schema/activityInstances";
@@ -22,6 +22,8 @@ export default async function AdminBulkAttendancePage() {
       .leftJoin(activityCategories, eq(activityCategories.id, activityInstances.categoryId))
       .where(eq(activityInstances.hidden, false))
       .orderBy(asc(activityInstances.name)),
+    // Attendees = participants + facilitators — both get marked present/
+    // absent in the regular session view, so both belong here too.
     db
       .select({
         activityInstanceId: activityEnrollments.activityInstanceId,
@@ -31,7 +33,7 @@ export default async function AdminBulkAttendancePage() {
       })
       .from(activityEnrollments)
       .innerJoin(people, eq(people.id, activityEnrollments.personId))
-      .where(and(eq(activityEnrollments.role, "participant"), eq(activityEnrollments.active, true))),
+      .where(eq(activityEnrollments.active, true)),
     db
       .select({ id: attendanceEvents.id, activityInstanceId: attendanceEvents.activityInstanceId, sessionDate: attendanceEvents.sessionDate, locked: attendanceEvents.locked })
       .from(attendanceEvents)
@@ -50,14 +52,14 @@ export default async function AdminBulkAttendancePage() {
     (a.preferredName || a.name).localeCompare(b.preferredName || b.name);
 
   const blockById = new Map<string, ActivityBlock>(
-    activities.map((a) => [a.id, { id: a.id, name: a.name, categoryLabel: a.categoryLabel, participants: [], dates: [], statusByDatePerson: {} }]),
+    activities.map((a) => [a.id, { id: a.id, name: a.name, categoryLabel: a.categoryLabel, attendees: [], dates: [], statusByDatePerson: {} }]),
   );
 
   for (const e of enrollments) {
-    blockById.get(e.activityInstanceId)?.participants.push({ personId: e.personId, name: e.name, preferredName: e.preferredName });
+    blockById.get(e.activityInstanceId)?.attendees.push({ personId: e.personId, name: e.name, preferredName: e.preferredName });
   }
   for (const block of blockById.values()) {
-    block.participants.sort(byDisplayName);
+    block.attendees.sort(byDisplayName);
   }
 
   // events is already sorted desc, so each block's subset stays desc too.
@@ -78,7 +80,7 @@ export default async function AdminBulkAttendancePage() {
   }
 
   // Nothing to bulk-edit for an activity with no one currently enrolled.
-  const blocks = [...blockById.values()].filter((b) => b.participants.length > 0);
+  const blocks = [...blockById.values()].filter((b) => b.attendees.length > 0);
 
   return <BulkAttendanceGrid activities={blocks} />;
 }

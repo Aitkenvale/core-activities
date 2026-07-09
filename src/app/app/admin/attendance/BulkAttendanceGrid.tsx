@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { setAttendance } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/actions";
 
-type Participant = { personId: string; name: string; preferredName: string | null };
+type Attendee = { personId: string; name: string; preferredName: string | null };
 type DateCol = { sessionDate: string; locked: boolean };
 type Status = "present" | "absent";
 
@@ -11,7 +11,7 @@ export type ActivityBlock = {
   id: string;
   name: string;
   categoryLabel: string | null;
-  participants: Participant[];
+  attendees: Attendee[];
   dates: DateCol[];
   statusByDatePerson: Record<string, Record<string, Status>>;
 };
@@ -66,12 +66,15 @@ export function BulkAttendanceGrid({ activities }: { activities: ActivityBlock[]
       (a) =>
         a.name.toLowerCase().includes(q) ||
         (a.categoryLabel ?? "").toLowerCase().includes(q) ||
-        a.participants.some((p) => (p.preferredName || p.name).toLowerCase().includes(q)),
+        a.attendees.some((p) => (p.preferredName || p.name).toLowerCase().includes(q)),
     );
   }, [activities, filterText]);
 
-  function toggle(activityId: string, sessionDate: string, personId: string, locked: boolean) {
-    if (locked) return;
+  // Admins can override both the non-admin edit window and a locked
+  // session here — bulk edits are often exactly about backdating or
+  // correcting data efficiently, which regularly means touching old or
+  // already-confirmed sessions. setAttendance is already admin-unrestricted.
+  function toggle(activityId: string, sessionDate: string, personId: string) {
     const current = statusByActivity[activityId]?.[sessionDate]?.[personId];
     const next: Status = current === "present" ? "absent" : "present";
     setError(null);
@@ -95,7 +98,7 @@ export function BulkAttendanceGrid({ activities }: { activities: ActivityBlock[]
           Bulk Edit Attendance
         </h2>
         <input
-          placeholder="Search by activity, category, participant…"
+          placeholder="Search by activity, category, attendee…"
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
           style={{
@@ -111,8 +114,8 @@ export function BulkAttendanceGrid({ activities }: { activities: ActivityBlock[]
           }}
         />
         <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 8 }}>
-          Checked = present. Unchecked covers both absent and never-recorded — open a single session to see which. Locked
-          sessions are read-only here; unlock them from the session view to edit.
+          Checked = present, unchecked = absent. As an admin, this overrides the lock icon shown on confirmed
+          sessions — use with care.
         </p>
       </div>
 
@@ -135,7 +138,7 @@ function ActivitySection({
 }: {
   activity: ActivityBlock;
   statusByDatePerson: Record<string, Record<string, Status>>;
-  onToggle: (activityId: string, sessionDate: string, personId: string, locked: boolean) => void;
+  onToggle: (activityId: string, sessionDate: string, personId: string) => void;
 }) {
   return (
     <section>
@@ -161,7 +164,7 @@ function ActivitySection({
               </tr>
             </thead>
             <tbody>
-              {activity.participants.map((p) => (
+              {activity.attendees.map((p) => (
                 <tr key={p.personId}>
                   <td style={nameCellStyle}>{p.preferredName || p.name}</td>
                   {activity.dates.map((d) => {
@@ -171,8 +174,7 @@ function ActivitySection({
                         <input
                           type="checkbox"
                           checked={status === "present"}
-                          disabled={d.locked}
-                          onChange={() => onToggle(activity.id, d.sessionDate, p.personId, d.locked)}
+                          onChange={() => onToggle(activity.id, d.sessionDate, p.personId)}
                         />
                       </td>
                     );

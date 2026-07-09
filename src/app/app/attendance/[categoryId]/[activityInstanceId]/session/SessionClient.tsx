@@ -486,6 +486,13 @@ function RosterSection({
 
 type SearchResult = { id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" };
 
+// Search-result lists (linking a pending person, adding someone existing)
+// show both names — the formal name is what matches official records, the
+// AKA alone isn't enough to tell people with the same nickname apart.
+function formatFullName(name: string, preferredName: string | null): string {
+  return preferredName ? `${name} (${preferredName})` : name;
+}
+
 const badgeStyle: React.CSSProperties = {
   flexShrink: 0,
   fontSize: "0.65rem",
@@ -565,7 +572,7 @@ function NotLinkedBadge({ personId, isAdmin, onMerged }: { personId: string; isA
               {results.map((r) => (
                 <button
                   key={r.id}
-                  onClick={() => handlePick(r.id, r.preferredName || r.name)}
+                  onClick={() => handlePick(r.id, formatFullName(r.name, r.preferredName))}
                   disabled={busy}
                   style={{
                     textAlign: "left",
@@ -578,7 +585,7 @@ function NotLinkedBadge({ personId, isAdmin, onMerged }: { personId: string; isA
                     cursor: "pointer",
                   }}
                 >
-                  {r.preferredName || r.name}
+                  {formatFullName(r.name, r.preferredName)}
                   {r.linkStatus === "pending" && <span style={{ color: "var(--muted)" }}> (pending)</span>}
                 </button>
               ))}
@@ -677,7 +684,7 @@ function AddPersonForm({
               cursor: "pointer",
             }}
           >
-            {r.preferredName || r.name}
+            {formatFullName(r.name, r.preferredName)}
             {r.linkStatus === "pending" && <span style={{ color: "var(--muted)" }}> (not linked)</span>}
           </button>
         ))}
