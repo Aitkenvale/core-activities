@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { updateActivity, bulkCreateEventsFromCadence, setActivityStatus } from "./actions";
+import { updateActivity, bulkCreateEventsFromCadence } from "./actions";
 import { getActivityForEdit, type ActivityForEdit, type ActivityStatus } from "@/app/app/activities/actions";
 import { CreateActivityForm } from "@/app/app/activities/CreateActivityForm";
 import { EnrolAttendeesModal } from "@/components/EnrolAttendeesModal";
-import { StatusPills } from "@/components/StatusPills";
+import { StatusBadge } from "@/components/StatusPills";
 
 type Category = { id: string; label: string };
 type Neighbourhood = { id: string; name: string };
@@ -65,7 +65,7 @@ const inputStyle: React.CSSProperties = {
   MozAppearance: "none",
 };
 
-const COLUMN_WIDTHS = { startDate: 130, status: 200, addEvents: 160, addAttendees: 160 };
+const COLUMN_WIDTHS = { startDate: 130, status: 110, addEvents: 160, addAttendees: 160 };
 
 export function ActivitiesGrid({
   initialRows,
@@ -95,19 +95,6 @@ export function ActivitiesGrid({
 
   function save(id: string, patch: { startDate: string | null }) {
     updateActivity(id, patch).catch((e) => console.error("Save failed:", e));
-  }
-
-  // Unlike the shared Edit Activity form/popup, ending an activity here is
-  // reversible — this grid is deliberately the one place an admin can undo
-  // it (see setActivityStatus).
-  function changeStatus(id: string, nextStatus: ActivityStatus) {
-    const prevRow = rows.find((r) => r.id === id);
-    if (!prevRow) return;
-    patchLocal(id, { status: nextStatus, hidden: nextStatus === "archived" });
-    setActivityStatus(id, nextStatus).catch((e) => {
-      patchLocal(id, { status: prevRow.status, hidden: prevRow.hidden });
-      console.error("Save failed:", e);
-    });
   }
 
   function toggleCategory(categoryId: string) {
@@ -274,7 +261,7 @@ export function ActivitiesGrid({
                   onDone={() => setEditing(null)}
                 />
                 <td style={cellStyle}>
-                  <StatusPills value={r.status} onChange={(next) => changeStatus(r.id, next)} locked={false} size="compact" />
+                  <StatusBadge value={r.status} />
                 </td>
                 <td style={cellStyle}>
                   <button
@@ -312,6 +299,7 @@ export function ActivitiesGrid({
             neighbourhoods={neighbourhoods}
             mode={formModal.mode}
             initial={formModal.mode === "edit" ? formModal.activity : undefined}
+            isAdmin
             onCancel={() => setFormModal(null)}
             // Reloading rather than hand-patching local state — the modal
             // form can change fields this grid no longer displays (cadence,

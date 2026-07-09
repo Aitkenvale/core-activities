@@ -13,23 +13,20 @@ const STATUS_META: Record<ActivityStatus, { verb: string; done: string; bg: stri
 };
 const STATUS_ORDER: ActivityStatus[] = ["active", "paused", "archived"];
 
-// Shared by the Edit/Create Activity form and the admin Edit Activities
-// grid — same three states, same one-way-Closed rule (the caller supplies
-// `locked` and `onChange`; this component is purely presentational).
+// Used by the Edit/Create Activity form — editable, three buttons (the
+// caller supplies `locked` and `onChange`; this component is purely
+// presentational).
 export function StatusPills({
   value,
   onChange,
   locked,
-  size = "normal",
 }: {
   value: ActivityStatus;
   onChange: (v: ActivityStatus) => void;
   locked: boolean;
-  size?: "normal" | "compact";
 }) {
-  const compact = size === "compact";
   return (
-    <div style={{ display: "flex", gap: compact ? 4 : 8, flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       {STATUS_ORDER.map((s) => {
         const meta = STATUS_META[s];
         const isCurrent = value === s;
@@ -44,13 +41,12 @@ export function StatusPills({
             onClick={() => !locked && onChange(s)}
             disabled={disabled}
             style={{
-              flex: compact ? 1 : undefined,
-              padding: compact ? "4px 6px" : "6px 16px",
+              padding: "6px 16px",
               borderRadius: "var(--radius-pill)",
               border: coloredFill ? "1px solid transparent" : "1px solid var(--border)",
               background: isCurrent ? meta.bg : "var(--card-bg)",
               color: isCurrent ? meta.text : "var(--muted)",
-              fontSize: compact ? "0.68rem" : "0.85rem",
+              fontSize: "0.85rem",
               fontWeight: isCurrent ? 600 : 400,
               cursor: locked ? "default" : "pointer",
               opacity: disabled ? 0.35 : 1,
@@ -62,5 +58,35 @@ export function StatusPills({
         );
       })}
     </div>
+  );
+}
+
+// Used by the admin Edit Activities grid — a single read-only indicator,
+// not an editable control (that grid's own pencil/edit popup is where
+// status actually gets changed now). Background stays neutral like every
+// other cell in that grid; only the text colour marks the state.
+const BADGE_TEXT_COLOR: Record<ActivityStatus, string> = {
+  active: "#FFFFFF",
+  paused: "var(--gold)",
+  archived: "var(--blue)",
+};
+
+export function StatusBadge({ value }: { value: ActivityStatus }) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "4px 12px",
+        borderRadius: "var(--radius-pill)",
+        border: "1px solid var(--border)",
+        background: "var(--card-bg)",
+        color: BADGE_TEXT_COLOR[value],
+        fontSize: "0.75rem",
+        fontWeight: 600,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {STATUS_META[value].done}
+    </span>
   );
 }

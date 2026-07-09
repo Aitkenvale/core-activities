@@ -58,6 +58,7 @@ export function CreateActivityForm({
   initial,
   onSaved,
   onCancel,
+  isAdmin = false,
 }: {
   categories: Category[];
   neighbourhoods: Neighbourhood[];
@@ -67,6 +68,10 @@ export function CreateActivityForm({
   // instead of the standalone page's own success screen + router navigation.
   onSaved?: (result: SavedActivitySummary) => void;
   onCancel?: () => void;
+  // The admin grid's own Edit popup passes this — an admin can freely move
+  // status any direction with no lock and no confirmation (editing, not a
+  // one-way decision), unlike a regular user on the standalone page.
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initial?.name ?? "");
@@ -79,11 +84,10 @@ export function CreateActivityForm({
   const [participants, setParticipants] = useState<PickedPerson[]>(initial?.participants ?? []);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [status, setStatus] = useState<ActivityStatus>(initial?.status ?? "active");
-  // Ending is one-way through this form (enforced again server-side) — once
-  // an activity was already ended when this form loaded, the pills lock in
-  // place. An admin can still reverse it, just from the Edit Activities
-  // grid's own Status column, not from here.
-  const statusLocked = initial?.status === "archived";
+  // Ending is one-way for a regular user (enforced again server-side) — once
+  // an activity was already ended when this form loaded, their pills lock in
+  // place. An admin using this same form can still reverse it.
+  const statusLocked = !isAdmin && initial?.status === "archived";
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   // Editing an existing activity starts "touched" — the loaded notes may
   // already be custom wording, so the unlinked-facilitator auto-note below
@@ -148,13 +152,14 @@ export function CreateActivityForm({
     }
   }
 
-  // Ending an activity is one-way through this form — a plain "Save" click
+  // Ending an activity is one-way for a regular user — a plain "Save" click
   // shouldn't be the thing that quietly locks it forever, so this catches
   // the transition and makes sure it's a deliberate choice via a real modal
   // (not window.confirm — this needs to carry the "only an admin can
-  // reverse this" context, not just a yes/no).
+  // reverse this" context, not just a yes/no). An admin has nothing
+  // permanent to confirm here, so this only ever applies to a regular user.
   function handleSaveClick() {
-    if (mode === "edit" && status === "archived" && initial?.status !== "archived") {
+    if (!isAdmin && mode === "edit" && status === "archived" && initial?.status !== "archived") {
       setShowEndConfirm(true);
       return;
     }

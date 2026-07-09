@@ -204,16 +204,19 @@ export async function updateActivityWithRoster(
     participants: PersonInput[];
   },
 ) {
-  await requireUserId();
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) throw new Error("Not signed in");
+  const isAdmin = session.user.role === "admin";
   const trimmedName = input.name.trim();
   if (!trimmedName) throw new Error("Name is required");
 
   const [current] = await db.select({ status: activityInstances.status }).from(activityInstances).where(eq(activityInstances.id, activityInstanceId));
   const prevStatus: ActivityStatus = (current?.status as ActivityStatus) ?? "active";
-  // Finished is one-way — once persisted, nothing submitted from the form
-  // can move it back to Active/Paused, even if the form somehow submitted
-  // a different value (the UI itself already locks the pills at that point).
-  const nextStatus: ActivityStatus = prevStatus === "archived" ? "archived" : input.status;
+  // Ending is one-way for a regular user — once persisted, nothing they
+  // submit can move it back to Active/Paused (the UI itself already locks
+  // their pills at that point). An admin using this same form can still
+  // reverse it, since editing happens here regardless of who opened it.
+  const nextStatus: ActivityStatus = !isAdmin && prevStatus === "archived" ? "archived" : input.status;
   const today = new Date().toISOString().slice(0, 10);
 
   await db
@@ -233,6 +236,7 @@ export async function updateActivityWithRoster(
       ...(nextStatus === "paused" && prevStatus !== "paused" ? { pausedAt: today } : {}),
       ...(nextStatus !== "paused" ? { pausedAt: null } : {}),
       ...(nextStatus === "archived" && prevStatus !== "archived" ? { endDate: today } : {}),
+      ...(nextStatus !== "archived" ? { endDate: null } : {}),
       updatedAt: new Date(),
     })
     .where(eq(activityInstances.id, activityInstanceId));
