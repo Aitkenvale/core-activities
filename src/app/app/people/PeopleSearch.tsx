@@ -9,6 +9,7 @@ import {
   addHouseholdMember,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
+import { calculateAge } from "@/lib/category";
 
 type Result = {
   id: string;
@@ -265,10 +266,18 @@ function PersonEditForm({
   );
 }
 
+// Child vs adult isn't asked for — it's inferred from DOB (under 18 =
+// child), same as the rest of the app never storing an age-derived value.
+// No DOB yet (a newborn whose exact date isn't entered) defaults to child,
+// since that's this form's main use case.
+function inferPersonType(dob: string): "child" | "adult" {
+  if (!dob) return "child";
+  return calculateAge(dob) >= 18 ? "adult" : "child";
+}
+
 function AddHouseholdMemberForm({ householdId, onDone }: { householdId: string; onDone: () => void }) {
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
-  const [personType, setPersonType] = useState<"child" | "adult">("child");
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState(false);
 
@@ -276,7 +285,7 @@ function AddHouseholdMemberForm({ householdId, onDone }: { householdId: string; 
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await addHouseholdMember(householdId, name, personType, dob || null);
+      await addHouseholdMember(householdId, name, inferPersonType(dob), dob || null);
       setAdded(true);
     } finally {
       setBusy(false);
@@ -297,14 +306,6 @@ function AddHouseholdMemberForm({ householdId, onDone }: { householdId: string; 
   return (
     <div style={{ marginTop: 4, padding: "var(--space-2)", border: "1px dashed var(--border)", borderRadius: "var(--radius-sm)", display: "grid", gap: 6 }}>
       <FieldInput label="Name" value={name} onChange={setName} />
-      <div style={{ display: "flex", gap: 12, fontSize: "0.8rem", color: "var(--text)" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <input type="radio" checked={personType === "child"} onChange={() => setPersonType("child")} /> Child
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <input type="radio" checked={personType === "adult"} onChange={() => setPersonType("adult")} /> Adult
-        </label>
-      </div>
       <label style={{ display: "grid", gap: 2 }}>
         <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>DOB (optional)</span>
         <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={{ ...compactInputStyle, fontSize: "0.8rem" }} />
