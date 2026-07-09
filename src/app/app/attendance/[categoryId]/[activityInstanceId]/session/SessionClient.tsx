@@ -127,8 +127,9 @@ export function SessionClient({
   }
 
   const visible = (r: RosterRow) => editMode || activeByPersonId[r.personId];
-  const participants = roster.filter((r) => r.role === "participant" && visible(r));
-  const facilitators = roster.filter((r) => r.role === "facilitator" && visible(r));
+  const byDisplayName = (a: RosterRow, b: RosterRow) => (a.preferredName || a.name).localeCompare(b.preferredName || b.name);
+  const participants = roster.filter((r) => r.role === "participant" && visible(r)).sort(byDisplayName);
+  const facilitators = roster.filter((r) => r.role === "facilitator" && visible(r)).sort(byDisplayName);
 
   return (
     <>
