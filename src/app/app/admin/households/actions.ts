@@ -44,3 +44,23 @@ export async function searchPeopleForContact(query: string) {
     .limit(10);
   return rows.filter((r) => !CONTACT_INELIGIBLE_CATEGORIES.includes(getCategoryLabel(r.dob) ?? "")).map(({ id, name, preferredName }) => ({ id, name, preferredName }));
 }
+
+// Moves every person from the secondary household onto the primary, then
+// hides the (now-empty) secondary — same soft-delete convention as
+// mergePendingPerson for a duplicate person, kept for history rather than
+// actually deleted. If the primary has no contact of its own yet but the
+// secondary did, that contact carries over rather than being silently lost.
+export async function mergeHouseholds(primaryId: string, secondaryId: string) {
+  await requireAdmin();
+  if (primaryId === secondaryId) throw new Error("Can't merge a household into itself");
+
+  await db.update(people).set({ householdId: primaryId }).where(eq(people.householdId, secondaryId));
+
+  const [primary] = await db.select({ contactPersonId: households.contactPersonId }).from(households).where(eq(households.id, primaryId));
+  const [secondary] = await db.select({ contactPersonId: households.contactPersonId }).from(households).where(eq(households.id, secondaryId));
+  if (!primary?.contactPersonId && secondary?.contactPersonId) {
+    await db.update(households).set({ contactPersonId: secondary.contactPersonId }).where(eq(households.id, primaryId));
+  }
+
+  await db.update(households).set({ hidden: true }).where(eq(households.id, secondaryId));
+}

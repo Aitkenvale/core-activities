@@ -3,7 +3,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { updateHousehold, createHousehold, searchPeopleForContact, type HouseholdPatch } from "./actions";
+import { updateHousehold, createHousehold, searchPeopleForContact, mergeHouseholds, type HouseholdPatch } from "./actions";
 
 type Row = {
   id: string;
@@ -32,6 +32,7 @@ const COLUMNS: { key: SortKey; label: string; width: number | undefined; align?:
   { key: "notes", label: "Notes", width: undefined },
 ];
 const NOTES_MIN_WIDTH = 220;
+const CHECKBOX_COL_WIDTH = 36;
 
 // Same ROW_HEIGHT/margin as PeopleGrid and ActivitiesGrid — kept identical
 // across all three admin grids so rows visually match between them, not
@@ -95,9 +96,39 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [selectedForMerge, setSelectedForMerge] = useState<Set<string>>(new Set());
+  const [showMergeModal, setShowMergeModal] = useState(false);
 
   function patchLocal(id: string, patch: Partial<Row>) {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  // Only ever two at a time — a third tap is ignored rather than replacing
+  // one of the existing picks, so the admin has to deliberately uncheck one
+  // first instead of silently losing their first selection.
+  function toggleMergeSelect(id: string) {
+    setSelectedForMerge((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else if (next.size < 2) next.add(id);
+      return next;
+    });
+  }
+
+  async function handleMergeConfirm(primaryId: string, secondaryId: string) {
+    const primary = rows.find((r) => r.id === primaryId);
+    const secondary = rows.find((r) => r.id === secondaryId);
+    if (!primary || !secondary) return;
+    await mergeHouseholds(primaryId, secondaryId);
+    patchLocal(primaryId, {
+      peopleCount: primary.peopleCount + secondary.peopleCount,
+      contactPersonId: primary.contactPersonId ?? secondary.contactPersonId,
+      contactName: primary.contactPersonId ? primary.contactName : secondary.contactName,
+      contactPreferredName: primary.contactPersonId ? primary.contactPreferredName : secondary.contactPreferredName,
+    });
+    patchLocal(secondaryId, { hidden: true, peopleCount: 0 });
+    setSelectedForMerge(new Set());
+    setShowMergeModal(false);
   }
 
   function save(id: string, patch: HouseholdPatch) {
@@ -186,6 +217,24 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
             >
               Hidden
             </button>
+            <button
+              onClick={() => setShowMergeModal(true)}
+              disabled={selectedForMerge.size !== 2}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 20,
+                border: "1px solid var(--border)",
+                background: "var(--card-bg)",
+                color: selectedForMerge.size === 2 ? "var(--text)" : "var(--border)",
+                fontSize: "0.75rem",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                cursor: selectedForMerge.size === 2 ? "pointer" : "default",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Merge{selectedForMerge.size > 0 ? ` (${selectedForMerge.size}/2)` : ""}
+            </button>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <input
@@ -228,12 +277,13 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
             borderCollapse: "collapse",
             tableLayout: "fixed",
             width: "100%",
-            minWidth: COLUMNS.reduce((sum, c) => sum + (c.width ?? NOTES_MIN_WIDTH), 0),
+            minWidth: CHECKBOX_COL_WIDTH + COLUMNS.reduce((sum, c) => sum + (c.width ?? NOTES_MIN_WIDTH), 0),
             background: "var(--card-bg)",
           }}
         >
           <thead>
             <tr>
+              <th style={{ ...cellStyle, width: CHECKBOX_COL_WIDTH, background: "var(--table-header-bg)" }} />
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
@@ -257,6 +307,14 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
           <tbody>
             {visibleRows.map((r) => (
               <tr key={r.id}>
+                <td style={{ ...cellStyle, textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedForMerge.has(r.id)}
+                    onChange={() => toggleMergeSelect(r.id)}
+                    disabled={!selectedForMerge.has(r.id) && selectedForMerge.size >= 2}
+                  />
+                </td>
                 <TextCell
                   value={r.name}
                   linkHref={`/app/admin/people?q=${encodeURIComponent(r.name)}`}
@@ -316,7 +374,85 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
           </tbody>
         </table>
       </div>
+      {showMergeModal && selectedForMerge.size === 2 && (
+        <MergeConfirmModal
+          households={rows.filter((r) => selectedForMerge.has(r.id))}
+          onCancel={() => setShowMergeModal(false)}
+          onConfirm={handleMergeConfirm}
+        />
+      )}
     </div>
+  );
+}
+
+function MergeConfirmModal({
+  households,
+  onCancel,
+  onConfirm,
+}: {
+  households: Row[];
+  onCancel: () => void;
+  onConfirm: (primaryId: string, secondaryId: string) => Promise<void>;
+}) {
+  const [primaryId, setPrimaryId] = useState(households[0].id);
+  const [merging, setMerging] = useState(false);
+  const secondary = households.find((h) => h.id !== primaryId);
+
+  async function handleMerge() {
+    if (!secondary) return;
+    setMerging(true);
+    await onConfirm(primaryId, secondary.id);
+    setMerging(false);
+  }
+
+  return (
+    <>
+      <div onClick={onCancel} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.4)" }} />
+      <div
+        style={{
+          position: "fixed",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 91,
+          width: "min(90vw, 340px)",
+          background: "var(--card-bg)",
+          borderRadius: "var(--radius-lg)",
+          boxShadow: "var(--shadow-elevated)",
+          padding: "var(--space-5)",
+        }}
+      >
+        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-3)" }}>
+          Merge Households
+        </h3>
+        <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "var(--space-4)" }}>
+          Which household should be kept? Everyone from the other household will move into it, and the other household will be hidden.
+        </p>
+        <div style={{ display: "grid", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
+          {households.map((h) => (
+            <label key={h.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", color: "var(--text)", cursor: "pointer" }}>
+              <input type="radio" name="primary-household" checked={primaryId === h.id} onChange={() => setPrimaryId(h.id)} />
+              {h.name}
+            </label>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={handleMerge}
+            disabled={merging}
+            style={{ minHeight: 36, padding: "0 20px", borderRadius: "var(--radius-pill)", border: "none", background: "var(--deep)", color: "var(--cream)", fontSize: "0.85rem", cursor: "pointer" }}
+          >
+            {merging ? "Merging…" : "Merge"}
+          </button>
+          <button
+            onClick={onCancel}
+            style={{ minHeight: 36, padding: "0 20px", border: "none", background: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
