@@ -23,7 +23,7 @@ const COLUMNS: { key: SortKey; label: string; width: number | undefined; align?:
   { key: "name", label: "Name", width: 200 },
   { key: "address", label: "Address", width: 260 },
   { key: "peopleCount", label: "People", width: 70, align: "center" },
-  { key: "hidden", label: "Hidden", width: 70, align: "center" },
+  { key: "hidden", label: "Hide", width: 70, align: "center" },
   { key: "notes", label: "Notes", width: undefined },
 ];
 const NOTES_MIN_WIDTH = 220;

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { updateActivity, bulkCreateEventsFromCadence } from "./actions";
 import { getActivityForEdit, type ActivityForEdit } from "@/app/app/activities/actions";
 import { CreateActivityForm } from "@/app/app/activities/CreateActivityForm";
+import { EnrolAttendeesModal } from "@/components/EnrolAttendeesModal";
 
 type Category = { id: string; label: string };
 type Neighbourhood = { id: string; name: string };
@@ -62,7 +63,7 @@ const inputStyle: React.CSSProperties = {
   MozAppearance: "none",
 };
 
-const COLUMN_WIDTHS = { startDate: 130, addEvents: 160 };
+const COLUMN_WIDTHS = { startDate: 130, addEvents: 160, addAttendees: 160 };
 
 export function ActivitiesGrid({
   initialRows,
@@ -82,6 +83,7 @@ export function ActivitiesGrid({
   const [formModal, setFormModal] = useState<null | { mode: "create" } | { mode: "edit"; activity: ActivityForEdit }>(null);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
   const [eventsModalFor, setEventsModalFor] = useState<Row | null>(null);
+  const [enrolModalFor, setEnrolModalFor] = useState<Row | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -196,7 +198,7 @@ export function ActivitiesGrid({
             borderCollapse: "collapse",
             tableLayout: "fixed",
             width: "100%",
-            minWidth: COLUMN_WIDTHS.startDate + COLUMN_WIDTHS.addEvents + 220,
+            minWidth: COLUMN_WIDTHS.startDate + COLUMN_WIDTHS.addEvents + COLUMN_WIDTHS.addAttendees + 220,
             background: "var(--card-bg)",
           }}
         >
@@ -207,6 +209,7 @@ export function ActivitiesGrid({
                   { label: "Name", width: undefined, sortKey: "name" as const },
                   { label: "Start Date", width: COLUMN_WIDTHS.startDate, sortKey: "startDate" as const },
                   { label: "Add Events", width: COLUMN_WIDTHS.addEvents, sortKey: null },
+                  { label: "Add attendees", width: COLUMN_WIDTHS.addAttendees, sortKey: null },
                 ] satisfies { label: string; width: number | undefined; sortKey: SortKey | null }[]
               ).map((col) => (
                 <th
@@ -269,6 +272,14 @@ export function ActivitiesGrid({
                     Add events
                   </button>
                 </td>
+                <td style={cellStyle}>
+                  <button
+                    onClick={() => setEnrolModalFor(r)}
+                    style={{ ...inputStyle, border: "1px solid var(--border)", cursor: "pointer" }}
+                  >
+                    Add attendees
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -293,6 +304,15 @@ export function ActivitiesGrid({
       )}
 
       {eventsModalFor && <AddEventsModal row={eventsModalFor} onClose={() => setEventsModalFor(null)} />}
+
+      {enrolModalFor && (
+        <EnrolAttendeesModal
+          activityId={enrolModalFor.id}
+          activityName={enrolModalFor.name}
+          onClose={() => setEnrolModalFor(null)}
+          onEnrolled={() => setEnrolModalFor(null)}
+        />
+      )}
     </div>
   );
 }

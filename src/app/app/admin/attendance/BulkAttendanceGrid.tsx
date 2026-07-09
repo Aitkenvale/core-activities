@@ -1,17 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  setAttendance,
-  setLockStatus,
-  setCancelledStatus,
-  enrollExistingPerson,
-  quickAddPerson,
-} from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/actions";
+import { setAttendance, setLockStatus, setCancelledStatus } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/actions";
 import { addAttendanceDate } from "./actions";
-import { PeoplePicker, type PickedPerson } from "@/app/app/activities/PeoplePicker";
-
-type Attendee = { personId: string; name: string; preferredName: string | null };
+import { EnrolAttendeesModal, type Attendee } from "@/components/EnrolAttendeesModal";
 type DateCol = { sessionDate: string; locked: boolean; cancelled: boolean };
 type Status = "present" | "absent";
 
@@ -246,7 +238,8 @@ export function BulkAttendanceGrid({ initialActivities }: { initialActivities: A
 
       {enrolModalFor && (
         <EnrolAttendeesModal
-          activity={enrolModalFor}
+          activityId={enrolModalFor.id}
+          activityName={enrolModalFor.name}
           onClose={() => setEnrolModalFor(null)}
           onEnrolled={(newAttendees) => {
             addAttendeesLocal(enrolModalFor.id, newAttendees);
@@ -464,96 +457,6 @@ function AddDateControl({ activityId, onAddDate }: { activityId: string; onAddDa
       >
         Cancel
       </button>
-    </div>
-  );
-}
-
-// Only offered while an activity has zero attendees (see the "enrol
-// participants" trigger above) — Edit Activity's own roster is read-only to
-// protect attendance history, but there's no history to protect here yet,
-// so a plain add-only popup (kept in the admin view, unlike the old link
-// out to the user-facing session page) is all that's needed.
-function EnrolAttendeesModal({
-  activity,
-  onClose,
-  onEnrolled,
-}: {
-  activity: ActivityBlock;
-  onClose: () => void;
-  onEnrolled: (newAttendees: Attendee[]) => void;
-}) {
-  const [facilitators, setFacilitators] = useState<PickedPerson[]>([]);
-  const [participants, setParticipants] = useState<PickedPerson[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function enrolList(list: PickedPerson[], role: "facilitator" | "participant"): Promise<Attendee[]> {
-    const created: Attendee[] = [];
-    for (const p of list) {
-      if (p.kind === "existing") {
-        await enrollExistingPerson(activity.id, p.id, role);
-        created.push({ personId: p.id, name: p.name, preferredName: p.preferredName });
-      } else {
-        const row = await quickAddPerson(activity.id, p.name, role);
-        created.push({ personId: row.id, name: row.name, preferredName: row.preferredName });
-      }
-    }
-    return created;
-  }
-
-  async function handleSubmit() {
-    if (facilitators.length === 0 && participants.length === 0) {
-      onClose();
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      const a = await enrolList(facilitators, "facilitator");
-      const b = await enrolList(participants, "participant");
-      onEnrolled([...a, ...b]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't enrol attendees.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }} onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "var(--card-bg)",
-          borderRadius: "var(--radius-lg)",
-          boxShadow: "var(--shadow-elevated)",
-          padding: "var(--space-6)",
-          width: "min(90vw, 480px)",
-          maxHeight: "85vh",
-          overflowY: "auto",
-        }}
-      >
-        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.2rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>
-          Enrol Attendees — {activity.name}
-        </h3>
-        <div style={{ display: "grid", gap: "var(--space-4)" }}>
-          <PeoplePicker label="Facilitators" role="facilitator" selected={facilitators} onChange={setFacilitators} />
-          <PeoplePicker label="Participants" role="participant" selected={participants} onChange={setParticipants} />
-          {error && <p style={{ color: "var(--red)", fontSize: "0.85rem", margin: 0 }}>{error}</p>}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer", padding: "8px 12px" }}>
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              style={{ background: "var(--deep)", color: "var(--cream)", border: "none", borderRadius: 2, padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer" }}
-            >
-              {submitting ? "Enrolling…" : "Enrol"}
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
