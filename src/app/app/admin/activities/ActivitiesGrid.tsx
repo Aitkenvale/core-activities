@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { updateActivity, bulkCreateEventsFromCadence } from "./actions";
-import { getActivityForEdit, type ActivityForEdit } from "@/app/app/activities/actions";
+import { updateActivity, bulkCreateEventsFromCadence, setActivityStatus } from "./actions";
+import { getActivityForEdit, type ActivityForEdit, type ActivityStatus } from "@/app/app/activities/actions";
 import { CreateActivityForm } from "@/app/app/activities/CreateActivityForm";
 import { EnrolAttendeesModal } from "@/components/EnrolAttendeesModal";
+import { StatusPills } from "@/components/StatusPills";
 
 type Category = { id: string; label: string };
 type Neighbourhood = { id: string; name: string };
@@ -17,6 +18,7 @@ type Row = {
   startDate: string | null;
   hidden: boolean;
   cadenceType: string;
+  status: ActivityStatus;
 };
 
 type SortKey = "name" | "startDate";
@@ -63,7 +65,7 @@ const inputStyle: React.CSSProperties = {
   MozAppearance: "none",
 };
 
-const COLUMN_WIDTHS = { startDate: 130, addEvents: 160, addAttendees: 160 };
+const COLUMN_WIDTHS = { startDate: 130, status: 200, addEvents: 160, addAttendees: 160 };
 
 export function ActivitiesGrid({
   initialRows,
@@ -93,6 +95,19 @@ export function ActivitiesGrid({
 
   function save(id: string, patch: { startDate: string | null }) {
     updateActivity(id, patch).catch((e) => console.error("Save failed:", e));
+  }
+
+  // Closed is one-way (enforced again server-side) — once a row is already
+  // archived the pills are disabled, so this should only ever fire for a
+  // genuine active<->paused<->closed transition.
+  function changeStatus(id: string, nextStatus: ActivityStatus) {
+    const prevRow = rows.find((r) => r.id === id);
+    if (!prevRow || prevRow.status === "archived") return;
+    patchLocal(id, { status: nextStatus, hidden: nextStatus === "archived" });
+    setActivityStatus(id, nextStatus).catch((e) => {
+      patchLocal(id, { status: prevRow.status, hidden: prevRow.hidden });
+      console.error("Save failed:", e);
+    });
   }
 
   function toggleCategory(categoryId: string) {
@@ -198,7 +213,7 @@ export function ActivitiesGrid({
             borderCollapse: "collapse",
             tableLayout: "fixed",
             width: "100%",
-            minWidth: COLUMN_WIDTHS.startDate + COLUMN_WIDTHS.addEvents + COLUMN_WIDTHS.addAttendees + 220,
+            minWidth: COLUMN_WIDTHS.startDate + COLUMN_WIDTHS.status + COLUMN_WIDTHS.addEvents + COLUMN_WIDTHS.addAttendees + 220,
             background: "var(--card-bg)",
           }}
         >
@@ -208,6 +223,7 @@ export function ActivitiesGrid({
                 [
                   { label: "Name", width: undefined, sortKey: "name" as const },
                   { label: "Start Date", width: COLUMN_WIDTHS.startDate, sortKey: "startDate" as const },
+                  { label: "Status", width: COLUMN_WIDTHS.status, sortKey: null },
                   { label: "Add Events", width: COLUMN_WIDTHS.addEvents, sortKey: null },
                   { label: "Add attendees", width: COLUMN_WIDTHS.addAttendees, sortKey: null },
                 ] satisfies { label: string; width: number | undefined; sortKey: SortKey | null }[]
@@ -257,6 +273,9 @@ export function ActivitiesGrid({
                   onEdit={() => setEditing({ id: r.id, field: "startDate" })}
                   onDone={() => setEditing(null)}
                 />
+                <td style={cellStyle}>
+                  <StatusPills value={r.status} onChange={(next) => changeStatus(r.id, next)} locked={r.status === "archived"} size="compact" />
+                </td>
                 <td style={cellStyle}>
                   <button
                     onClick={() => setEventsModalFor(r)}

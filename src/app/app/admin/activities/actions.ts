@@ -9,6 +9,7 @@ import { termDates } from "@/db/schema/termDates";
 import { neighbourhoods } from "@/db/schema/neighbourhoods";
 import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { getExpectedDatesInRange, type CadenceType, type CadenceConfig } from "@/lib/cadence";
+import type { ActivityStatus } from "@/app/app/activities/actions";
 
 async function requireAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -26,6 +27,32 @@ export type ActivityPatch = Partial<{
 export async function updateActivity(id: string, patch: ActivityPatch) {
   await requireAdmin();
   await db.update(activityInstances).set(patch).where(eq(activityInstances.id, id));
+}
+
+// Same one-way-Closed rule as updateActivityWithRoster (the full Edit
+// Activity form's own status change) — once persisted as archived, nothing
+// submitted here can move it back, even if this grid's pills somehow
+// resubmitted a stale value.
+export async function setActivityStatus(id: string, status: ActivityStatus) {
+  await requireAdmin();
+  const [current] = await db.select({ status: activityInstances.status }).from(activityInstances).where(eq(activityInstances.id, id));
+  const prevStatus: ActivityStatus = (current?.status as ActivityStatus) ?? "active";
+  const nextStatus: ActivityStatus = prevStatus === "archived" ? "archived" : status;
+  const today = new Date().toISOString().slice(0, 10);
+
+  await db
+    .update(activityInstances)
+    .set({
+      status: nextStatus,
+      hidden: nextStatus === "archived",
+      ...(nextStatus === "paused" && prevStatus !== "paused" ? { pausedAt: today } : {}),
+      ...(nextStatus !== "paused" ? { pausedAt: null } : {}),
+      ...(nextStatus === "archived" && prevStatus !== "archived" ? { endDate: today } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(activityInstances.id, id));
+
+  return nextStatus;
 }
 
 export async function createTermDate(input: { year: number; termNumber: number; startDate: string; endDate: string }) {

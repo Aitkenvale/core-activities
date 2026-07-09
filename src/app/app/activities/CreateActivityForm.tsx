@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createActivityWithRoster, updateActivityWithRoster, type ActivityForEdit, type ActivityStatus } from "./actions";
 import { CadenceFields } from "@/components/CadenceFields";
+import { StatusPills } from "@/components/StatusPills";
 import { PeoplePicker, type PickedPerson } from "./PeoplePicker";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
 
@@ -173,6 +174,9 @@ export function CreateActivityForm({
       {mode === "edit" && (
         <section>
           <StatusPills value={status} onChange={setStatus} locked={statusLocked} />
+          {statusLocked && (
+            <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--muted)" }}>Closed activities can&rsquo;t be reopened.</p>
+          )}
         </section>
       )}
 
@@ -290,60 +294,6 @@ export function CreateActivityForm({
           {mode === "edit" ? (submitting ? "Saving…" : "Save Activity") : submitting ? "Creating…" : "Create Activity"}
         </button>
       </div>
-    </div>
-  );
-}
-
-// Same verb/done-label pattern as the attendance session's Confirm/Confirmed
-// pill: a neutral outline inviting the action when it's not the current
-// state, a bold colour fill naming the resulting state once it is. Active
-// and Pause share one exception — their "not current" look is the same
-// dulled-white chip rather than the neutral outline Close uses, since both
-// are casual, reversible toggles rather than a final action.
-const STATUS_META: Record<ActivityStatus, { verb: string; done: string; bg: string; text: string }> = {
-  active: { verb: "Activate", done: "Active", bg: "#FFFFFF", text: "var(--deep)" },
-  paused: { verb: "Pause", done: "Paused", bg: "var(--gold)", text: "var(--deep)" },
-  archived: { verb: "Close", done: "Closed", bg: "var(--blue)", text: "var(--cream)" },
-};
-const STATUS_ORDER: ActivityStatus[] = ["active", "paused", "archived"];
-const DULLS_WHEN_NOT_CURRENT: Record<ActivityStatus, boolean> = { active: true, paused: true, archived: false };
-
-function StatusPills({ value, onChange, locked }: { value: ActivityStatus; onChange: (v: ActivityStatus) => void; locked: boolean }) {
-  return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      {STATUS_ORDER.map((s) => {
-        const meta = STATUS_META[s];
-        const isCurrent = value === s;
-        const dulls = DULLS_WHEN_NOT_CURRENT[s];
-        // A clean colour badge (no border) only for the current Pause/Close
-        // pill — Active's current state is still a plain white chip.
-        const coloredFill = isCurrent && s !== "active";
-        const disabled = locked && !isCurrent;
-        return (
-          <button
-            key={s}
-            onClick={() => !locked && onChange(s)}
-            disabled={disabled}
-            style={{
-              padding: "6px 16px",
-              borderRadius: "var(--radius-pill)",
-              border: coloredFill ? "1px solid transparent" : "1px solid var(--border)",
-              background: isCurrent ? (s === "active" ? "#FFFFFF" : meta.bg) : dulls ? "#FFFFFF" : "var(--card-bg)",
-              color: isCurrent ? (s === "active" ? "var(--deep)" : meta.text) : dulls ? "var(--deep)" : "var(--muted)",
-              fontSize: "0.85rem",
-              fontWeight: isCurrent ? 600 : 400,
-              cursor: locked ? "default" : "pointer",
-              opacity: disabled ? 0.35 : !isCurrent && dulls ? 0.4 : 1,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {isCurrent ? meta.done : meta.verb}
-          </button>
-        );
-      })}
-      {locked && (
-        <p style={{ width: "100%", margin: 0, fontSize: "0.75rem", color: "var(--muted)" }}>Closed activities can&rsquo;t be reopened.</p>
-      )}
     </div>
   );
 }

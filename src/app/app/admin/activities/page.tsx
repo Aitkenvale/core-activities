@@ -25,6 +25,7 @@ export default async function AdminActivitiesPage() {
         startDate: activityInstances.startDate,
         hidden: activityInstances.hidden,
         cadenceType: activityInstances.cadenceType,
+        status: activityInstances.status,
       })
       .from(activityInstances)
       .orderBy(asc(activityInstances.name)),
