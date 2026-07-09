@@ -104,6 +104,15 @@ input[type="date"] {
   color-scheme: light dark;
 }
 
+/* Same issue for checkboxes — the browser renders a plain white box
+   regardless of page theme unless told to use its own dark form chrome,
+   and accent-color themes the checked-fill/tick to match our palette
+   instead of the browser's default blue. */
+input[type="checkbox"] {
+  color-scheme: light dark;
+  accent-color: var(--deep);
+}
+
 /* On desktop/tablet widths, constrain to a phone-sized column so the app
    looks and behaves like it will on an actual phone — useful for testing
    and so screen-share viewers see the mobile layout they'll actually use. */
