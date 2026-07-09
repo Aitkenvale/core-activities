@@ -39,12 +39,12 @@ export default async function AdminSettingsPage() {
 
         <SecurityCard initialMonths={editWindowMonths} />
 
+        <UsersCard initialUsers={users} initialPending={pendingSignups} currentUserId={session.user.id} />
+
         <div style={cardStyle}>
           <h3 style={cardTitleStyle}>Activities</h3>
           <TermDatesEditor initialTerms={terms} />
         </div>
-
-        <UsersCard initialUsers={users} initialPending={pendingSignups} currentUserId={session.user.id} />
       </div>
     </div>
   );

@@ -27,12 +27,15 @@ export const auth = betterAuth({
         requireSession: false,
         // Who's allowed to sign up (and whether they land as admin or
         // facilitator) is admin-editable at Settings > Users rather than a
-        // Vercel env var — see allowed_signups.
+        // Vercel env var — see allowed_signups. The account name comes from
+        // what the admin set when adding them there, not whatever the
+        // person types at sign-up (which was arbitrary and often didn't
+        // match) — editable afterwards in Settings > Users if it's wrong.
         resolveUser: async ({ ctx, context }) => {
           if (!context) {
             throw new Error("Missing sign-up details.");
           }
-          const { name, email } = JSON.parse(context) as { name: string; email: string };
+          const { email } = JSON.parse(context) as { email: string };
           const normalizedEmail = email.trim().toLowerCase();
 
           const existing = await ctx.context.internalAdapter.findUserByEmail(normalizedEmail);
@@ -47,7 +50,7 @@ export const auth = betterAuth({
 
           const created = await ctx.context.internalAdapter.createUser({
             email: normalizedEmail,
-            name,
+            name: invite.name,
             emailVerified: false,
             role: invite.isAdmin ? "admin" : "facilitator",
           });

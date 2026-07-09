@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateUserRole, addAllowedSignup, removeAllowedSignup } from "./actions";
+import { updateUserRole, updateUserName, addAllowedSignup, removeAllowedSignup } from "./actions";
 import { cardStyle, cardTitleStyle } from "./styles";
 
 type ExistingUser = { id: string; name: string; email: string; role: string };
@@ -71,6 +71,16 @@ export function UsersCard({ initialUsers, initialPending, currentUserId }: { ini
     });
   }
 
+  function renameUser(userId: string, name: string) {
+    const previous = users.find((u) => u.id === userId)?.name;
+    setUsers((rows) => rows.map((r) => (r.id === userId ? { ...r, name } : r)));
+    setError(null);
+    updateUserName(userId, name).catch((e) => {
+      setUsers((rows) => rows.map((r) => (r.id === userId && previous !== undefined ? { ...r, name: previous } : r)));
+      setError(e instanceof Error ? e.message : "Couldn't save that change.");
+    });
+  }
+
   return (
     <div style={cardStyle}>
       <h3 style={cardTitleStyle}>Users</h3>
@@ -79,7 +89,7 @@ export function UsersCard({ initialUsers, initialPending, currentUserId }: { ini
       <div style={{ marginBottom: "var(--space-5)" }}>
         {users.map((u) => (
           <div key={u.id} style={rowStyle}>
-            <span style={nameStyle}>{u.name}</span>
+            <EditableName name={u.name} onSave={(name) => renameUser(u.id, name)} />
             <span style={emailStyle}>{u.email}</span>
             <button
               onClick={() => toggleRole(u)}
@@ -135,6 +145,49 @@ export function UsersCard({ initialUsers, initialPending, currentUserId }: { ini
 
       {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 8 }}>{error}</p>}
     </div>
+  );
+}
+
+// Click-to-edit, same convention as the People/Households grids — the
+// account name comes from what the admin set at sign-up time (see
+// auth.ts), so this is how to fix it if it was wrong.
+function EditableName({ name, onSave }: { name: string; onSave: (name: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+
+  if (!editing) {
+    return (
+      <span
+        style={{ ...nameStyle, cursor: "pointer" }}
+        onClick={() => {
+          setDraft(name);
+          setEditing(true);
+        }}
+        title="Click to edit"
+      >
+        {name}
+      </span>
+    );
+  }
+
+  function commit() {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== name) onSave(trimmed);
+  }
+
+  return (
+    <input
+      autoFocus
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+        if (e.key === "Escape") setEditing(false);
+      }}
+      style={{ ...inputStyle, flex: 1, minWidth: 0, minHeight: 32, fontSize: "0.85rem" }}
+    />
   );
 }
 

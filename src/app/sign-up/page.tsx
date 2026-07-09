@@ -4,21 +4,20 @@ import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
 export default function SignUpPage() {
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function handleSignUp() {
     setError(null);
-    if (!name.trim() || !email.trim()) {
-      setError("Please enter your name and email.");
+    if (!email.trim()) {
+      setError("Please enter your email.");
       return;
     }
     setPending(true);
     const { error } = await authClient.passkey.addPasskey({
       name: "Primary passkey",
-      context: JSON.stringify({ name: name.trim(), email: email.trim() }),
+      context: JSON.stringify({ email: email.trim() }),
     });
     if (error) {
       setPending(false);
@@ -50,14 +49,10 @@ export default function SignUpPage() {
         Create Account
       </h1>
       <p style={{ color: "var(--muted)", fontSize: "0.8rem", textAlign: "center" }}>
-        Only pre-authorized emails can create an account.
+        Only pre-authorized emails can create an account. Your name will be
+        set by whoever authorized you — ask them to fix it in Settings if
+        it's wrong.
       </p>
-      <input
-        placeholder="Your name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, minHeight: "var(--tap-min)", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}
-      />
       <input
         placeholder="Email"
         type="email"

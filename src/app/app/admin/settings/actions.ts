@@ -34,6 +34,16 @@ export async function updateUserRole(userId: string, role: "admin" | "facilitato
   await db.update(user).set({ role }).where(eq(user.id, userId));
 }
 
+// The account name comes from what the admin set when adding the person to
+// Settings > Users, not what they typed at sign-up (see auth.ts) — this is
+// how to fix it if that name was wrong or needs updating later.
+export async function updateUserName(userId: string, name: string) {
+  await requireAdmin();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name is required");
+  await db.update(user).set({ name: trimmed }).where(eq(user.id, userId));
+}
+
 export async function addAllowedSignup(name: string, email: string, isAdmin: boolean) {
   await requireAdmin();
   const trimmedName = name.trim();
