@@ -11,6 +11,8 @@ import {
   quickAddPerson,
   getLockStatus,
   setLockStatus,
+  getCancelledStatus,
+  setCancelledStatus,
   mergePendingPerson,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
@@ -64,13 +66,16 @@ export function SessionClient({
   );
   const [editMode, setEditMode] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
   const [pending, startTransition] = useTransition();
   const [pillSlot, setPillSlot] = useState<HTMLElement | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Facilitators can't edit sessions past the window at all, regardless of
   // the locked flag (locked can still be toggled off by an admin later).
-  const readOnly = locked || (!isAdmin && isOutsideEditWindow(selectedDate, editWindowMonths));
+  // Cancelled also makes it read-only — there's no attendance to take for a
+  // session that never happened.
+  const readOnly = locked || cancelled || (!isAdmin && isOutsideEditWindow(selectedDate, editWindowMonths));
   const canToggleLock = isAdmin || !isOutsideEditWindow(selectedDate, editWindowMonths);
 
   // Switching the date pill, or a router.refresh() after enrolling/merging
@@ -89,6 +94,7 @@ export function SessionClient({
 
   useEffect(() => {
     getLockStatus(activityInstanceId, selectedDate).then(setLocked);
+    getCancelledStatus(activityInstanceId, selectedDate).then(setCancelled);
   }, [activityInstanceId, selectedDate]);
 
   useEffect(() => {
@@ -133,6 +139,19 @@ export function SessionClient({
     });
   }
 
+  function toggleCancelled() {
+    if (!canToggleLock) return;
+    setError(null);
+    const next = !cancelled;
+    setCancelled(next);
+    startTransition(() => {
+      setCancelledStatus(activityInstanceId, selectedDate, next).catch((e) => {
+        setCancelled(!next);
+        setError(e instanceof Error ? e.message : "Couldn't save that change.");
+      });
+    });
+  }
+
   const visible = (r: RosterRow) => editMode || activeByPersonId[r.personId];
   const byDisplayName = (a: RosterRow, b: RosterRow) => (a.preferredName || a.name).localeCompare(b.preferredName || b.name);
   const participants = roster.filter((r) => r.role === "participant" && visible(r)).sort(byDisplayName);
@@ -151,6 +170,12 @@ export function SessionClient({
       {!isAdmin && !canToggleLock && (
         <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginBottom: "var(--space-4)" }}>
           This session is more than {editWindowMonths} months old — only an admin can make changes.
+        </p>
+      )}
+
+      {cancelled && (
+        <p style={{ color: "var(--red)", fontSize: "0.78rem", marginBottom: "var(--space-4)" }}>
+          Class cancelled — no attendance recorded for this session.
         </p>
       )}
 
@@ -183,35 +208,60 @@ export function SessionClient({
         isAdmin={isAdmin}
       />
 
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--space-2)" }}>
-        <button
-          onClick={toggleLocked}
-          disabled={locked || !canToggleLock}
-          style={{
-            minHeight: "var(--tap-min)",
-            padding: "0 24px",
-            borderRadius: "var(--radius-pill)",
-            border: "1px solid var(--green)",
-            background: locked ? "var(--border)" : "var(--card-bg)",
-            color: locked ? "var(--muted)" : "var(--green)",
-            fontSize: "0.85rem",
-            cursor: locked || !canToggleLock ? "default" : "pointer",
-            opacity: canToggleLock ? 1 : 0.6,
-          }}
-        >
-          {locked ? "Confirmed" : "Confirm"}
-        </button>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+          <button
+            onClick={toggleLocked}
+            disabled={locked || !canToggleLock || cancelled}
+            style={{
+              minHeight: "var(--tap-min)",
+              padding: "0 16px",
+              borderRadius: "var(--radius-pill)",
+              border: "1px solid var(--green)",
+              background: locked ? "var(--border)" : "var(--card-bg)",
+              color: locked ? "var(--muted)" : "var(--green)",
+              fontSize: "0.85rem",
+              cursor: locked || !canToggleLock || cancelled ? "default" : "pointer",
+              opacity: canToggleLock && !cancelled ? 1 : 0.6,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {locked ? "Confirmed" : "Confirm"}
+          </button>
+          {/* An admin-editable, no-checkbox state: the facilitator is saying
+              no session happened at all, distinct from marking everyone
+              absent. */}
+          <button
+            onClick={toggleCancelled}
+            disabled={!canToggleLock}
+            style={{
+              minHeight: "var(--tap-min)",
+              padding: "0 16px",
+              borderRadius: "var(--radius-pill)",
+              border: "1px solid var(--red)",
+              background: cancelled ? "var(--red)" : "var(--card-bg)",
+              color: cancelled ? "var(--cream)" : "var(--red)",
+              fontSize: "0.85rem",
+              cursor: !canToggleLock ? "default" : "pointer",
+              opacity: canToggleLock ? 1 : 0.6,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {cancelled ? "Cancelled" : "Class Cancelled"}
+          </button>
+        </div>
         <button
           onClick={() => setEditMode((v) => !v)}
           style={{
             minHeight: "var(--tap-min)",
-            padding: "0 24px",
+            padding: "0 16px",
             borderRadius: "var(--radius-pill)",
             border: "1px solid var(--border)",
             background: editMode ? "var(--deep)" : "var(--card-bg)",
             color: editMode ? "var(--cream)" : "var(--text)",
             fontSize: "0.85rem",
             cursor: "pointer",
+            whiteSpace: "nowrap",
           }}
         >
           {editMode ? "Done" : "Edit"}

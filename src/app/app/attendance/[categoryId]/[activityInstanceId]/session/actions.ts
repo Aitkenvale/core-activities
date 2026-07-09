@@ -90,6 +90,24 @@ export async function setLockStatus(activityInstanceId: string, sessionDate: str
   await db.update(attendanceEvents).set({ locked }).where(eq(attendanceEvents.id, eventId));
 }
 
+export async function getCancelledStatus(activityInstanceId: string, sessionDate: string): Promise<boolean> {
+  await requireUserId();
+  const existing = await db.query.attendanceEvents.findFirst({
+    where: and(eq(attendanceEvents.activityInstanceId, activityInstanceId), eq(attendanceEvents.sessionDate, sessionDate)),
+  });
+  return existing?.cancelled ?? false;
+}
+
+// "Class Cancelled" — the facilitator is saying no session happened at all
+// (holiday, facilitator away, etc.), not that attendance is all-absent.
+// Same edit-window gating as setLockStatus.
+export async function setCancelledStatus(activityInstanceId: string, sessionDate: string, cancelled: boolean) {
+  const session = await requireSession();
+  await assertWithinEditWindow(sessionDate, session.user.role);
+  const eventId = await getOrCreateEventId(activityInstanceId, sessionDate, session.user.id);
+  await db.update(attendanceEvents).set({ cancelled }).where(eq(attendanceEvents.id, eventId));
+}
+
 // Hidden people don't show up here — "hidden" means regular users can no
 // longer find them. Admins can still see and un-hide them in the Edit All
 // People spreadsheet.

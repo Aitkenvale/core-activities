@@ -35,7 +35,13 @@ export default async function AdminBulkAttendancePage() {
       .innerJoin(people, eq(people.id, activityEnrollments.personId))
       .where(eq(activityEnrollments.active, true)),
     db
-      .select({ id: attendanceEvents.id, activityInstanceId: attendanceEvents.activityInstanceId, sessionDate: attendanceEvents.sessionDate, locked: attendanceEvents.locked })
+      .select({
+        id: attendanceEvents.id,
+        activityInstanceId: attendanceEvents.activityInstanceId,
+        sessionDate: attendanceEvents.sessionDate,
+        locked: attendanceEvents.locked,
+        cancelled: attendanceEvents.cancelled,
+      })
       .from(attendanceEvents)
       .orderBy(desc(attendanceEvents.sessionDate)),
   ]);
@@ -67,7 +73,7 @@ export default async function AdminBulkAttendancePage() {
   for (const ev of events) {
     const block = blockById.get(ev.activityInstanceId);
     if (!block) continue;
-    block.dates.push({ sessionDate: ev.sessionDate, locked: ev.locked });
+    block.dates.push({ sessionDate: ev.sessionDate, locked: ev.locked, cancelled: ev.cancelled });
     eventKeyById.set(ev.id, { activityInstanceId: ev.activityInstanceId, sessionDate: ev.sessionDate });
   }
 

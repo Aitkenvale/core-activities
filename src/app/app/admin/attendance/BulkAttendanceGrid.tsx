@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { setAttendance } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/actions";
 
 type Attendee = { personId: string; name: string; preferredName: string | null };
-type DateCol = { sessionDate: string; locked: boolean };
+type DateCol = { sessionDate: string; locked: boolean; cancelled: boolean };
 type Status = "present" | "absent";
 
 export type ActivityBlock = {
@@ -165,9 +165,21 @@ function ActivitySection({
               <tr>
                 <th style={{ ...nameCellStyle, zIndex: 2, background: "var(--table-header-bg)", textAlign: "left", fontWeight: 500 }}>Name</th>
                 {activity.dates.map((d) => (
-                  <th key={d.sessionDate} style={{ ...dateCellStyle, background: "var(--table-header-bg)", fontWeight: 500, fontSize: "0.65rem", padding: "4px 2px" }}>
+                  <th
+                    key={d.sessionDate}
+                    title={d.cancelled ? "Class cancelled — no attendance" : undefined}
+                    style={{
+                      ...dateCellStyle,
+                      background: "var(--table-header-bg)",
+                      fontWeight: 500,
+                      fontSize: "0.65rem",
+                      padding: "4px 2px",
+                      color: d.cancelled ? "var(--red)" : undefined,
+                      textDecoration: d.cancelled ? "line-through" : undefined,
+                    }}
+                  >
                     {formatShort(d.sessionDate)}
-                    {d.locked && <LockGlyph />}
+                    {d.locked && !d.cancelled && <LockGlyph />}
                   </th>
                 ))}
               </tr>
@@ -180,11 +192,17 @@ function ActivitySection({
                     const status = statusByDatePerson[d.sessionDate]?.[p.personId];
                     return (
                       <td key={d.sessionDate} style={dateCellStyle}>
-                        <input
-                          type="checkbox"
-                          checked={status === "present"}
-                          onChange={() => onToggle(activity.id, d.sessionDate, p.personId)}
-                        />
+                        {d.cancelled ? (
+                          <span style={{ color: "var(--muted)", fontSize: "0.7rem" }} title="Class cancelled">
+                            —
+                          </span>
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={status === "present"}
+                            onChange={() => onToggle(activity.id, d.sessionDate, p.personId)}
+                          />
+                        )}
                       </td>
                     );
                   })}
