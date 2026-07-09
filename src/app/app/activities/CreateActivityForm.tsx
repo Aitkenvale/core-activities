@@ -127,7 +127,7 @@ export function CreateActivityForm({
       <div style={{ display: "grid", gap: "var(--space-3)" }}>
         <p style={{ color: "var(--text)", fontSize: "0.95rem" }}>{mode === "edit" ? "Activity updated." : "Activity created."}</p>
         <button
-          onClick={() => router.push("/app")}
+          onClick={() => router.push("/app/activities")}
           style={{
             minHeight: "var(--tap-min)",
             padding: "0 24px",
@@ -140,7 +140,7 @@ export function CreateActivityForm({
             justifySelf: "start",
           }}
         >
-          Back to Home
+          Back to Activities
         </button>
       </div>
     );
