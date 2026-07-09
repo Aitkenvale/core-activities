@@ -6,6 +6,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
+import { households } from "@/db/schema/households";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
@@ -120,6 +121,33 @@ export async function searchPeople(query: string) {
     .from(people)
     .where(and(ilike(people.name, `%${q}%`), eq(people.hidden, false)))
     .limit(8);
+}
+
+export async function searchHouseholdsForRoster(query: string) {
+  await requireUserId();
+  const q = query.trim();
+  if (!q) return db.select({ id: households.id, name: households.name }).from(households).limit(10);
+  return db.select({ id: households.id, name: households.name }).from(households).where(ilike(households.name, `%${q}%`)).limit(10);
+}
+
+// "Add Info" — filling in what's actually missing on a quick-added person
+// (DOB, household, rego year), not admin-only: this is a natural extension
+// of quick-adding them in the first place, which is already a facilitator
+// action, not a spreadsheet-level edit. Only the keys the caller actually
+// includes get touched (a plain partial update, same convention as every
+// other People patch action in the app) — omit a key entirely to leave it
+// alone, don't pass it as undefined.
+export async function updatePersonInfo(
+  personId: string,
+  patch: Partial<{ name: string; dob: string | null; householdId: string | null; regoYear: number | null }>,
+) {
+  await requireUserId();
+  if (patch.name !== undefined) {
+    const trimmed = patch.name.trim();
+    if (!trimmed) throw new Error("Name is required");
+    patch = { ...patch, name: trimmed };
+  }
+  await db.update(people).set(patch).where(eq(people.id, personId));
 }
 
 export async function enrollExistingPerson(activityInstanceId: string, personId: string, role: "participant" | "facilitator") {

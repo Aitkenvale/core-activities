@@ -14,14 +14,21 @@ import {
   getCancelledStatus,
   setCancelledStatus,
   mergePendingPerson,
+  searchHouseholdsForRoster,
+  updatePersonInfo,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
+import { isPersonInfoComplete } from "@/lib/personCompleteness";
 
 type RosterRow = {
   personId: string;
   name: string;
   preferredName: string | null;
   linkStatus: "linked" | "pending";
+  dob: string | null;
+  householdId: string | null;
+  householdName: string | null;
+  regoYear: number | null;
   role: "participant" | "facilitator";
   active: boolean;
 };
@@ -431,14 +438,16 @@ function RosterSection({
                 opacity: isHidden ? 0.5 : 1,
               }}
             >
-              {/* The "Not Linked" badge is a sibling, not nested inside the
+              {/* The "Add Info" badge is a sibling, not nested inside the
                   name span — that span's overflow:hidden (for the ellipsis)
                   would otherwise clip the badge's popover. */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
                 <span style={{ fontSize: "0.9rem", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {r.preferredName || r.name}
                 </span>
-                {r.linkStatus === "pending" && <NotLinkedBadge personId={r.personId} isAdmin={isAdmin} onMerged={onChanged} />}
+                {(r.linkStatus === "pending" || !isPersonInfoComplete(r.dob, r.householdId)) && (
+                  <PersonInfoBadge person={r} isAdmin={isAdmin} onSaved={onChanged} />
+                )}
               </div>
               {editMode ? (
                 <button
@@ -546,18 +555,211 @@ const badgeStyle: React.CSSProperties = {
   letterSpacing: "0.04em",
 };
 
-// Admins can click "Not Linked" to search People and fold this quick-added
-// person's enrollments + attendance history onto an existing real record —
-// for when a facilitator quick-added someone under an informal name who,
-// it turns out, was already a proper People entry. Non-admins just see the
-// plain badge, matching every other People-data change being admin-only.
-function NotLinkedBadge({ personId, isAdmin, onMerged }: { personId: string; isAdmin: boolean; onMerged: () => void }) {
+const modalInputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  fontSize: "0.85rem",
+  minHeight: 36,
+  padding: "6px 8px",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--card-bg)",
+  color: "var(--text)",
+};
+
+// Flags a person who's either still pending reconciliation or missing
+// required info (DOB, household) — "Add Info" replaces the old "Not
+// Linked" wording, since a quick-added person is already a real People row
+// now (there's no separate spreadsheet to "link" to); what's actually
+// missing is the info itself.
+function PersonInfoBadge({ person, isAdmin, onSaved }: { person: RosterRow; isAdmin: boolean; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
+
+  return (
+    <span style={{ position: "relative" }}>
+      <button onClick={() => setOpen(true)} style={{ ...badgeStyle, background: "none", cursor: "pointer" }}>
+        Add Info
+      </button>
+      {open && <AddInfoModal person={person} isAdmin={isAdmin} onClose={() => setOpen(false)} onSaved={onSaved} />}
+    </span>
+  );
+}
+
+function AddInfoModal({
+  person,
+  isAdmin,
+  onClose,
+  onSaved,
+}: {
+  person: RosterRow;
+  isAdmin: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(person.name);
+  const [dob, setDob] = useState(person.dob ?? "");
+  const [regoYear, setRegoYear] = useState(person.regoYear !== null ? String(person.regoYear) : "");
+  const [householdId, setHouseholdId] = useState(person.householdId);
+  const [householdQuery, setHouseholdQuery] = useState(person.householdName ?? "");
+  const [householdResults, setHouseholdResults] = useState<{ id: string; name: string }[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showMerge, setShowMerge] = useState(false);
+
+  async function handleHouseholdSearch(value: string) {
+    setHouseholdQuery(value);
+    setHouseholdId(null);
+    setHouseholdResults(await searchHouseholdsForRoster(value));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await updatePersonInfo(person.personId, {
+        name,
+        dob: dob || null,
+        householdId,
+        regoYear: regoYear.trim() ? parseInt(regoYear, 10) : null,
+      });
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save that change.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.4)" }} />
+      <div
+        style={{
+          position: "fixed",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 91,
+          width: "min(90vw, 340px)",
+          maxHeight: "85vh",
+          overflowY: "auto",
+          background: "var(--card-bg)",
+          borderRadius: "var(--radius-lg)",
+          boxShadow: "var(--shadow-elevated)",
+          padding: "var(--space-5)",
+        }}
+      >
+        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>
+          Add Info
+        </h3>
+
+        <div style={{ display: "grid", gap: "var(--space-3)" }}>
+          <ModalField label="Name">
+            <input value={name} onChange={(e) => setName(e.target.value)} style={modalInputStyle} />
+          </ModalField>
+          <ModalField label="DOB">
+            <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={{ ...modalInputStyle, fontSize: "0.8rem" }} />
+          </ModalField>
+          <ModalField label="Household">
+            <input
+              placeholder="Search household…"
+              value={householdQuery}
+              onChange={(e) => handleHouseholdSearch(e.target.value)}
+              style={modalInputStyle}
+            />
+            {householdResults.length > 0 && (
+              <div style={{ marginTop: 4, display: "grid", gap: 2, maxHeight: 120, overflowY: "auto" }}>
+                {householdResults.map((h) => (
+                  <button
+                    key={h.id}
+                    onClick={() => {
+                      setHouseholdId(h.id);
+                      setHouseholdQuery(h.name);
+                      setHouseholdResults([]);
+                    }}
+                    style={{
+                      textAlign: "left",
+                      padding: "4px 8px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-sm)",
+                      background: "var(--card-bg)",
+                      color: "var(--text)",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {h.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </ModalField>
+          <ModalField label="Rego Year">
+            <input type="number" value={regoYear} onChange={(e) => setRegoYear(e.target.value)} style={modalInputStyle} />
+          </ModalField>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: "var(--space-4)" }}>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ minHeight: 36, padding: "0 20px", borderRadius: "var(--radius-pill)", border: "none", background: "var(--deep)", color: "var(--cream)", fontSize: "0.85rem", cursor: "pointer" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <button
+            onClick={onClose}
+            style={{ minHeight: 36, padding: "0 20px", border: "none", background: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+        </div>
+        {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 8 }}>{error}</p>}
+
+        {isAdmin && (
+          <div style={{ marginTop: "var(--space-4)", borderTop: "1px solid var(--border)", paddingTop: "var(--space-3)" }}>
+            {showMerge ? (
+              <MergeSearch
+                personId={person.personId}
+                onDone={() => {
+                  onSaved();
+                  onClose();
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => setShowMerge(true)}
+                style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer", textDecoration: "underline", padding: 0 }}
+              >
+                Actually the same person as someone already in the system? Search to merge instead
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function ModalField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "grid", gap: 2 }}>
+      <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+// Folds this person's enrollments + attendance history onto an existing
+// real record — for when they turn out to be a duplicate of someone
+// already in the system under a fuller/different name. Admin-only,
+// matching every other People-data change in the app (unlike the rest of
+// this modal, which any signed-in user can use).
+function MergeSearch({ personId, onDone }: { personId: string; onDone: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [busy, setBusy] = useState(false);
-
-  if (!isAdmin) return <span style={badgeStyle}>Not linked</span>;
 
   async function handleChange(value: string) {
     setQuery(value);
@@ -573,72 +775,47 @@ function NotLinkedBadge({ personId, isAdmin, onMerged }: { personId: string; isA
     setBusy(true);
     try {
       await mergePendingPerson(personId, targetId);
-      onMerged();
+      onDone();
     } finally {
       setBusy(false);
-      setOpen(false);
     }
   }
 
   return (
-    <span style={{ position: "relative" }}>
-      <button onClick={() => setOpen((v) => !v)} style={{ ...badgeStyle, background: "none", cursor: "pointer" }}>
-        Not linked
-      </button>
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 45 }} />
-          <div
+    <div>
+      <input
+        autoFocus
+        placeholder="Search People…"
+        value={query}
+        onChange={(e) => handleChange(e.target.value)}
+        style={modalInputStyle}
+      />
+      <div style={{ marginTop: 6, display: "grid", gap: 4, maxHeight: 160, overflowY: "auto" }}>
+        {results.map((r) => (
+          <button
+            key={r.id}
+            onClick={() => handlePick(r.id, formatFullName(r.name, r.preferredName))}
+            disabled={busy}
             style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              marginTop: 4,
-              zIndex: 50,
-              width: 220,
-              background: "var(--card-bg)",
+              textAlign: "left",
+              padding: "6px 8px",
+              borderRadius: "var(--radius-sm)",
               border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              boxShadow: "var(--shadow-elevated)",
-              padding: "var(--space-2)",
+              background: "var(--card-bg)",
+              fontSize: "0.8rem",
+              color: "var(--text)",
+              cursor: "pointer",
             }}
           >
-            <input
-              autoFocus
-              placeholder="Search People…"
-              value={query}
-              onChange={(e) => handleChange(e.target.value)}
-              style={{ width: "100%", boxSizing: "border-box", fontSize: 14, padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", background: "var(--card-bg)" }}
-            />
-            <div style={{ marginTop: 6, display: "grid", gap: 4, maxHeight: 160, overflowY: "auto" }}>
-              {results.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => handlePick(r.id, formatFullName(r.name, r.preferredName))}
-                  disabled={busy}
-                  style={{
-                    textAlign: "left",
-                    padding: "6px 8px",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--border)",
-                    background: "var(--card-bg)",
-                    fontSize: "0.8rem",
-                    color: "var(--text)",
-                    cursor: "pointer",
-                  }}
-                >
-                  {formatFullName(r.name, r.preferredName)}
-                  {r.linkStatus === "pending" && <span style={{ color: "var(--muted)" }}> (pending)</span>}
-                </button>
-              ))}
-              {query.trim().length >= 2 && results.length === 0 && (
-                <p style={{ fontSize: "0.75rem", color: "var(--muted)", padding: "4px 8px" }}>No matches.</p>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-    </span>
+            {formatFullName(r.name, r.preferredName)}
+            {r.linkStatus === "pending" && <span style={{ color: "var(--muted)" }}> (pending)</span>}
+          </button>
+        ))}
+        {query.trim().length >= 2 && results.length === 0 && (
+          <p style={{ fontSize: "0.75rem", color: "var(--muted)", padding: "4px 8px" }}>No matches.</p>
+        )}
+      </div>
+    </div>
   );
 }
 

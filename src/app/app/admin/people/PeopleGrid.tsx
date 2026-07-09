@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { updatePerson, searchHouseholds, type PersonPatch } from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS } from "@/lib/category";
+import { isPersonInfoComplete } from "@/lib/personCompleteness";
 
 type Row = {
   id: string;
@@ -18,11 +19,10 @@ type Row = {
   regoYear: number | null;
   hidden: boolean;
   linkStatus: "linked" | "pending";
-  hasEnrollment: boolean;
   comment: string | null;
 };
 
-type SortKey = keyof Row | "category";
+type SortKey = keyof Row | "category" | "complete";
 
 // Every column except Comment gets a genuinely fixed width — Comment is left
 // with no width set below, so (with table-layout:fixed + table width:100%)
@@ -36,7 +36,7 @@ const COLUMNS: { key: SortKey; label: string; width: number | undefined }[] = [
   { key: "category", label: "Category", width: 140 },
   { key: "regoYear", label: "Rego Year", width: 90 },
   { key: "mobile", label: "Mobile", width: 130 },
-  { key: "linkStatus", label: "Linked", width: 90 },
+  { key: "complete", label: "Info", width: 90 },
   { key: "hidden", label: "Hidden", width: 70 },
   { key: "comment", label: "Comment", width: undefined },
 ];
@@ -113,7 +113,9 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
   }
 
   function sortValue(r: Row, key: SortKey): string {
-    const v = key === "category" ? getCategoryLabel(r.dob) : r[key];
+    if (key === "category") return getCategoryLabel(r.dob) ?? "";
+    if (key === "complete") return isPersonInfoComplete(r.dob, r.householdId) ? "1" : "0";
+    const v = r[key];
     return v === null || v === undefined ? "" : String(v);
   }
 
@@ -273,23 +275,12 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                   onDone={() => setEditing(null)}
                 />
                 <td style={cellStyle}>
-                  {/* Linked/Pending only means anything for someone who's
-                      actually been rostered onto an activity — for everyone
-                      else it's just the inert default, so show nothing
-                      rather than a meaningless "linked". */}
-                  {r.hasEnrollment && (
-                    <select
-                      value={r.linkStatus}
-                      onChange={(e) => {
-                        const v = e.target.value as Row["linkStatus"];
-                        patchLocal(r.id, { linkStatus: v });
-                        save(r.id, { linkStatus: v });
-                      }}
-                      style={{ ...inputStyle, border: "1px solid var(--border)" }}
-                    >
-                      <option value="linked">linked</option>
-                      <option value="pending">pending</option>
-                    </select>
+                  {/* Computed, not a status anyone sets — flags whatever's
+                      actually missing (DOB, household) rather than a
+                      "linked" concept that stopped meaning anything once
+                      every quick-added person was already a real People row. */}
+                  {!isPersonInfoComplete(r.dob, r.householdId) && (
+                    <span style={{ fontSize: "0.75rem", color: "var(--warm)", whiteSpace: "nowrap" }}>Add Info</span>
                   )}
                 </td>
                 <td style={{ ...cellStyle, textAlign: "center" }}>

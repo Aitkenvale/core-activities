@@ -5,6 +5,7 @@ import { db } from "@/db/client";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { people } from "@/db/schema/people";
+import { households } from "@/db/schema/households";
 import { termDates } from "@/db/schema/termDates";
 import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
@@ -33,11 +34,16 @@ export default async function SessionPage({
         name: people.name,
         preferredName: people.preferredName,
         linkStatus: people.linkStatus,
+        dob: people.dob,
+        householdId: people.householdId,
+        householdName: households.name,
+        regoYear: people.regoYear,
         role: activityEnrollments.role,
         active: activityEnrollments.active,
       })
       .from(activityEnrollments)
       .innerJoin(people, eq(people.id, activityEnrollments.personId))
+      .leftJoin(households, eq(households.id, people.householdId))
       .where(eq(activityEnrollments.activityInstanceId, activityInstanceId)),
     getEditWindowMonths(),
   ]);

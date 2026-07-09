@@ -17,7 +17,12 @@ export default async function AdminBulkAttendancePage() {
 
   const [activities, enrollments, events] = await Promise.all([
     db
-      .select({ id: activityInstances.id, name: activityInstances.name, categoryLabel: activityCategories.label })
+      .select({
+        id: activityInstances.id,
+        name: activityInstances.name,
+        categoryId: activityInstances.categoryId,
+        categoryLabel: activityCategories.label,
+      })
       .from(activityInstances)
       .leftJoin(activityCategories, eq(activityCategories.id, activityInstances.categoryId))
       .where(eq(activityInstances.hidden, false))
@@ -58,7 +63,10 @@ export default async function AdminBulkAttendancePage() {
     (a.preferredName || a.name).localeCompare(b.preferredName || b.name);
 
   const blockById = new Map<string, ActivityBlock>(
-    activities.map((a) => [a.id, { id: a.id, name: a.name, categoryLabel: a.categoryLabel, attendees: [], dates: [], statusByDatePerson: {} }]),
+    activities.map((a) => [
+      a.id,
+      { id: a.id, categoryId: a.categoryId, name: a.name, categoryLabel: a.categoryLabel, attendees: [], dates: [], statusByDatePerson: {} },
+    ]),
   );
 
   for (const e of enrollments) {
@@ -85,8 +93,7 @@ export default async function AdminBulkAttendancePage() {
     (block.statusByDatePerson[key.sessionDate] ??= {})[r.personId] = r.status;
   }
 
-  // Nothing to bulk-edit for an activity with no one currently enrolled.
-  const blocks = [...blockById.values()].filter((b) => b.attendees.length > 0);
+  const blocks = [...blockById.values()];
 
-  return <BulkAttendanceGrid activities={blocks} />;
+  return <BulkAttendanceGrid initialActivities={blocks} />;
 }

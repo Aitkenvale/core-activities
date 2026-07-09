@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { setAttendance } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/actions";
+import { addAttendanceDate } from "./actions";
 
 type Attendee = { personId: string; name: string; preferredName: string | null };
 type DateCol = { sessionDate: string; locked: boolean; cancelled: boolean };
@@ -9,6 +11,7 @@ type Status = "present" | "absent";
 
 export type ActivityBlock = {
   id: string;
+  categoryId: string;
   name: string;
   categoryLabel: string | null;
   attendees: Attendee[];
@@ -52,10 +55,11 @@ function formatShort(iso: string) {
   return `${d.getDate()} ${MONTH_ABBR[d.getMonth()]}`;
 }
 
-export function BulkAttendanceGrid({ activities }: { activities: ActivityBlock[] }) {
+export function BulkAttendanceGrid({ initialActivities }: { initialActivities: ActivityBlock[] }) {
+  const [activities, setActivities] = useState(initialActivities);
   const [filterText, setFilterText] = useState("");
   const [statusByActivity, setStatusByActivity] = useState<Record<string, Record<string, Record<string, Status>>>>(() =>
-    Object.fromEntries(activities.map((a) => [a.id, a.statusByDatePerson])),
+    Object.fromEntries(initialActivities.map((a) => [a.id, a.statusByDatePerson])),
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -100,6 +104,23 @@ export function BulkAttendanceGrid({ activities }: { activities: ActivityBlock[]
     });
   }
 
+  async function handleAddDate(activityId: string, sessionDate: string) {
+    setError(null);
+    try {
+      await addAttendanceDate(activityId, sessionDate);
+      setActivities((acts) =>
+        acts.map((a) => {
+          if (a.id !== activityId) return a;
+          if (a.dates.some((d) => d.sessionDate === sessionDate)) return a;
+          const dates = [...a.dates, { sessionDate, locked: false, cancelled: false }].sort((x, y) => y.sessionDate.localeCompare(x.sessionDate));
+          return { ...a, dates };
+        }),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't add that date.");
+    }
+  }
+
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
       <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px var(--space-3)" }}>
@@ -130,7 +151,7 @@ export function BulkAttendanceGrid({ activities }: { activities: ActivityBlock[]
 
       <div style={{ padding: "0 9px", display: "grid", gap: "var(--space-7)" }}>
         {visible.map((a) => (
-          <ActivitySection key={a.id} activity={a} statusByDatePerson={statusByActivity[a.id] ?? {}} onToggle={toggle} />
+          <ActivitySection key={a.id} activity={a} statusByDatePerson={statusByActivity[a.id] ?? {}} onToggle={toggle} onAddDate={handleAddDate} />
         ))}
         {visible.length === 0 && <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>No matching activities.</p>}
       </div>
@@ -144,10 +165,12 @@ function ActivitySection({
   activity,
   statusByDatePerson,
   onToggle,
+  onAddDate,
 }: {
   activity: ActivityBlock;
   statusByDatePerson: Record<string, Record<string, Status>>;
   onToggle: (activityId: string, sessionDate: string, personId: string) => void;
+  onAddDate: (activityId: string, sessionDate: string) => void;
 }) {
   return (
     <section>
@@ -156,63 +179,148 @@ function ActivitySection({
         {activity.categoryLabel ? <span style={{ color: "var(--muted)", fontFamily: "inherit", fontSize: "0.85rem" }}> · {activity.categoryLabel}</span> : null}
       </h3>
 
-      {activity.dates.length === 0 ? (
-        <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>No sessions recorded yet.</p>
+      {activity.attendees.length === 0 ? (
+        <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+          No one enrolled yet —{" "}
+          <Link href={`/app/attendance/${activity.categoryId}/${activity.id}/session`} style={{ color: "var(--warm)" }}>
+            enrol participants
+          </Link>{" "}
+          before backdating attendance.
+        </p>
       ) : (
-        <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-          <table style={{ borderCollapse: "collapse", background: "var(--card-bg)" }}>
-            <thead>
-              <tr>
-                <th style={{ ...nameCellStyle, zIndex: 2, background: "var(--table-header-bg)", textAlign: "left", fontWeight: 500 }}>Name</th>
-                {activity.dates.map((d) => (
-                  <th
-                    key={d.sessionDate}
-                    title={d.cancelled ? "Class cancelled — no attendance" : undefined}
-                    style={{
-                      ...dateCellStyle,
-                      background: "var(--table-header-bg)",
-                      fontWeight: 500,
-                      fontSize: "0.65rem",
-                      padding: "4px 2px",
-                      color: d.cancelled ? "var(--red)" : undefined,
-                      textDecoration: d.cancelled ? "line-through" : undefined,
-                    }}
-                  >
-                    {formatShort(d.sessionDate)}
-                    {d.locked && !d.cancelled && <LockGlyph />}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {activity.attendees.map((p) => (
-                <tr key={p.personId}>
-                  <td style={nameCellStyle}>{p.preferredName || p.name}</td>
-                  {activity.dates.map((d) => {
-                    const status = statusByDatePerson[d.sessionDate]?.[p.personId];
-                    return (
-                      <td key={d.sessionDate} style={dateCellStyle}>
-                        {d.cancelled ? (
-                          <span style={{ color: "var(--muted)", fontSize: "0.7rem" }} title="Class cancelled">
-                            —
-                          </span>
-                        ) : (
-                          <input
-                            type="checkbox"
-                            checked={status === "present"}
-                            onChange={() => onToggle(activity.id, d.sessionDate, p.personId)}
-                          />
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {activity.dates.length === 0 ? (
+            <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>No sessions recorded yet.</p>
+          ) : (
+            <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
+              <table style={{ borderCollapse: "collapse", background: "var(--card-bg)" }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...nameCellStyle, zIndex: 2, background: "var(--table-header-bg)", textAlign: "left", fontWeight: 500 }}>Name</th>
+                    {activity.dates.map((d) => (
+                      <th
+                        key={d.sessionDate}
+                        title={d.cancelled ? "Class cancelled — no attendance" : undefined}
+                        style={{
+                          ...dateCellStyle,
+                          background: "var(--table-header-bg)",
+                          fontWeight: 500,
+                          fontSize: "0.65rem",
+                          padding: "4px 2px",
+                          color: d.cancelled ? "var(--red)" : undefined,
+                          textDecoration: d.cancelled ? "line-through" : undefined,
+                        }}
+                      >
+                        {formatShort(d.sessionDate)}
+                        {d.locked && !d.cancelled && <LockGlyph />}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {activity.attendees.map((p) => (
+                    <tr key={p.personId}>
+                      <td style={nameCellStyle}>{p.preferredName || p.name}</td>
+                      {activity.dates.map((d) => {
+                        const status = statusByDatePerson[d.sessionDate]?.[p.personId];
+                        return (
+                          <td key={d.sessionDate} style={dateCellStyle}>
+                            {d.cancelled ? (
+                              <span style={{ color: "var(--muted)", fontSize: "0.7rem" }} title="Class cancelled">
+                                —
+                              </span>
+                            ) : (
+                              <input
+                                type="checkbox"
+                                checked={status === "present"}
+                                onChange={() => onToggle(activity.id, d.sessionDate, p.personId)}
+                              />
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <AddDateControl activityId={activity.id} onAddDate={onAddDate} />
+        </>
       )}
     </section>
+  );
+}
+
+// Lets an admin create a session date directly — for backdating a whole
+// activity's history (or one that was never tracked in the app at all)
+// rather than being limited to whatever dates already happen to exist.
+function AddDateControl({ activityId, onAddDate }: { activityId: string; onAddDate: (activityId: string, sessionDate: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState("");
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          marginTop: 8,
+          padding: "4px 12px",
+          border: "1px dashed var(--gold)",
+          borderRadius: "var(--radius-sm)",
+          background: "none",
+          color: "var(--warm)",
+          fontSize: "0.75rem",
+          cursor: "pointer",
+        }}
+      >
+        + Add Date
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 8, display: "flex", gap: 6, alignItems: "center" }}>
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        style={{
+          fontSize: "0.8rem",
+          padding: "4px 6px",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--card-bg)",
+          color: "var(--text)",
+        }}
+      />
+      <button
+        onClick={() => {
+          if (!date) return;
+          onAddDate(activityId, date);
+          setDate("");
+          setOpen(false);
+        }}
+        disabled={!date}
+        style={{
+          padding: "4px 14px",
+          borderRadius: "var(--radius-pill)",
+          border: "none",
+          background: "var(--deep)",
+          color: "var(--cream)",
+          fontSize: "0.75rem",
+          cursor: "pointer",
+        }}
+      >
+        Add
+      </button>
+      <button
+        onClick={() => setOpen(false)}
+        style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer" }}
+      >
+        Cancel
+      </button>
+    </div>
   );
 }
 
