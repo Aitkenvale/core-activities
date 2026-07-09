@@ -51,6 +51,7 @@ export function SessionClient({
   activityName,
   selectedDate,
   recentDates,
+  heldDates,
   roster,
   statusByPersonId,
   isAdmin,
@@ -61,6 +62,7 @@ export function SessionClient({
   activityName: string;
   selectedDate: string;
   recentDates: string[];
+  heldDates: string[];
   roster: RosterRow[];
   statusByPersonId: Record<string, Status>;
   isAdmin: boolean;
@@ -172,7 +174,7 @@ export function SessionClient({
         {activityName}
       </h2>
 
-      <DatePicker selectedDate={selectedDate} recentDates={recentDates} onPick={goToDate} />
+      <DatePicker selectedDate={selectedDate} recentDates={recentDates} heldDates={heldDates} onPick={goToDate} />
 
       {!isAdmin && !canToggleLock && (
         <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginBottom: "var(--space-4)" }}>
@@ -304,12 +306,15 @@ function LockStatusPill({ locked, onToggle, disabled }: { locked: boolean; onTog
 function DatePicker({
   selectedDate,
   recentDates,
+  heldDates,
   onPick,
 }: {
   selectedDate: string;
   recentDates: string[];
+  heldDates: string[];
   onPick: (date: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const pillStyle = {
     flexShrink: 0,
     minHeight: "var(--tap-min)",
@@ -339,19 +344,67 @@ function DatePicker({
           </button>
         ))}
       </div>
-      {/* A previous version hid the real date input (opacity 0) under a
-          decoy "Pick date" label with pointer-events disabled, so clicks
-          would pass through to the input beneath it — fragile in practice
-          (an invisible control is an invisible click target the moment
-          anything shifts its box even slightly) and apparently broke
-          outright. The native input is the visible control directly now,
-          same as every other date input in the app. */}
-      <input
-        type="date"
-        value={selectedDate}
-        onChange={(e) => e.target.value && onPick(e.target.value)}
-        style={{ ...pillStyle, flexShrink: 0, width: 130, border: "1px dashed var(--gold)", background: "var(--cream2)", color: "var(--warm)" }}
-      />
+      {/* Lists dates the activity was actually held (a real attendance_events
+          row), not a native date-picker guessing game — a native <input
+          type="date"> here previously relied on an invisible-input-under-
+          a-decoy-label trick that turned out to be fragile and broke. */}
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          style={{ ...pillStyle, border: "1px dashed var(--gold)", background: "var(--cream2)", color: "var(--warm)", whiteSpace: "nowrap" }}
+        >
+          Pick Date
+        </button>
+        {open && (
+          <>
+            <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 45 }} />
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                right: 0,
+                marginTop: 4,
+                zIndex: 50,
+                width: 180,
+                maxHeight: 240,
+                overflowY: "auto",
+                background: "var(--card-bg)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-md)",
+                boxShadow: "var(--shadow-elevated)",
+                padding: "var(--space-2)",
+                display: "grid",
+                gap: 2,
+              }}
+            >
+              {heldDates.length === 0 && (
+                <p style={{ fontSize: "0.75rem", color: "var(--muted)", padding: "4px 8px", margin: 0 }}>No sessions recorded recently.</p>
+              )}
+              {heldDates.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => {
+                    onPick(d);
+                    setOpen(false);
+                  }}
+                  style={{
+                    textAlign: "left",
+                    padding: "6px 8px",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border)",
+                    background: d === selectedDate ? "var(--deep)" : "var(--card-bg)",
+                    color: d === selectedDate ? "var(--cream)" : "var(--text)",
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  {formatShort(d)}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

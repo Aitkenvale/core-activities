@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { activityInstances } from "@/db/schema/activityInstances";
@@ -66,6 +66,18 @@ export default async function SessionPage({
 
   const statusByPersonId = Object.fromEntries(existingRecords.map((r) => [r.personId, r.status]));
 
+  // "Pick Date" lists dates the activity was actually held (a real
+  // attendance_events row), not cadence-computed guesses — scoped to the
+  // same edit window as everything else here, not every date ever recorded.
+  const editWindowCutoff = new Date();
+  editWindowCutoff.setMonth(editWindowCutoff.getMonth() - editWindowMonths);
+  const heldEvents = await db
+    .select({ sessionDate: attendanceEvents.sessionDate })
+    .from(attendanceEvents)
+    .where(and(eq(attendanceEvents.activityInstanceId, activityInstanceId), gte(attendanceEvents.sessionDate, editWindowCutoff.toISOString().slice(0, 10))))
+    .orderBy(desc(attendanceEvents.sessionDate));
+  const heldDates = heldEvents.map((e) => e.sessionDate);
+
   return (
     <SessionClient
       categoryId={categoryId}
@@ -73,6 +85,7 @@ export default async function SessionPage({
       activityName={activity.name}
       selectedDate={selectedDate}
       recentDates={recentDates}
+      heldDates={heldDates}
       roster={roster}
       statusByPersonId={statusByPersonId}
       isAdmin={isAdmin}
