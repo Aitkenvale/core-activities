@@ -14,15 +14,25 @@ type Row = {
 
 type SortKey = keyof Row;
 
-const COLUMNS: { key: SortKey; label: string; width: number; align?: "left" | "center" }[] = [
+// Every column except Notes gets a genuinely fixed width — Notes is left
+// with no width set below, so (with table-layout:fixed + table width:100%)
+// it's the only column that absorbs whatever space is left over, instead of
+// every column stretching proportionally on a wide screen.
+const COLUMNS: { key: SortKey; label: string; width: number | undefined; align?: "left" | "center" }[] = [
   { key: "name", label: "Name", width: 200 },
   { key: "address", label: "Address", width: 260 },
   { key: "peopleCount", label: "People", width: 70, align: "center" },
   { key: "hidden", label: "Hidden", width: 70, align: "center" },
-  { key: "notes", label: "Notes", width: 260 },
+  { key: "notes", label: "Notes", width: undefined },
 ];
+const NOTES_MIN_WIDTH = 220;
+
+// Fixed row height so a cell never grows taller when it switches from
+// display text to an input — that vertical resize was the page "jitter".
+const ROW_HEIGHT = 34;
 
 const cellStyle: React.CSSProperties = {
+  height: ROW_HEIGHT,
   padding: "6px 8px",
   borderBottom: "1px solid var(--border)",
   fontSize: "0.85rem",
@@ -31,6 +41,7 @@ const cellStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
+  height: ROW_HEIGHT - 2,
   boxSizing: "border-box",
   fontSize: "0.85rem",
   padding: "4px 6px",
@@ -164,7 +175,21 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
       </div>
 
       <div style={{ overflow: "hidden", overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", background: "var(--card-bg)" }}>
+        {/* width:100% + minWidth (not a fixed width) — stretches to fill a
+            wide desktop container (no empty space after Notes), but won't
+            shrink columns below a usable size on a narrow screen (the
+            wrapper scrolls horizontally instead). table-layout:fixed keeps
+            every other column from resizing when a cell switches between
+            display text and an input (that was the page "jitter"). */}
+        <table
+          style={{
+            borderCollapse: "collapse",
+            tableLayout: "fixed",
+            width: "100%",
+            minWidth: COLUMNS.reduce((sum, c) => sum + (c.width ?? NOTES_MIN_WIDTH), 0),
+            background: "var(--card-bg)",
+          }}
+        >
           <thead>
             <tr>
               {COLUMNS.map((col) => (
@@ -178,7 +203,7 @@ export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
                     cursor: "pointer",
                     userSelect: "none",
                     whiteSpace: "nowrap",
-                    minWidth: col.width,
+                    width: col.width,
                     fontWeight: 500,
                   }}
                 >

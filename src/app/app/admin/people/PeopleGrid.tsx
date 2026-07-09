@@ -22,7 +22,11 @@ type Row = {
 
 type SortKey = keyof Row | "category";
 
-const COLUMNS: { key: SortKey; label: string; width: number }[] = [
+// Every column except Comment gets a genuinely fixed width — Comment is left
+// with no width set below, so (with table-layout:fixed + table width:100%)
+// it's the only column that absorbs whatever space is left over, instead of
+// every column stretching proportionally on a wide screen.
+const COLUMNS: { key: SortKey; label: string; width: number | undefined }[] = [
   { key: "name", label: "Name", width: 160 },
   { key: "preferredName", label: "AKA", width: 120 },
   { key: "householdName", label: "Household", width: 180 },
@@ -32,10 +36,18 @@ const COLUMNS: { key: SortKey; label: string; width: number }[] = [
   { key: "mobile", label: "Mobile", width: 130 },
   { key: "linkStatus", label: "Linked", width: 90 },
   { key: "hidden", label: "Hidden", width: 70 },
-  { key: "comment", label: "Comment", width: 220 },
+  { key: "comment", label: "Comment", width: undefined },
 ];
+const COMMENT_MIN_WIDTH = 180;
+
+// Fixed row height so a cell never grows taller when it switches from
+// display text to an input/select/date-input — that vertical resize (native
+// date inputs and <select> especially render taller than a plain text input
+// unless explicitly constrained) was the page "jitter".
+const ROW_HEIGHT = 34;
 
 const cellStyle: React.CSSProperties = {
+  height: ROW_HEIGHT,
   padding: "6px 8px",
   borderBottom: "1px solid var(--border)",
   fontSize: "0.85rem",
@@ -44,6 +56,7 @@ const cellStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
+  height: ROW_HEIGHT - 2,
   boxSizing: "border-box",
   fontSize: "0.85rem",
   padding: "4px 6px",
@@ -51,6 +64,11 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 2,
   background: "var(--card-bg)",
   color: "var(--text)",
+  // Native <select> otherwise ignores the height above and falls back to
+  // the browser's own larger minimum, stretching the whole row.
+  appearance: "none",
+  WebkitAppearance: "none",
+  MozAppearance: "none",
 };
 
 export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
@@ -140,7 +158,21 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
       </div>
 
       <div style={{ overflow: "hidden", overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", background: "var(--card-bg)" }}>
+        {/* width:100% + minWidth (not a fixed width) — stretches to fill a
+            wide desktop container (no empty space after Comment), but won't
+            shrink columns below a usable size on a narrow screen (the
+            wrapper scrolls horizontally instead). table-layout:fixed keeps
+            every other column from resizing when a cell switches between
+            display text and an input (that was the page "jitter"). */}
+        <table
+          style={{
+            borderCollapse: "collapse",
+            tableLayout: "fixed",
+            width: "100%",
+            minWidth: COLUMNS.reduce((sum, c) => sum + (c.width ?? COMMENT_MIN_WIDTH), 0),
+            background: "var(--card-bg)",
+          }}
+        >
           <thead>
             <tr>
               {COLUMNS.map((col) => (
@@ -154,7 +186,7 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
                     cursor: "pointer",
                     userSelect: "none",
                     whiteSpace: "nowrap",
-                    minWidth: col.width,
+                    width: col.width,
                     fontWeight: 500,
                   }}
                 >
@@ -380,7 +412,7 @@ function TextCell({
           if (e.key === "Enter") commit();
           if (e.key === "Escape") onDone();
         }}
-        style={inputStyle}
+        style={type === "date" ? { ...inputStyle, fontSize: "0.75rem" } : inputStyle}
       />
     </td>
   );
