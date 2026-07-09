@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CadenceType, CadenceConfig, Occurrence } from "@/lib/cadence";
+import type { CadenceType, CadenceConfig } from "@/lib/cadence";
+import { CadenceFields, WEEKDAY_SHORT } from "@/components/CadenceFields";
 import {
   updateActivity,
   setActivityStatus,
@@ -32,12 +33,6 @@ type Row = {
 };
 
 type SortKey = "name" | "category" | "neighbourhood" | "startDate" | "status";
-
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const OCCURRENCES: Occurrence[] = ["first", "second", "third", "fourth", "last"];
-const WEEKDAY_SHORT: Record<string, string> = {
-  Sunday: "Sun", Monday: "Mon", Tuesday: "Tue", Wednesday: "Wed", Thursday: "Thu", Friday: "Fri", Saturday: "Sat",
-};
 
 function describeCadence(cadenceType: string, cadenceConfig: unknown): string {
   const config = (cadenceConfig ?? {}) as CadenceConfig;
@@ -606,30 +601,9 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
   );
 }
 
-function WeekdayToggles({ selected, onToggle }: { selected: string[]; onToggle: (day: string) => void }) {
-  return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {WEEKDAYS.map((day) => (
-        <button
-          key={day}
-          onClick={() => onToggle(day)}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 14,
-            border: `1px solid ${selected.includes(day) ? "var(--deep)" : "var(--border)"}`,
-            background: selected.includes(day) ? "var(--deep)" : "var(--card-bg)",
-            color: selected.includes(day) ? "var(--cream)" : "var(--text)",
-            fontSize: "0.78rem",
-            cursor: "pointer",
-          }}
-        >
-          {WEEKDAY_SHORT[day]}
-        </button>
-      ))}
-    </div>
-  );
-}
-
+// Draft-state wrapper around the shared CadenceFields so Cancel discards
+// edits — CadenceFields itself reports every change live, but this modal
+// only commits to the real row (via onSave) when its own Save is clicked.
 function CadenceEditorModal({
   row,
   onClose,
@@ -639,133 +613,29 @@ function CadenceEditorModal({
   onClose: () => void;
   onSave: (cadenceType: CadenceType, cadenceConfig: CadenceConfig) => void;
 }) {
-  const initialConfig = (row.cadenceConfig ?? {}) as CadenceConfig;
-  const [type, setType] = useState<CadenceType>((row.cadenceType as CadenceType) || "ad_hoc");
-  const [weekdays, setWeekdays] = useState<string[]>(initialConfig.weekdays ?? []);
-  const [intervalWeeks, setIntervalWeeks] = useState(initialConfig.intervalWeeks ?? 1);
-  const [intervalMonths, setIntervalMonths] = useState(initialConfig.intervalMonths ?? 1);
-  const [occurrences, setOccurrences] = useState(initialConfig.occurrences ?? [{ occurrence: "first" as Occurrence, weekday: "Monday" }]);
-
-  function toggleWeekday(day: string) {
-    setWeekdays((ws) => (ws.includes(day) ? ws.filter((w) => w !== day) : [...ws, day]));
-  }
-
-  function handleSave() {
-    let config: CadenceConfig = {};
-    if (type === "school_term" || type === "every_n_weeks") {
-      config = { weekdays, ...(type === "every_n_weeks" ? { intervalWeeks } : {}) };
-    } else if (type === "every_n_months") {
-      config = { intervalMonths, occurrences };
-    }
-    onSave(type, config);
-  }
+  const [draftType, setDraftType] = useState<CadenceType>((row.cadenceType as CadenceType) || "ad_hoc");
+  const [draftConfig, setDraftConfig] = useState<CadenceConfig>((row.cadenceConfig ?? {}) as CadenceConfig);
 
   return (
     <ModalShell title={`Cadence — ${row.name}`} onClose={onClose}>
-      <div style={{ display: "grid", gap: "var(--space-4)" }}>
-        <div style={{ display: "grid", gap: 6 }}>
-          {([
-            ["school_term", "School Term (skips holidays)"],
-            ["every_n_weeks", "Every N Weeks (use 1 for plain Weekly)"],
-            ["every_n_months", "Every N Months"],
-            ["ad_hoc", "Ad-hoc (no fixed pattern)"],
-          ] as [CadenceType, string][]).map(([value, label]) => (
-            <label key={value} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", color: "var(--text)", cursor: "pointer" }}>
-              <input type="radio" name="cadenceType" checked={type === value} onChange={() => setType(value)} />
-              {label}
-            </label>
-          ))}
-        </div>
-
-        {(type === "school_term" || type === "every_n_weeks") && (
-          <div>
-            <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: 6 }}>Meets on:</p>
-            <WeekdayToggles selected={weekdays} onToggle={toggleWeekday} />
-          </div>
-        )}
-
-        {type === "every_n_weeks" && (
-          <label style={{ fontSize: "0.85rem", color: "var(--text)" }}>
-            Repeat every
-            <input
-              type="number"
-              min={1}
-              value={intervalWeeks}
-              onChange={(e) => setIntervalWeeks(Math.max(1, parseInt(e.target.value, 10) || 1))}
-              style={{ ...inputStyle, width: 60, display: "inline-block", margin: "0 6px" }}
-            />
-            week(s)
-          </label>
-        )}
-
-        {type === "every_n_months" && (
-          <>
-            <label style={{ fontSize: "0.85rem", color: "var(--text)" }}>
-              Repeat every
-              <input
-                type="number"
-                min={1}
-                value={intervalMonths}
-                onChange={(e) => setIntervalMonths(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                style={{ ...inputStyle, width: 60, display: "inline-block", margin: "0 6px" }}
-              />
-              month(s), on:
-            </label>
-            <div style={{ display: "grid", gap: 6 }}>
-              {occurrences.map((o, i) => (
-                <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <select
-                    value={o.occurrence}
-                    onChange={(e) => setOccurrences((os) => os.map((x, j) => (j === i ? { ...x, occurrence: e.target.value as Occurrence } : x)))}
-                    style={{ ...inputStyle, border: "1px solid var(--border)" }}
-                  >
-                    {OCCURRENCES.map((occ) => (
-                      <option key={occ} value={occ}>
-                        {occ}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={o.weekday}
-                    onChange={(e) => setOccurrences((os) => os.map((x, j) => (j === i ? { ...x, weekday: e.target.value } : x)))}
-                    style={{ ...inputStyle, border: "1px solid var(--border)" }}
-                  >
-                    {WEEKDAYS.map((day) => (
-                      <option key={day} value={day}>
-                        {day}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => setOccurrences((os) => os.filter((_, j) => j !== i))}
-                    style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: "1rem", padding: "0 4px" }}
-                    aria-label="Remove"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => setOccurrences((os) => [...os, { occurrence: "first", weekday: "Monday" }])}
-                style={{ background: "none", border: "1px dashed var(--border)", borderRadius: 2, padding: "6px 10px", fontSize: "0.8rem", color: "var(--warm)", cursor: "pointer" }}
-              >
-                + Add occurrence
-              </button>
-            </div>
-          </>
-        )}
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer", padding: "8px 12px" }}>
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            style={{ background: "var(--deep)", color: "var(--cream)", border: "none", borderRadius: 2, padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer" }}
-          >
-            Save
-          </button>
-        </div>
+      <CadenceFields
+        initialType={draftType}
+        initialConfig={draftConfig}
+        onChange={(type, config) => {
+          setDraftType(type);
+          setDraftConfig(config);
+        }}
+      />
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: "var(--space-4)" }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer", padding: "8px 12px" }}>
+          Cancel
+        </button>
+        <button
+          onClick={() => onSave(draftType, draftConfig)}
+          style={{ background: "var(--deep)", color: "var(--cream)", border: "none", borderRadius: 2, padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer" }}
+        >
+          Save
+        </button>
       </div>
     </ModalShell>
   );
