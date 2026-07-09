@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { and, eq, ilike, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
@@ -25,6 +26,7 @@ export async function searchPeopleDirectory(query: string) {
   await requireSession();
   const q = query.trim();
   if (q.length < 2) return [];
+  const householdContacts = alias(people, "household_contacts");
   return db
     .select({
       id: people.id,
@@ -33,11 +35,15 @@ export async function searchPeopleDirectory(query: string) {
       householdId: people.householdId,
       householdName: households.name,
       householdAddress: households.address,
+      householdContactName: householdContacts.name,
+      householdContactPreferredName: householdContacts.preferredName,
+      householdContactMobile: householdContacts.mobile,
       mobile: people.mobile,
       comment: people.comment,
     })
     .from(people)
     .leftJoin(households, eq(households.id, people.householdId))
+    .leftJoin(householdContacts, eq(householdContacts.id, households.contactPersonId))
     .where(
       and(
         eq(people.hidden, false),

@@ -15,6 +15,9 @@ import {
   setCancelledStatus,
   searchHouseholdsForRoster,
   createHouseholdForRoster,
+  searchContactForRoster,
+  createContactPerson,
+  saveHouseholdContact,
   updatePersonInfo,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
@@ -28,6 +31,10 @@ type RosterRow = {
   dob: string | null;
   householdId: string | null;
   householdName: string | null;
+  householdContactPersonId: string | null;
+  householdContactName: string | null;
+  householdContactPreferredName: string | null;
+  householdContactMobile: string | null;
   regoYear: number | null;
   role: "participant" | "facilitator";
   active: boolean;
@@ -527,7 +534,7 @@ function RosterSection({
                 <span style={{ fontSize: "0.9rem", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {r.preferredName || r.name}
                 </span>
-                {(r.linkStatus === "pending" || !isPersonInfoComplete(r.dob, r.householdId)) && (
+                {(r.linkStatus === "pending" || !isPersonInfoComplete(r.dob, r.householdId, r.householdContactPersonId, r.householdContactMobile)) && (
                   <PersonInfoBadge person={r} onSaved={onChanged} />
                 )}
               </div>
@@ -682,6 +689,12 @@ function AddInfoModal({
   const [householdId, setHouseholdId] = useState(person.householdId);
   const [householdQuery, setHouseholdQuery] = useState(person.householdName ?? "");
   const [householdResults, setHouseholdResults] = useState<{ id: string; name: string }[]>([]);
+  // Contact/Mobile belong to the household, not this person — prefilled from
+  // whatever contact the person's current household already has, if any.
+  const [contactPersonId, setContactPersonId] = useState(person.householdContactPersonId);
+  const [contactQuery, setContactQuery] = useState(person.householdContactPreferredName || person.householdContactName || "");
+  const [contactResults, setContactResults] = useState<{ id: string; name: string; preferredName: string | null; mobile: string | null }[]>([]);
+  const [contactMobile, setContactMobile] = useState(person.householdContactMobile ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -704,16 +717,56 @@ function AddInfoModal({
     }
   }
 
+  async function handleContactSearch(value: string) {
+    setContactQuery(value);
+    setContactPersonId(null);
+    setContactResults(await searchContactForRoster(value));
+  }
+
+  function selectContact(p: { id: string; name: string; preferredName: string | null; mobile: string | null }) {
+    setContactPersonId(p.id);
+    setContactQuery(p.preferredName || p.name);
+    setContactResults([]);
+    setContactMobile(p.mobile ?? "");
+  }
+
+  async function handleCreateContact() {
+    const trimmed = contactQuery.trim();
+    if (!trimmed) return;
+    try {
+      const created = await createContactPerson(trimmed);
+      setContactPersonId(created.id);
+      setContactQuery(created.preferredName || created.name);
+      setContactResults([]);
+      setContactMobile(""); // a brand-new person has no mobile yet
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't create that contact.");
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     setError(null);
     try {
+      let finalHouseholdId = householdId;
+      // No household yet, but a contact was picked anyway — a contact
+      // doesn't require a household to already exist, so create a bare one
+      // now (named after this person) purely so the contact has somewhere
+      // to attach to. Can be renamed/merged properly later in Edit
+      // Households.
+      if (!finalHouseholdId && contactPersonId) {
+        const created = await createHouseholdForRoster(`${name.trim() || person.name} household`);
+        finalHouseholdId = created.id;
+      }
       await updatePersonInfo(person.personId, {
         name,
         dob: dob || null,
-        householdId,
+        householdId: finalHouseholdId,
         regoYear: regoYear.trim() ? parseInt(regoYear, 10) : null,
       });
+      if (finalHouseholdId) {
+        await saveHouseholdContact(finalHouseholdId, contactPersonId, contactMobile || null);
+      }
       onSaved();
       onClose();
     } catch (e) {
@@ -805,6 +858,65 @@ function AddInfoModal({
                 ))}
               </div>
             )}
+          </ModalField>
+          <ModalField label="Contact">
+            <input
+              placeholder="Search contact…"
+              value={contactQuery}
+              onChange={(e) => handleContactSearch(e.target.value)}
+              style={modalInputStyle}
+            />
+            {contactQuery.trim() && contactPersonId === null && (
+              <button
+                onClick={handleCreateContact}
+                style={{
+                  marginTop: 4,
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "6px 8px",
+                  border: "1px dashed var(--gold)",
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--cream2)",
+                  color: "var(--warm)",
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                }}
+              >
+                + Create new contact: &ldquo;{contactQuery.trim()}&rdquo;
+              </button>
+            )}
+            {contactResults.length > 0 && (
+              <div style={{ marginTop: 4, display: "grid", gap: 2, maxHeight: 120, overflowY: "auto" }}>
+                {contactResults.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => selectContact(p)}
+                    style={{
+                      textAlign: "left",
+                      padding: "4px 8px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-sm)",
+                      background: "var(--card-bg)",
+                      color: "var(--text)",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {p.preferredName ? `${p.name} (${p.preferredName})` : p.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </ModalField>
+          <ModalField label="Mobile">
+            <input
+              type="tel"
+              value={contactMobile}
+              onChange={(e) => setContactMobile(e.target.value)}
+              disabled={!contactPersonId}
+              placeholder={contactPersonId ? undefined : "Pick a contact first"}
+              style={{ ...modalInputStyle, opacity: contactPersonId ? 1 : 0.6 }}
+            />
           </ModalField>
           <ModalField label="Rego Year">
             <input

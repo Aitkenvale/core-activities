@@ -14,6 +14,10 @@ export const FACILITATOR_INELIGIBLE_CATEGORIES = ["1. Infant", "2. Young Child",
 // Young Child.
 export const PARTICIPANT_INELIGIBLE_CATEGORIES = ["1. Infant"];
 
+// A contact (e.g. a parent) needs to be old enough to actually be
+// responsible for someone — Youth (15+) and Adult only.
+export const CONTACT_INELIGIBLE_CATEGORIES = ["1. Infant", "2. Young Child", "3. Older Child", "4. Junior Youth"];
+
 // The leading "N. " exists so LABELS sorts and looks up in age order — it's
 // an implementation detail, not something anyone needs to see on a pill.
 export function formatCategoryLabel(label: string): string {

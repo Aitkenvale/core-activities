@@ -19,6 +19,9 @@ type Result = {
   householdId: string | null;
   householdName: string | null;
   householdAddress: string | null;
+  householdContactName: string | null;
+  householdContactPreferredName: string | null;
+  householdContactMobile: string | null;
   mobile: string | null;
   comment: string | null;
 };
@@ -140,6 +143,15 @@ function PersonDetail({
         label="Address"
         value={result.householdAddress ?? "—"}
         action={result.householdAddress ? <MapsLinkButton address={result.householdAddress} /> : undefined}
+      />
+      <DetailRow
+        label="Contact"
+        value={
+          result.householdContactName
+            ? `${result.householdContactName}${result.householdContactPreferredName ? ` (${result.householdContactPreferredName})` : ""} — ${result.householdContactMobile ?? "—"}`
+            : "—"
+        }
+        href={result.householdContactMobile ? `tel:${result.householdContactMobile}` : undefined}
       />
       {result.comment && <DetailRow label="Notes" value={result.comment} />}
       {isAdmin && (

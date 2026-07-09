@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { and, desc, eq, gte } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { activityInstances } from "@/db/schema/activityInstances";
@@ -23,6 +24,8 @@ export default async function SessionPage({
   const { categoryId, activityInstanceId } = await params;
   const { date } = await searchParams;
 
+  const householdContacts = alias(people, "household_contacts");
+
   // Independent queries — fire together instead of one round trip at a time.
   const [session, [activity], terms, roster, editWindowMonths] = await Promise.all([
     auth.api.getSession({ headers: await headers() }),
@@ -37,6 +40,10 @@ export default async function SessionPage({
         dob: people.dob,
         householdId: people.householdId,
         householdName: households.name,
+        householdContactPersonId: households.contactPersonId,
+        householdContactName: householdContacts.name,
+        householdContactPreferredName: householdContacts.preferredName,
+        householdContactMobile: householdContacts.mobile,
         regoYear: people.regoYear,
         role: activityEnrollments.role,
         active: activityEnrollments.active,
@@ -44,6 +51,7 @@ export default async function SessionPage({
       .from(activityEnrollments)
       .innerJoin(people, eq(people.id, activityEnrollments.personId))
       .leftJoin(households, eq(households.id, people.householdId))
+      .leftJoin(householdContacts, eq(householdContacts.id, households.contactPersonId))
       .where(eq(activityEnrollments.activityInstanceId, activityInstanceId)),
     getEditWindowMonths(),
   ]);
