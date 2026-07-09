@@ -251,7 +251,7 @@ export function SessionClient({
               whiteSpace: "nowrap",
             }}
           >
-            {cancelled ? "Cancelled" : "Class Cancelled"}
+            {cancelled ? "Cancelled" : "Cancel Class"}
           </button>
         </div>
         <button
@@ -361,7 +361,7 @@ function DatePicker({
       <div style={{ position: "relative", flexShrink: 0 }}>
         <button
           onClick={() => setOpen((v) => !v)}
-          style={{ ...pillStyle, border: "1px dashed var(--gold)", background: "var(--cream2)", color: "var(--warm)", whiteSpace: "nowrap" }}
+          style={{ ...pillStyle, border: "1px solid var(--border)", background: "var(--card-bg)", color: "var(--text)", whiteSpace: "nowrap" }}
         >
           Pick Date
         </button>
