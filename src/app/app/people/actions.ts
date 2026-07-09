@@ -52,6 +52,13 @@ export async function searchPeopleDirectory(query: string) {
 // fix on the spot (a parent calls in with a new number/address), without
 // sending them to the full admin spreadsheet. Admin-only, matching every
 // other People-data change in the app.
+export async function updatePersonName(id: string, name: string) {
+  await requireAdmin();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name is required");
+  await db.update(people).set({ name: trimmed }).where(eq(people.id, id));
+}
+
 export async function updatePersonMobile(id: string, mobile: string) {
   await requireAdmin();
   await db.update(people).set({ mobile: mobile.trim() || null }).where(eq(people.id, id));

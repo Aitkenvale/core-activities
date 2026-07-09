@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   searchPeopleDirectory,
+  updatePersonName,
   updatePersonMobile,
   updatePersonNotes,
   updateHouseholdAddress,
@@ -173,6 +174,7 @@ function PersonEditForm({
   onChange: (patch: Partial<Result>) => void;
   onDone: () => void;
 }) {
+  const [name, setName] = useState(result.name);
   const [mobile, setMobile] = useState(result.mobile ?? "");
   const [address, setAddress] = useState(result.householdAddress ?? "");
   const [notes, setNotes] = useState(result.comment ?? "");
@@ -185,6 +187,7 @@ function PersonEditForm({
     setError(null);
     try {
       const tasks: Promise<unknown>[] = [];
+      if (name.trim() && name !== result.name) tasks.push(updatePersonName(result.id, name));
       if (mobile !== (result.mobile ?? "")) tasks.push(updatePersonMobile(result.id, mobile));
       if (result.householdId && address !== (result.householdAddress ?? "")) {
         tasks.push(updateHouseholdAddress(result.householdId, address));
@@ -192,6 +195,7 @@ function PersonEditForm({
       if (notes !== (result.comment ?? "")) tasks.push(updatePersonNotes(result.id, notes));
       await Promise.all(tasks);
       onChange({
+        name: name.trim() || result.name,
         mobile: mobile.trim() || null,
         householdAddress: result.householdId ? address.trim() || null : result.householdAddress,
         comment: notes.trim() || null,
@@ -206,6 +210,7 @@ function PersonEditForm({
 
   return (
     <div style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 6 }}>
+      <FieldInput label="Name" value={name} onChange={setName} />
       <FieldInput label="Mobile" value={mobile} onChange={setMobile} />
       {result.householdId ? (
         <FieldInput label="Address" value={address} onChange={setAddress} />
@@ -214,7 +219,7 @@ function PersonEditForm({
       )}
       <FieldInput label="Notes" value={notes} onChange={setNotes} />
 
-      <div style={{ display: "flex", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <button
           onClick={handleSave}
           disabled={saving}
@@ -237,18 +242,11 @@ function PersonEditForm({
         >
           Cancel
         </button>
-      </div>
-      {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", margin: 0 }}>{error}</p>}
-
-      {result.householdId &&
-        (addingMember ? (
-          <AddHouseholdMemberForm householdId={result.householdId} onDone={() => setAddingMember(false)} />
-        ) : (
+        {result.householdId && !addingMember && (
           <button
             onClick={() => setAddingMember(true)}
             style={{
-              marginTop: 4,
-              justifySelf: "start",
+              marginLeft: "auto",
               minHeight: 32,
               padding: "0 12px",
               border: "1px dashed var(--gold)",
@@ -257,11 +255,18 @@ function PersonEditForm({
               color: "var(--warm)",
               fontSize: "0.75rem",
               cursor: "pointer",
+              whiteSpace: "nowrap",
             }}
           >
             + Add household member
           </button>
-        ))}
+        )}
+      </div>
+      {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", margin: 0 }}>{error}</p>}
+
+      {result.householdId && addingMember && (
+        <AddHouseholdMemberForm householdId={result.householdId} onDone={() => setAddingMember(false)} />
+      )}
     </div>
   );
 }
