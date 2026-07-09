@@ -31,6 +31,8 @@ type Row = {
   cadenceConfig: unknown;
 };
 
+type SortKey = "name" | "category" | "neighbourhood" | "startDate" | "status";
+
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const OCCURRENCES: Occurrence[] = ["first", "second", "third", "fourth", "last"];
 const WEEKDAY_SHORT: Record<string, string> = {
@@ -110,6 +112,13 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 2,
   background: "var(--card-bg)",
   color: "var(--text)",
+  // Native <select> otherwise ignores the height above and falls back to
+  // the browser's own larger minimum, which was making every row in this
+  // grid taller than Term Dates' plain-input rows (a row's height follows
+  // its tallest cell).
+  appearance: "none",
+  WebkitAppearance: "none",
+  MozAppearance: "none",
 };
 
 export function ActivitiesGrid({
@@ -127,6 +136,8 @@ export function ActivitiesGrid({
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
   const [cadenceModalFor, setCadenceModalFor] = useState<Row | null>(null);
   const [adding, setAdding] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortAsc, setSortAsc] = useState(true);
 
   function patchLocal(id: string, patch: Partial<Row>) {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -136,14 +147,41 @@ export function ActivitiesGrid({
     updateActivity(id, patch).catch((e) => console.error("Save failed:", e));
   }
 
+  function toggleSort(key: SortKey) {
+    if (key === sortKey) setSortAsc((a) => !a);
+    else {
+      setSortKey(key);
+      setSortAsc(true);
+    }
+  }
+
+  function sortValue(r: Row, key: SortKey): string {
+    switch (key) {
+      case "category":
+        return r.categoryId ?? "";
+      case "neighbourhood":
+        return r.neighbourhoodName ?? "";
+      case "startDate":
+        return r.startDate ?? "";
+      case "status":
+        return r.status ?? "";
+      case "name":
+        return r.name ?? "";
+    }
+  }
+
   const visibleRows = useMemo(() => {
     const q = filterText.trim().toLowerCase();
     let filtered = showHidden ? rows : rows.filter((r) => !r.hidden);
     if (q) {
       filtered = filtered.filter((r) => [r.name, r.categoryLabel, r.neighbourhoodName, r.description].some((v) => v?.toLowerCase().includes(q)));
     }
-    return filtered;
-  }, [rows, filterText, showHidden]);
+    return [...filtered].sort((a, b) => {
+      const cmp = sortValue(a, sortKey).localeCompare(sortValue(b, sortKey));
+      return sortAsc ? cmp : -cmp;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, filterText, showHidden, sortKey, sortAsc]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 0" }}>
@@ -197,21 +235,33 @@ export function ActivitiesGrid({
         >
           <thead>
             <tr>
-              {[
-                { label: "Name", width: COLUMN_WIDTHS.name },
-                { label: "Category", width: COLUMN_WIDTHS.category },
-                { label: "Neighbourhood", width: COLUMN_WIDTHS.neighbourhood },
-                { label: "Cadence", width: COLUMN_WIDTHS.cadence },
-                { label: "Start Date", width: COLUMN_WIDTHS.startDate },
-                { label: "Status", width: COLUMN_WIDTHS.status },
-                { label: "Hidden", width: COLUMN_WIDTHS.hidden },
-                { label: "Notes", width: undefined }, // no width set — absorbs whatever space is left
-              ].map((col) => (
+              {(
+                [
+                  { label: "Name", width: COLUMN_WIDTHS.name, sortKey: "name" as const },
+                  { label: "Category", width: COLUMN_WIDTHS.category, sortKey: "category" as const },
+                  { label: "Neighbourhood", width: COLUMN_WIDTHS.neighbourhood, sortKey: "neighbourhood" as const },
+                  { label: "Cadence", width: COLUMN_WIDTHS.cadence, sortKey: null },
+                  { label: "Start Date", width: COLUMN_WIDTHS.startDate, sortKey: "startDate" as const },
+                  { label: "Status", width: COLUMN_WIDTHS.status, sortKey: "status" as const },
+                  { label: "Hidden", width: COLUMN_WIDTHS.hidden, sortKey: null },
+                  { label: "Notes", width: undefined, sortKey: null }, // no width set — absorbs whatever space is left
+                ] satisfies { label: string; width: number | undefined; sortKey: SortKey | null }[]
+              ).map((col) => (
                 <th
                   key={col.label}
-                  style={{ ...cellStyle, textAlign: "left", background: "var(--table-header-bg)", whiteSpace: "nowrap", fontWeight: 500, width: col.width }}
+                  onClick={col.sortKey ? () => toggleSort(col.sortKey!) : undefined}
+                  style={{
+                    ...cellStyle,
+                    textAlign: "left",
+                    background: "var(--table-header-bg)",
+                    whiteSpace: "nowrap",
+                    fontWeight: 500,
+                    width: col.width,
+                    cursor: col.sortKey ? "pointer" : "default",
+                    userSelect: "none",
+                  }}
                 >
-                  {col.label}
+                  {col.label} {col.sortKey && sortKey === col.sortKey ? (sortAsc ? "▲" : "▼") : ""}
                 </th>
               ))}
             </tr>
