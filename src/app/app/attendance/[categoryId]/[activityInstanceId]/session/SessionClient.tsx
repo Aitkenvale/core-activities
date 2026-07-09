@@ -14,6 +14,7 @@ import {
   getCancelledStatus,
   setCancelledStatus,
   searchHouseholdsForRoster,
+  createHouseholdForRoster,
   updatePersonInfo,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
@@ -690,6 +691,19 @@ function AddInfoModal({
     setHouseholdResults(await searchHouseholdsForRoster(value));
   }
 
+  async function handleCreateHousehold() {
+    const trimmed = householdQuery.trim();
+    if (!trimmed) return;
+    try {
+      const created = await createHouseholdForRoster(trimmed);
+      setHouseholdId(created.id);
+      setHouseholdQuery(created.name);
+      setHouseholdResults([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't create that household.");
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     setError(null);
@@ -746,6 +760,25 @@ function AddInfoModal({
               onChange={(e) => handleHouseholdSearch(e.target.value)}
               style={modalInputStyle}
             />
+            {householdQuery.trim() && householdId === null && (
+              <button
+                onClick={handleCreateHousehold}
+                style={{
+                  marginTop: 4,
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "6px 8px",
+                  border: "1px dashed var(--gold)",
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--cream2)",
+                  color: "var(--warm)",
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                }}
+              >
+                + Create new household: &ldquo;{householdQuery.trim()}&rdquo;
+              </button>
+            )}
             {householdResults.length > 0 && (
               <div style={{ marginTop: 4, display: "grid", gap: 2, maxHeight: 120, overflowY: "auto" }}>
                 {householdResults.map((h) => (

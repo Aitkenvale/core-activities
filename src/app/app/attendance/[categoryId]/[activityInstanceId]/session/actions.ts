@@ -130,6 +130,17 @@ export async function searchHouseholdsForRoster(query: string) {
   return db.select({ id: households.id, name: households.name }).from(households).where(ilike(households.name, `%${q}%`)).limit(10);
 }
 
+// Same reasoning as updatePersonInfo below — filling in a new participant's
+// household is part of the same "Add Info" flow, not an admin-only,
+// spreadsheet-level action. Mirrors the admin grid's own createHousehold.
+export async function createHouseholdForRoster(name: string) {
+  await requireUserId();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name is required");
+  const [created] = await db.insert(households).values({ name: trimmed }).returning({ id: households.id, name: households.name });
+  return created;
+}
+
 // "Add Info" — filling in what's actually missing on a quick-added person
 // (DOB, household, rego year), not admin-only: this is a natural extension
 // of quick-adding them in the first place, which is already a facilitator
