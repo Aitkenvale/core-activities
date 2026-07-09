@@ -353,7 +353,7 @@ function DetailRow({ label, value, href, action }: { label: string; value: strin
       <p style={{ fontSize: "0.85rem", color: "var(--text)", margin: 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         <span style={{ color: "var(--muted)" }}>{label}: </span>
         {href ? (
-          <a href={href} style={{ color: "var(--warm)" }}>
+          <a href={href} style={{ color: "var(--text)" }}>
             {value}
           </a>
         ) : (
@@ -370,12 +370,20 @@ function DetailRow({ label, value, href, action }: { label: string; value: strin
 // else (Android intent-handles this into its own app when installed).
 // Computed at click time (not as a static href) so there's no server/client
 // mismatch from reading navigator.userAgent during render.
+//
+// Same-tab navigation (not window.open/_blank) is deliberate — iOS
+// intercepts the universal link and hands off to the Maps app before this
+// tab actually navigates away, so the original page is still sitting right
+// there underneath. A new tab instead leaves behind a genuinely blank tab
+// with nothing ever loaded into it, which is what showed up as a black
+// screen after returning from Maps — Safari's "back to <site>" link goes
+// to that empty tab, not the app, so getting back needs closing the tab.
 function MapsLinkButton({ address }: { address: string }) {
   function handleClick() {
     const encoded = encodeURIComponent(address);
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const href = isIOS ? `https://maps.apple.com/?q=${encoded}` : `https://www.google.com/maps/search/?api=1&query=${encoded}`;
-    window.open(href, "_blank", "noopener,noreferrer");
+    window.location.href = href;
   }
 
   return (
