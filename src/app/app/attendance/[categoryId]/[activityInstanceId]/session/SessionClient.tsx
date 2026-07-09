@@ -339,37 +339,19 @@ function DatePicker({
           </button>
         ))}
       </div>
-      {/* The date input itself is the clickable element (opacity 0 but on
-          top, so tapping it reliably opens the native picker on every
-          browser) — a separate "Pick date" label sits visually on top with
-          pointer-events disabled so clicks pass through to the input
-          beneath it. Proxying via showPicker()/click() from a sibling
-          button was unreliable on iOS Safari. */}
-      <div style={{ position: "relative", flexShrink: 0, width: 104 }}>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => e.target.value && onPick(e.target.value)}
-          style={{ ...pillStyle, width: "100%", height: "100%", opacity: 0, border: "none" }}
-        />
-        <div
-          style={{
-            ...pillStyle,
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            pointerEvents: "none",
-            border: "1px dashed var(--gold)",
-            background: "var(--cream2)",
-            color: "var(--warm)",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Pick date
-        </div>
-      </div>
+      {/* A previous version hid the real date input (opacity 0) under a
+          decoy "Pick date" label with pointer-events disabled, so clicks
+          would pass through to the input beneath it — fragile in practice
+          (an invisible control is an invisible click target the moment
+          anything shifts its box even slightly) and apparently broke
+          outright. The native input is the visible control directly now,
+          same as every other date input in the app. */}
+      <input
+        type="date"
+        value={selectedDate}
+        onChange={(e) => e.target.value && onPick(e.target.value)}
+        style={{ ...pillStyle, flexShrink: 0, width: 130, border: "1px dashed var(--gold)", background: "var(--cream2)", color: "var(--warm)" }}
+      />
     </div>
   );
 }
