@@ -135,10 +135,13 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
   }, [rows, filterText, categoryFilter, showHidden, noRegoOnly, sortKey, sortAsc]);
 
   return (
-    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 0" }}>
+    <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
       {/* 9px = the table's 1px border + its cells' 8px left padding, so the
-          title/search line up with the actual text in the rows below. */}
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px 12px" }}>
+          title/search line up with the actual text in the rows below.
+          paddingTop above matches this sticky header's own bottom padding
+          (both var(--space-3)) so the gap above the title equals the gap
+          below the search row. */}
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px var(--space-3)" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
           Edit All People ({visibleRows.length})
         </h2>
@@ -517,7 +520,7 @@ function HouseholdCell({
                   onSave(h.id, h.name);
                   onDone();
                 }}
-                style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 10px", fontSize: "0.8rem", border: "none", background: "none", cursor: "pointer" }}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 10px", fontSize: "0.8rem", color: "var(--text)", border: "none", background: "none", cursor: "pointer" }}
               >
                 {h.name}
               </button>

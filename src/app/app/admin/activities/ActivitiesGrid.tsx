@@ -199,8 +199,11 @@ export function ActivitiesGrid({
   }, [rows, filterText, showHidden, categoryFilter, sortKey, sortAsc]);
 
   return (
-    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 0" }}>
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px 12px" }}>
+    <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
+      {/* paddingTop above matches this sticky header's own bottom padding
+          (both var(--space-3)) so the gap above the title equals the gap
+          below the search row. */}
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px var(--space-3)" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
           Edit Activities ({visibleRows.length})
         </h2>

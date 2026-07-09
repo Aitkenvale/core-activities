@@ -672,6 +672,7 @@ function AddPersonForm({
               borderRadius: "var(--radius-sm)",
               border: "1px solid var(--border)",
               background: "var(--card-bg)",
+              color: "var(--text)",
               fontSize: "0.85rem",
               cursor: "pointer",
             }}
