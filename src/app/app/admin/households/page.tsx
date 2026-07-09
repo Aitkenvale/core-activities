@@ -17,7 +17,7 @@ export default async function AdminHouseholdsPage({
 
   const [allHouseholds, allPeople] = await Promise.all([
     db.select().from(households),
-    db.select({ householdId: people.householdId }).from(people),
+    db.select({ id: people.id, householdId: people.householdId, name: people.name, preferredName: people.preferredName }).from(people),
   ]);
 
   const peopleCounts = new Map<string, number>();
@@ -25,15 +25,22 @@ export default async function AdminHouseholdsPage({
     if (!p.householdId) continue;
     peopleCounts.set(p.householdId, (peopleCounts.get(p.householdId) ?? 0) + 1);
   }
+  const peopleById = new Map(allPeople.map((p) => [p.id, p]));
 
-  const rows = allHouseholds.map((h) => ({
-    id: h.id,
-    name: h.name,
-    address: h.address,
-    notes: h.notes,
-    hidden: h.hidden,
-    peopleCount: peopleCounts.get(h.id) ?? 0,
-  }));
+  const rows = allHouseholds.map((h) => {
+    const contact = h.contactPersonId ? peopleById.get(h.contactPersonId) : undefined;
+    return {
+      id: h.id,
+      name: h.name,
+      address: h.address,
+      notes: h.notes,
+      hidden: h.hidden,
+      peopleCount: peopleCounts.get(h.id) ?? 0,
+      contactPersonId: h.contactPersonId,
+      contactName: contact?.name ?? null,
+      contactPreferredName: contact?.preferredName ?? null,
+    };
+  });
 
   return <HouseholdsGrid initialRows={rows} initialFilter={q ?? ""} />;
 }

@@ -19,6 +19,9 @@ type Row = {
   hidden: boolean;
   linkStatus: "linked" | "pending";
   comment: string | null;
+  // Whether this person is set as some household's contact — if so, a
+  // missing mobile number is essential info, not merely optional.
+  isHouseholdContact: boolean;
 };
 
 type SortKey = keyof Row | "category";
@@ -266,6 +269,7 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                 <TextCell
                   value={r.mobile}
                   copyable
+                  emptyLabel={r.isHouseholdContact ? "Add Info" : undefined}
                   onSave={(v) => {
                     patchLocal(r.id, { mobile: v || null });
                     save(r.id, { mobile: v || null });

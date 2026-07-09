@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { updateHousehold, createHousehold, type HouseholdPatch } from "./actions";
+import { updateHousehold, createHousehold, searchPeopleForContact, type HouseholdPatch } from "./actions";
 
 type Row = {
   id: string;
@@ -11,9 +12,12 @@ type Row = {
   notes: string | null;
   hidden: boolean;
   peopleCount: number;
+  contactPersonId: string | null;
+  contactName: string | null;
+  contactPreferredName: string | null;
 };
 
-type SortKey = keyof Row;
+type SortKey = keyof Row | "contact";
 
 // Every column except Notes gets a genuinely fixed width — Notes is left
 // with no width set below, so (with table-layout:fixed + table width:100%)
@@ -22,6 +26,7 @@ type SortKey = keyof Row;
 const COLUMNS: { key: SortKey; label: string; width: number | undefined; align?: "left" | "center" }[] = [
   { key: "name", label: "Name", width: 200 },
   { key: "address", label: "Address", width: 260 },
+  { key: "contact", label: "Contact", width: 180 },
   { key: "peopleCount", label: "People", width: 70, align: "center" },
   { key: "hidden", label: "Hide", width: 70, align: "center" },
   { key: "notes", label: "Notes", width: undefined },
@@ -108,6 +113,7 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
   }
 
   function sortValue(r: Row, key: SortKey): string {
+    if (key === "contact") return r.contactPreferredName || r.contactName || "";
     const v = r[key];
     return v === null || v === undefined ? "" : String(v);
   }
@@ -118,7 +124,10 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
     setCreating(true);
     try {
       const created = await createHousehold(name);
-      setRows((rs) => [...rs, { id: created.id, name: created.name, address: null, notes: null, hidden: false, peopleCount: 0 }]);
+      setRows((rs) => [
+        ...rs,
+        { id: created.id, name: created.name, address: null, notes: null, hidden: false, peopleCount: 0, contactPersonId: null, contactName: null, contactPreferredName: null },
+      ]);
       setNewName("");
     } catch (e) {
       console.error("Create failed:", e);
@@ -262,6 +271,7 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
                 />
                 <TextCell
                   value={r.address}
+                  emptyLabel="Add Info"
                   onSave={(v) => {
                     patchLocal(r.id, { address: v || null });
                     save(r.id, { address: v || null });
@@ -269,6 +279,16 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
                   editing={editing?.id === r.id && editing.field === "address"}
                   onEdit={() => setEditing({ id: r.id, field: "address" })}
                   onDone={() => setEditing(null)}
+                />
+                <ContactCell
+                  row={r}
+                  editing={editing?.id === r.id && editing.field === "contact"}
+                  onEdit={() => setEditing({ id: r.id, field: "contact" })}
+                  onDone={() => setEditing(null)}
+                  onSave={(contactPersonId, contactName, contactPreferredName) => {
+                    patchLocal(r.id, { contactPersonId, contactName, contactPreferredName });
+                    save(r.id, { contactPersonId });
+                  }}
                 />
                 <td style={{ ...cellStyle, textAlign: "center", color: "var(--muted)" }}>{r.peopleCount}</td>
                 <td style={{ ...cellStyle, textAlign: "center" }}>
@@ -308,6 +328,7 @@ function TextCell({
   onDone,
   linkHref,
   linkTitle,
+  emptyLabel,
 }: {
   value: string | null;
   onSave: (v: string) => void;
@@ -318,6 +339,8 @@ function TextCell({
   // editing, so it needs its own click handler with stopPropagation.
   linkHref?: string;
   linkTitle?: string;
+  // Shown instead of a plain "—" when this field is essential and missing.
+  emptyLabel?: string;
 }) {
   const [draft, setDraft] = useState(value || "");
   const router = useRouter();
@@ -339,7 +362,13 @@ function TextCell({
             </button>
           )}
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-            {value || <span style={{ color: "var(--border)" }}>—</span>}
+            {value ? (
+              value
+            ) : emptyLabel ? (
+              <span style={{ color: "var(--heading)", textDecoration: "underline" }}>{emptyLabel}</span>
+            ) : (
+              <span style={{ color: "var(--border)" }}>—</span>
+            )}
           </span>
         </span>
       </td>
@@ -364,6 +393,133 @@ function TextCell({
         }}
         style={inputStyle}
       />
+    </td>
+  );
+}
+
+// Search-and-pick a person as this household's contact — mirrors the
+// People grid's own Household cell (same portal-positioned dropdown, same
+// link-back-to-the-other-grid icon), just picking the other direction.
+function ContactCell({
+  row,
+  editing,
+  onEdit,
+  onDone,
+  onSave,
+}: {
+  row: Row;
+  editing: boolean;
+  onEdit: () => void;
+  onDone: () => void;
+  onSave: (contactPersonId: string | null, contactName: string | null, contactPreferredName: string | null) => void;
+}) {
+  const [query, setQuery] = useState(row.contactName ?? "");
+  const [results, setResults] = useState<{ id: string; name: string; preferredName: string | null }[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const router = useRouter();
+
+  useLayoutEffect(() => {
+    if (!editing) return;
+    function updatePos() {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (rect) setMenuPos({ top: rect.bottom, left: rect.left, width: rect.width });
+    }
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [editing]);
+
+  const displayName = row.contactPreferredName || row.contactName;
+
+  if (!editing) {
+    return (
+      <td style={{ ...cellStyle, cursor: "pointer" }} onClick={onEdit}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          {displayName && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/app/admin/people?q=${encodeURIComponent(row.contactName!)}`);
+              }}
+              title="Open in Edit People"
+              style={iconButtonStyle}
+            >
+              <LinkIcon />
+            </button>
+          )}
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+            {displayName || <span style={{ color: "var(--heading)", textDecoration: "underline" }}>Add Info</span>}
+          </span>
+        </span>
+      </td>
+    );
+  }
+
+  async function handleChange(value: string) {
+    setQuery(value);
+    setResults(await searchPeopleForContact(value));
+  }
+
+  return (
+    <td style={cellStyle}>
+      <input
+        ref={inputRef}
+        autoFocus
+        placeholder="Search person…"
+        value={query}
+        onChange={(e) => handleChange(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onDone();
+        }}
+        style={inputStyle}
+      />
+      {menuPos &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: menuPos.top,
+              left: menuPos.left,
+              width: Math.max(menuPos.width, 220),
+              zIndex: 1000,
+              background: "var(--card-bg)",
+              border: "1px solid var(--border)",
+              borderRadius: 2,
+              maxHeight: 200,
+              overflowY: "auto",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            }}
+          >
+            <button
+              onClick={() => {
+                onSave(null, null, null);
+                onDone();
+              }}
+              style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 10px", fontSize: "0.8rem", color: "var(--muted)", border: "none", background: "none", cursor: "pointer" }}
+            >
+              (no contact)
+            </button>
+            {results.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => {
+                  onSave(p.id, p.name, p.preferredName);
+                  onDone();
+                }}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 10px", fontSize: "0.8rem", color: "var(--text)", border: "none", background: "none", cursor: "pointer" }}
+              >
+                {p.preferredName ? `${p.name} (${p.preferredName})` : p.name}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </td>
   );
 }
