@@ -70,20 +70,17 @@ const CATEGORY_FILTER_OPTIONS = ["psec", "jysep", "sc"];
 export function BulkAttendanceGrid({ initialActivities }: { initialActivities: ActivityBlock[] }) {
   const [activities, setActivities] = useState(initialActivities);
   const [filterText, setFilterText] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [statusByActivity, setStatusByActivity] = useState<Record<string, Record<string, Record<string, Status>>>>(() =>
     Object.fromEntries(initialActivities.map((a) => [a.id, a.statusByDatePerson])),
   );
   const [error, setError] = useState<string | null>(null);
   const [enrolModalFor, setEnrolModalFor] = useState<ActivityBlock | null>(null);
 
+  // Exclusive, not accumulative — picking a category switches to just that
+  // one; picking the already-active one clears back to "all categories".
   function toggleCategory(categoryId: string) {
-    setCategoryFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(categoryId)) next.delete(categoryId);
-      else next.add(categoryId);
-      return next;
-    });
+    setCategoryFilter((prev) => (prev === categoryId ? null : categoryId));
   }
 
   // A match on the activity's own name/category means "show me this whole
@@ -91,7 +88,7 @@ export function BulkAttendanceGrid({ initialActivities }: { initialActivities: A
   // even though the same person can turn up again under a different
   // activity they're also enrolled in.
   const visible = useMemo(() => {
-    const byCategory = categoryFilter.size === 0 ? activities : activities.filter((a) => categoryFilter.has(a.categoryId));
+    const byCategory = categoryFilter === null ? activities : activities.filter((a) => a.categoryId === categoryFilter);
     const q = filterText.trim().toLowerCase();
     if (!q) return byCategory;
     const activityMatches = (a: ActivityBlock) => a.name.toLowerCase().includes(q) || (a.categoryLabel ?? "").toLowerCase().includes(q);
@@ -213,9 +210,9 @@ export function BulkAttendanceGrid({ initialActivities }: { initialActivities: A
               style={{
                 padding: "6px 14px",
                 borderRadius: 20,
-                border: `1px solid ${categoryFilter.has(categoryId) ? "var(--deep)" : "var(--border)"}`,
-                background: categoryFilter.has(categoryId) ? "var(--deep)" : "var(--card-bg)",
-                color: categoryFilter.has(categoryId) ? "var(--cream)" : "var(--muted)",
+                border: `1px solid ${categoryFilter === categoryId ? "var(--deep)" : "var(--border)"}`,
+                background: categoryFilter === categoryId ? "var(--deep)" : "var(--card-bg)",
+                color: categoryFilter === categoryId ? "var(--cream)" : "var(--muted)",
                 fontSize: "0.75rem",
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
