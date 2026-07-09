@@ -97,12 +97,12 @@ export function ActivitiesGrid({
     updateActivity(id, patch).catch((e) => console.error("Save failed:", e));
   }
 
-  // Closed is one-way (enforced again server-side) — once a row is already
-  // archived the pills are disabled, so this should only ever fire for a
-  // genuine active<->paused<->closed transition.
+  // Unlike the shared Edit Activity form/popup, ending an activity here is
+  // reversible — this grid is deliberately the one place an admin can undo
+  // it (see setActivityStatus).
   function changeStatus(id: string, nextStatus: ActivityStatus) {
     const prevRow = rows.find((r) => r.id === id);
-    if (!prevRow || prevRow.status === "archived") return;
+    if (!prevRow) return;
     patchLocal(id, { status: nextStatus, hidden: nextStatus === "archived" });
     setActivityStatus(id, nextStatus).catch((e) => {
       patchLocal(id, { status: prevRow.status, hidden: prevRow.hidden });
@@ -274,7 +274,7 @@ export function ActivitiesGrid({
                   onDone={() => setEditing(null)}
                 />
                 <td style={cellStyle}>
-                  <StatusPills value={r.status} onChange={(next) => changeStatus(r.id, next)} locked={r.status === "archived"} size="compact" />
+                  <StatusPills value={r.status} onChange={(next) => changeStatus(r.id, next)} locked={false} size="compact" />
                 </td>
                 <td style={cellStyle}>
                   <button

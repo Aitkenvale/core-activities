@@ -1,13 +1,15 @@
 import type { ActivityStatus } from "@/app/app/activities/actions";
 
 // Same verb/done-label pattern as the attendance session's Confirm/Confirmed
-// pill: a neutral outline (identical for all three, matching Close's own
-// look) inviting the action when it's not the current state, a bold colour
-// fill naming the resulting state once it is.
+// pill: a neutral outline (identical for all three, matching the archived
+// pill's own look) inviting the action when it's not the current state, a
+// bold colour fill naming the resulting state once it is. "End Activity"
+// rather than "Close" — "Close" read as ambiguous (closing a popup/form),
+// not ending the activity itself.
 const STATUS_META: Record<ActivityStatus, { verb: string; done: string; bg: string; text: string }> = {
   active: { verb: "Activate", done: "Active", bg: "#FFFFFF", text: "var(--deep)" },
   paused: { verb: "Pause", done: "Paused", bg: "var(--gold)", text: "var(--deep)" },
-  archived: { verb: "Close", done: "Closed", bg: "var(--blue)", text: "var(--cream)" },
+  archived: { verb: "End Activity", done: "Ended", bg: "var(--blue)", text: "var(--cream)" },
 };
 const STATUS_ORDER: ActivityStatus[] = ["active", "paused", "archived"];
 
@@ -31,7 +33,7 @@ export function StatusPills({
       {STATUS_ORDER.map((s) => {
         const meta = STATUS_META[s];
         const isCurrent = value === s;
-        // A clean colour badge (no border) only for the current Pause/Close
+        // A clean colour badge (no border) only for the current Paused/Ended
         // pill — Active's current state is still a plain white chip (kept
         // bordered so it doesn't disappear against a white card background).
         const coloredFill = isCurrent && s !== "active";

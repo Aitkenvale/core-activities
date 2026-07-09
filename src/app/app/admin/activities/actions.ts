@@ -29,30 +29,30 @@ export async function updateActivity(id: string, patch: ActivityPatch) {
   await db.update(activityInstances).set(patch).where(eq(activityInstances.id, id));
 }
 
-// Same one-way-Closed rule as updateActivityWithRoster (the full Edit
-// Activity form's own status change) — once persisted as archived, nothing
-// submitted here can move it back, even if this grid's pills somehow
-// resubmitted a stale value.
+// Unlike the shared Edit Activity form (updateActivityWithRoster), Ending an
+// activity here is NOT one-way — this admin-only grid is deliberately the
+// one place that can reverse it, since the form itself locks permanently
+// once ended for every other caller (user or admin via that popup).
 export async function setActivityStatus(id: string, status: ActivityStatus) {
   await requireAdmin();
   const [current] = await db.select({ status: activityInstances.status }).from(activityInstances).where(eq(activityInstances.id, id));
   const prevStatus: ActivityStatus = (current?.status as ActivityStatus) ?? "active";
-  const nextStatus: ActivityStatus = prevStatus === "archived" ? "archived" : status;
   const today = new Date().toISOString().slice(0, 10);
 
   await db
     .update(activityInstances)
     .set({
-      status: nextStatus,
-      hidden: nextStatus === "archived",
-      ...(nextStatus === "paused" && prevStatus !== "paused" ? { pausedAt: today } : {}),
-      ...(nextStatus !== "paused" ? { pausedAt: null } : {}),
-      ...(nextStatus === "archived" && prevStatus !== "archived" ? { endDate: today } : {}),
+      status,
+      hidden: status === "archived",
+      ...(status === "paused" && prevStatus !== "paused" ? { pausedAt: today } : {}),
+      ...(status !== "paused" ? { pausedAt: null } : {}),
+      ...(status === "archived" && prevStatus !== "archived" ? { endDate: today } : {}),
+      ...(status !== "archived" ? { endDate: null } : {}),
       updatedAt: new Date(),
     })
     .where(eq(activityInstances.id, id));
 
-  return nextStatus;
+  return status;
 }
 
 export async function createTermDate(input: { year: number; termNumber: number; startDate: string; endDate: string }) {

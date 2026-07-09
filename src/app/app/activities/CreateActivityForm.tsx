@@ -79,9 +79,12 @@ export function CreateActivityForm({
   const [participants, setParticipants] = useState<PickedPerson[]>(initial?.participants ?? []);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [status, setStatus] = useState<ActivityStatus>(initial?.status ?? "active");
-  // Finished is one-way (enforced again server-side) — once an activity was
-  // already Finished when this form loaded, the pills lock in place.
+  // Ending is one-way through this form (enforced again server-side) — once
+  // an activity was already ended when this form loaded, the pills lock in
+  // place. An admin can still reverse it, just from the Edit Activities
+  // grid's own Status column, not from here.
   const statusLocked = initial?.status === "archived";
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   // Editing an existing activity starts "touched" — the loaded notes may
   // already be custom wording, so the unlinked-facilitator auto-note below
   // shouldn't stomp on them the moment the form mounts.
@@ -145,6 +148,19 @@ export function CreateActivityForm({
     }
   }
 
+  // Ending an activity is one-way through this form — a plain "Save" click
+  // shouldn't be the thing that quietly locks it forever, so this catches
+  // the transition and makes sure it's a deliberate choice via a real modal
+  // (not window.confirm — this needs to carry the "only an admin can
+  // reverse this" context, not just a yes/no).
+  function handleSaveClick() {
+    if (mode === "edit" && status === "archived" && initial?.status !== "archived") {
+      setShowEndConfirm(true);
+      return;
+    }
+    handleSubmit();
+  }
+
   if (done) {
     return (
       <div style={{ display: "grid", gap: "var(--space-3)" }}>
@@ -175,7 +191,9 @@ export function CreateActivityForm({
         <section>
           <StatusPills value={status} onChange={setStatus} locked={statusLocked} />
           {statusLocked && (
-            <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--muted)" }}>Closed activities can&rsquo;t be reopened.</p>
+            <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--muted)" }}>
+              This activity has ended — only an admin can reopen it.
+            </p>
           )}
         </section>
       )}
@@ -278,7 +296,7 @@ export function CreateActivityForm({
           Cancel
         </button>
         <button
-          onClick={handleSubmit}
+          onClick={handleSaveClick}
           disabled={submitting}
           style={{
             minHeight: "var(--tap-min)",
@@ -294,6 +312,48 @@ export function CreateActivityForm({
           {mode === "edit" ? (submitting ? "Saving…" : "Save Activity") : submitting ? "Creating…" : "Create Activity"}
         </button>
       </div>
+
+      {showEndConfirm && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}
+          onClick={() => setShowEndConfirm(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card-bg)",
+              borderRadius: "var(--radius-lg)",
+              boxShadow: "var(--shadow-elevated)",
+              padding: "var(--space-6)",
+              width: "min(90vw, 400px)",
+            }}
+          >
+            <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.2rem", color: "var(--heading)", marginBottom: "var(--space-3)" }}>
+              End this activity?
+            </h3>
+            <p style={{ fontSize: "0.85rem", color: "var(--text)", margin: "0 0 var(--space-5)" }}>
+              This marks the activity as ended and removes it from the regular lists. Once saved, only an admin can reverse it.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                onClick={() => setShowEndConfirm(false)}
+                style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer", padding: "8px 12px" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowEndConfirm(false);
+                  handleSubmit();
+                }}
+                style={{ background: "var(--deep)", color: "var(--cream)", border: "none", borderRadius: 2, padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer" }}
+              >
+                End Activity
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
