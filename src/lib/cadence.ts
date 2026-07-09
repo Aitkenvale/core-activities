@@ -141,6 +141,27 @@ export function getNextExpectedDate(
   return null;
 }
 
+// All dates matching the cadence within [rangeStart, rangeEnd] inclusive,
+// ascending — used by the admin "Add events" bulk-backfill action. Always
+// bounded below by max(startDate, rangeStart): candidateDatesBackward's
+// while(true) loops only terminate once the cursor passes a startDate lower
+// bound, so a null startDate would otherwise walk backward forever.
+export function getExpectedDatesInRange(
+  cadenceType: CadenceType,
+  config: CadenceConfig,
+  terms: TermRange[],
+  rangeStart: string,
+  rangeEnd: string,
+  startDate: string | null = null,
+): string[] {
+  const lowerBound = startDate && startDate > rangeStart ? startDate : rangeStart;
+  const dates: string[] = [];
+  for (const d of candidateDatesBackward(cadenceType, config, toDate(rangeEnd), terms, toDate(lowerBound))) {
+    dates.push(toISODate(d));
+  }
+  return dates.reverse();
+}
+
 // Last `count` expected dates on/before `today`, most recent first — used to
 // let a facilitator catch up on a forgotten previous week without having to
 // work out the date themselves.

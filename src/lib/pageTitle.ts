@@ -8,5 +8,9 @@ const ALL_TILES = [...USER_TILES, ...ADMIN_TILES].sort((a, b) => b.href.length -
 // instead, so the bar reads as "where you are" rather than static branding.
 export function getPageTitle(pathname: string): string {
   if (pathname === "/app") return "Aitkenvale";
+  // More specific than the "Activities" tile below — the create/edit forms
+  // get their own title rather than the generic section name.
+  if (pathname.startsWith("/app/activities/create")) return "Create Activity";
+  if (pathname.startsWith("/app/activities/edit")) return "Edit Activity";
   return ALL_TILES.find((t) => pathname.startsWith(t.href))?.label ?? "Aitkenvale";
 }

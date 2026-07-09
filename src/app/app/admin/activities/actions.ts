@@ -7,82 +7,25 @@ import { db } from "@/db/client";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { termDates } from "@/db/schema/termDates";
 import { neighbourhoods } from "@/db/schema/neighbourhoods";
-import type { CadenceType, CadenceConfig } from "@/lib/cadence";
+import { attendanceEvents } from "@/db/schema/attendanceEvents";
+import { getExpectedDatesInRange, type CadenceType, type CadenceConfig } from "@/lib/cadence";
 
 async function requireAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.role !== "admin") throw new Error("Admin only");
+  return session!;
 }
 
 export type ActivityPatch = Partial<{
-  name: string;
-  categoryId: string;
-  neighbourhoodId: string;
-  description: string | null;
   startDate: string | null;
-  endDate: string | null;
-  hidden: boolean;
-  status: "active" | "paused" | "archived";
-  pausedAt: string | null;
 }>;
 
+// Start Date is the one field the full Edit Activity form deliberately
+// hides (it's locked in at creation) — this grid's own inline edit is the
+// one remaining place it can still be corrected.
 export async function updateActivity(id: string, patch: ActivityPatch) {
   await requireAdmin();
   await db.update(activityInstances).set(patch).where(eq(activityInstances.id, id));
-}
-
-// Flipping status also drives pausedAt, since the paused-too-long warning
-// badge is computed from it — kept as one action so the two can't drift out
-// of sync.
-export async function setActivityStatus(id: string, status: "active" | "paused") {
-  await requireAdmin();
-  await db
-    .update(activityInstances)
-    .set({ status, pausedAt: status === "paused" ? new Date().toISOString().slice(0, 10) : null })
-    .where(eq(activityInstances.id, id));
-}
-
-// Ending a class works like hiding a person/household, plus records when —
-// unchecking brings it back as Active specifically (not whatever it was
-// paused at before) and clears the end date. Also forces status to
-// "archived" (shown as "Complete" in the UI) so Status can't show something
-// contradictory like Active while Complete is checked.
-export async function setActivityHidden(id: string, hidden: boolean) {
-  await requireAdmin();
-  await db
-    .update(activityInstances)
-    .set({
-      hidden,
-      endDate: hidden ? new Date().toISOString().slice(0, 10) : null,
-      status: hidden ? "archived" : "active",
-    })
-    .where(eq(activityInstances.id, id));
-}
-
-export async function updateActivityCadence(id: string, cadenceType: CadenceType, cadenceConfig: CadenceConfig) {
-  await requireAdmin();
-  await db.update(activityInstances).set({ cadenceType, cadenceConfig }).where(eq(activityInstances.id, id));
-}
-
-export async function createActivity(input: {
-  name: string;
-  categoryId: string;
-  neighbourhoodId: string;
-  startDate: string | null;
-}) {
-  await requireAdmin();
-  const [created] = await db
-    .insert(activityInstances)
-    .values({
-      name: input.name.trim(),
-      categoryId: input.categoryId,
-      neighbourhoodId: input.neighbourhoodId,
-      startDate: input.startDate,
-      cadenceType: "ad_hoc",
-      cadenceConfig: {},
-    })
-    .returning();
-  return created;
 }
 
 export async function createTermDate(input: { year: number; termNumber: number; startDate: string; endDate: string }) {
@@ -102,4 +45,44 @@ export async function createNeighbourhood(name: string) {
   if (!trimmed) throw new Error("Name is required");
   const [created] = await db.insert(neighbourhoods).values({ name: trimmed }).returning();
   return created;
+}
+
+// Backfills attendance_events for every date the activity's own cadence
+// says it should have run within [rangeStart, rangeEnd] — the app never
+// generates these automatically (a session only exists once someone
+// actually records attendance for it), so an activity that's gone a while
+// without a facilitator visiting it has nothing to bulk-edit until this
+// runs. onConflictDoNothing rather than a separate existence check first —
+// the (activityInstanceId, sessionDate) unique constraint already does that
+// work for free.
+export async function bulkCreateEventsFromCadence(activityInstanceId: string, rangeStart: string, rangeEnd: string) {
+  const session = await requireAdmin();
+  const today = new Date().toISOString().slice(0, 10);
+  if (rangeEnd > today) throw new Error("Can't create sessions for future dates.");
+  if (rangeStart > rangeEnd) throw new Error("First date must be before last date.");
+
+  const [activity] = await db.select().from(activityInstances).where(eq(activityInstances.id, activityInstanceId));
+  if (!activity) throw new Error("Activity not found");
+  if (activity.cadenceType === "ad_hoc") throw new Error("Ad-hoc activities have no cadence to generate dates from.");
+
+  const terms = await db.select({ startDate: termDates.startDate, endDate: termDates.endDate }).from(termDates);
+  const dates = getExpectedDatesInRange(
+    activity.cadenceType as CadenceType,
+    (activity.cadenceConfig ?? {}) as CadenceConfig,
+    terms,
+    rangeStart,
+    rangeEnd,
+    activity.startDate,
+  );
+
+  let created = 0;
+  for (const sessionDate of dates) {
+    const inserted = await db
+      .insert(attendanceEvents)
+      .values({ activityInstanceId, sessionDate, wasGeneratedFromCadence: true, createdByUserId: session.user.id })
+      .onConflictDoNothing()
+      .returning({ id: attendanceEvents.id });
+    if (inserted.length > 0) created++;
+  }
+  return { created, skipped: dates.length - created };
 }

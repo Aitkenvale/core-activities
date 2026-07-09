@@ -1,16 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CadenceType, CadenceConfig } from "@/lib/cadence";
-import { CadenceFields, WEEKDAY_SHORT } from "@/components/CadenceFields";
-import {
-  updateActivity,
-  setActivityStatus,
-  setActivityHidden,
-  updateActivityCadence,
-  createActivity,
-  type ActivityPatch,
-} from "./actions";
+import { updateActivity, bulkCreateEventsFromCadence } from "./actions";
+import { getActivityForEdit, type ActivityForEdit } from "@/app/app/activities/actions";
+import { CreateActivityForm } from "@/app/app/activities/CreateActivityForm";
 
 type Category = { id: string; label: string };
 type Neighbourhood = { id: string; name: string };
@@ -19,76 +12,27 @@ type Row = {
   id: string;
   name: string;
   categoryId: string;
-  categoryLabel: string | null;
   neighbourhoodId: string;
-  neighbourhoodName: string | null;
-  description: string | null;
-  status: "active" | "paused" | "archived";
-  pausedAt: string | null;
   startDate: string | null;
-  endDate: string | null;
   hidden: boolean;
   cadenceType: string;
-  cadenceConfig: unknown;
 };
 
-type SortKey = "name" | "category" | "neighbourhood" | "startDate" | "status";
-
-function describeCadence(cadenceType: string, cadenceConfig: unknown): string {
-  const config = (cadenceConfig ?? {}) as CadenceConfig;
-  if (cadenceType === "ad_hoc") return "Ad-hoc";
-  if (cadenceType === "school_term") {
-    const days = (config.weekdays ?? []).map((w) => WEEKDAY_SHORT[w]).join(", ");
-    return `School term · ${days || "—"}`;
-  }
-  if (cadenceType === "every_n_weeks") {
-    const days = (config.weekdays ?? []).map((w) => WEEKDAY_SHORT[w]).join(", ");
-    const n = config.intervalWeeks || 1;
-    return n <= 1 ? `Weekly · ${days || "—"}` : `Every ${n} weeks · ${days || "—"}`;
-  }
-  if (cadenceType === "every_n_months") {
-    const n = config.intervalMonths || 1;
-    const occ = (config.occurrences ?? []).map((o) => `${o.occurrence} ${WEEKDAY_SHORT[o.weekday]}`).join(", ");
-    return n <= 1 ? `Monthly · ${occ || "—"}` : `Every ${n} months · ${occ || "—"}`;
-  }
-  return cadenceType;
-}
-
-function weeksPaused(pausedAt: string | null): number | null {
-  if (!pausedAt) return null;
-  const ms = Date.now() - new Date(`${pausedAt}T00:00:00`).getTime();
-  return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
-}
+type SortKey = "name" | "startDate";
 
 // PSEC / JYSEP / SC / CAMP — the category's own internal code, uppercased,
-// rather than the full label ("Junior Youth Group"), to keep this column
+// rather than the full label ("Junior Youth Group"), to keep filter rows
 // narrow.
 function categoryAbbrev(categoryId: string): string {
   return categoryId.toUpperCase();
 }
 
-// Every column except Notes gets a genuinely fixed width, on a narrow AND a
-// wide screen alike — Notes is the one left with no width set below, so
-// (with table-layout:fixed + table width:100%) it's the only column that
-// absorbs whatever space is left over, instead of every column stretching
-// proportionally and leaving Start Date/Status oddly bloated.
-const COLUMN_WIDTHS = {
-  name: 260,
-  category: 110,
-  neighbourhood: 130,
-  cadence: 170,
-  startDate: 110,
-  status: 100,
-  complete: 80,
-};
-const NOTES_MIN_WIDTH = 150;
-
 // Same ROW_HEIGHT/margin as PeopleGrid and HouseholdsGrid — kept identical
-// across all three admin grids so rows visually match between them, not
-// just internally consistent within one file. `height` on a table cell is
-// only a minimum, not a cap — a native <select>/date input can still render
-// taller than requested even with appearance:none, so this needs real
-// headroom (not just 1-2px) to reliably win against browser quirks.
+// across all admin grids so rows visually match between them, not just
+// internally consistent within one file. `height` on a table cell is only a
+// minimum, not a cap — a native date input can still render taller than
+// requested even with appearance:none, so this needs real headroom (not
+// just 1-2px) to reliably win against browser quirks.
 const ROW_HEIGHT = 40;
 
 const cellStyle: React.CSSProperties = {
@@ -118,6 +62,8 @@ const inputStyle: React.CSSProperties = {
   MozAppearance: "none",
 };
 
+const COLUMN_WIDTHS = { startDate: 130, addEvents: 160 };
+
 export function ActivitiesGrid({
   initialRows,
   categories,
@@ -129,11 +75,13 @@ export function ActivitiesGrid({
 }) {
   const [rows, setRows] = useState(initialRows);
   const [filterText, setFilterText] = useState("");
-  const [showComplete, setShowComplete] = useState(false);
+  const [showClosed, setShowClosed] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
+  const [neighbourhoodFilter, setNeighbourhoodFilter] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
-  const [cadenceModalFor, setCadenceModalFor] = useState<Row | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [formModal, setFormModal] = useState<null | { mode: "create" } | { mode: "edit"; activity: ActivityForEdit }>(null);
+  const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
+  const [eventsModalFor, setEventsModalFor] = useState<Row | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -141,7 +89,7 @@ export function ActivitiesGrid({
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
-  function save(id: string, patch: ActivityPatch) {
+  function save(id: string, patch: { startDate: string | null }) {
     updateActivity(id, patch).catch((e) => console.error("Save failed:", e));
   }
 
@@ -154,6 +102,15 @@ export function ActivitiesGrid({
     });
   }
 
+  function toggleNeighbourhood(neighbourhoodId: string) {
+    setNeighbourhoodFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(neighbourhoodId)) next.delete(neighbourhoodId);
+      else next.add(neighbourhoodId);
+      return next;
+    });
+  }
+
   function toggleSort(key: SortKey) {
     if (key === sortKey) setSortAsc((a) => !a);
     else {
@@ -162,36 +119,29 @@ export function ActivitiesGrid({
     }
   }
 
-  function sortValue(r: Row, key: SortKey): string {
-    switch (key) {
-      case "category":
-        return r.categoryId ?? "";
-      case "neighbourhood":
-        return r.neighbourhoodName ?? "";
-      case "startDate":
-        return r.startDate ?? "";
-      case "status":
-        return r.status ?? "";
-      case "name":
-        return r.name ?? "";
+  async function openEdit(row: Row) {
+    setLoadingEditId(row.id);
+    try {
+      const activity = await getActivityForEdit(row.id);
+      if (activity) setFormModal({ mode: "edit", activity });
+    } finally {
+      setLoadingEditId(null);
     }
   }
 
   const visibleRows = useMemo(() => {
     const q = filterText.trim().toLowerCase();
-    let filtered = showComplete ? rows : rows.filter((r) => !r.hidden);
-    if (categoryFilter.size > 0) {
-      filtered = filtered.filter((r) => categoryFilter.has(r.categoryId));
-    }
-    if (q) {
-      filtered = filtered.filter((r) => [r.name, r.categoryLabel, r.neighbourhoodName, r.description].some((v) => v?.toLowerCase().includes(q)));
-    }
+    let filtered = showClosed ? rows : rows.filter((r) => !r.hidden);
+    if (categoryFilter.size > 0) filtered = filtered.filter((r) => categoryFilter.has(r.categoryId));
+    if (neighbourhoodFilter.size > 0) filtered = filtered.filter((r) => neighbourhoodFilter.has(r.neighbourhoodId));
+    if (q) filtered = filtered.filter((r) => r.name.toLowerCase().includes(q));
     return [...filtered].sort((a, b) => {
-      const cmp = sortValue(a, sortKey).localeCompare(sortValue(b, sortKey));
+      const av = sortKey === "startDate" ? (a.startDate ?? "") : a.name;
+      const bv = sortKey === "startDate" ? (b.startDate ?? "") : b.name;
+      const cmp = av.localeCompare(bv);
       return sortAsc ? cmp : -cmp;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, filterText, showComplete, categoryFilter, sortKey, sortAsc]);
+  }, [rows, filterText, showClosed, categoryFilter, neighbourhoodFilter, sortKey, sortAsc]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
@@ -204,17 +154,18 @@ export function ActivitiesGrid({
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <input
-            placeholder="Search by name, category, neighbourhood, notes…"
+            placeholder="Search by name…"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             style={{ ...inputStyle, width: 320, border: "1px solid var(--border)" }}
           />
-          <Pill active={showComplete} onClick={() => setShowComplete((v) => !v)}>
-            Complete
+          <Pill active={showClosed} onClick={() => setShowClosed((v) => !v)}>
+            Closed
           </Pill>
           <CategoryDropdown categories={categories} selected={categoryFilter} onToggle={toggleCategory} />
+          <NeighbourhoodDropdown neighbourhoods={neighbourhoods} selected={neighbourhoodFilter} onToggle={toggleNeighbourhood} />
           <button
-            onClick={() => setAdding(true)}
+            onClick={() => setFormModal({ mode: "create" })}
             style={{
               marginLeft: "auto",
               padding: "6px 14px",
@@ -237,13 +188,15 @@ export function ActivitiesGrid({
             but won't shrink columns below a usable size on a narrow screen
             (the wrapper scrolls horizontally instead). table-layout:fixed
             keeps columns from resizing when a cell switches between
-            display text and an input (that was the page "jitter"). */}
+            display text and an input (that was the page "jitter"). Name has
+            no fixed width set below, so it's the one column that absorbs
+            whatever space is left over. */}
         <table
           style={{
             borderCollapse: "collapse",
             tableLayout: "fixed",
             width: "100%",
-            minWidth: Object.values(COLUMN_WIDTHS).reduce((a, b) => a + b, 0) + NOTES_MIN_WIDTH,
+            minWidth: COLUMN_WIDTHS.startDate + COLUMN_WIDTHS.addEvents + 220,
             background: "var(--card-bg)",
           }}
         >
@@ -251,14 +204,9 @@ export function ActivitiesGrid({
             <tr>
               {(
                 [
-                  { label: "Name", width: COLUMN_WIDTHS.name, sortKey: "name" as const },
-                  { label: "Category", width: COLUMN_WIDTHS.category, sortKey: "category" as const },
-                  { label: "Neighbourhood", width: COLUMN_WIDTHS.neighbourhood, sortKey: "neighbourhood" as const },
-                  { label: "Cadence", width: COLUMN_WIDTHS.cadence, sortKey: null },
+                  { label: "Name", width: undefined, sortKey: "name" as const },
                   { label: "Start Date", width: COLUMN_WIDTHS.startDate, sortKey: "startDate" as const },
-                  { label: "Status", width: COLUMN_WIDTHS.status, sortKey: "status" as const },
-                  { label: "Complete", width: COLUMN_WIDTHS.complete, sortKey: null },
-                  { label: "Notes", width: undefined, sortKey: null }, // no width set — absorbs whatever space is left
+                  { label: "Add Events", width: COLUMN_WIDTHS.addEvents, sortKey: null },
                 ] satisfies { label: string; width: number | undefined; sortKey: SortKey | null }[]
               ).map((col) => (
                 <th
@@ -281,180 +229,70 @@ export function ActivitiesGrid({
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((r) => {
-              const weeks = r.status === "paused" ? weeksPaused(r.pausedAt) : null;
-              return (
-                <tr key={r.id}>
-                  <TextCell
-                    value={r.name}
-                    onSave={(v) => {
-                      patchLocal(r.id, { name: v });
-                      save(r.id, { name: v });
-                    }}
-                    editing={editing?.id === r.id && editing.field === "name"}
-                    onEdit={() => setEditing({ id: r.id, field: "name" })}
-                    onDone={() => setEditing(null)}
-                  />
-                  <td style={cellStyle}>
-                    <select
-                      value={r.categoryId}
-                      onChange={(e) => {
-                        const categoryId = e.target.value;
-                        const categoryLabel = categories.find((c) => c.id === categoryId)?.label ?? null;
-                        patchLocal(r.id, { categoryId, categoryLabel });
-                        save(r.id, { categoryId });
-                      }}
-                      style={{ ...inputStyle, border: "1px solid var(--border)" }}
-                    >
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {categoryAbbrev(c.id)}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td style={cellStyle}>
-                    <select
-                      value={r.neighbourhoodId}
-                      onChange={(e) => {
-                        const neighbourhoodId = e.target.value;
-                        const neighbourhoodName = neighbourhoods.find((n) => n.id === neighbourhoodId)?.name ?? null;
-                        patchLocal(r.id, { neighbourhoodId, neighbourhoodName });
-                        save(r.id, { neighbourhoodId });
-                      }}
-                      style={{ ...inputStyle, border: "1px solid var(--border)" }}
-                    >
-                      {neighbourhoods.map((n) => (
-                        <option key={n.id} value={n.id}>
-                          {n.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td style={cellStyle}>
+            {visibleRows.map((r) => (
+              <tr key={r.id}>
+                <td style={{ ...cellStyle, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <button
-                      onClick={() => setCadenceModalFor(r)}
-                      style={{
-                        ...inputStyle,
-                        border: "1px solid var(--border)",
-                        textAlign: "left",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
+                      onClick={() => openEdit(r)}
+                      disabled={loadingEditId === r.id}
+                      aria-label={`Edit ${r.name}`}
+                      style={{ flexShrink: 0, background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--muted)" }}
                     >
-                      {describeCadence(r.cadenceType, r.cadenceConfig)}
+                      {loadingEditId === r.id ? "…" : <EditIcon />}
                     </button>
-                  </td>
-                  <TextCell
-                    type="date"
-                    value={r.startDate}
-                    onSave={(v) => {
-                      patchLocal(r.id, { startDate: v || null });
-                      save(r.id, { startDate: v || null });
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</span>
+                  </div>
+                </td>
+                <TextCell
+                  value={r.startDate}
+                  onSave={(v) => {
+                    patchLocal(r.id, { startDate: v || null });
+                    save(r.id, { startDate: v || null });
+                  }}
+                  editing={editing?.id === r.id && editing.field === "startDate"}
+                  onEdit={() => setEditing({ id: r.id, field: "startDate" })}
+                  onDone={() => setEditing(null)}
+                />
+                <td style={cellStyle}>
+                  <button
+                    onClick={() => setEventsModalFor(r)}
+                    disabled={r.cadenceType === "ad_hoc"}
+                    title={r.cadenceType === "ad_hoc" ? "Ad-hoc activities have no cadence to generate dates from" : undefined}
+                    style={{
+                      ...inputStyle,
+                      border: "1px solid var(--border)",
+                      cursor: r.cadenceType === "ad_hoc" ? "default" : "pointer",
+                      opacity: r.cadenceType === "ad_hoc" ? 0.5 : 1,
                     }}
-                    editing={editing?.id === r.id && editing.field === "startDate"}
-                    onEdit={() => setEditing({ id: r.id, field: "startDate" })}
-                    onDone={() => setEditing(null)}
-                  />
-                  <td style={cellStyle}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <button
-                        onClick={() => {
-                          // Complete overrides Active/Paused — flip it off via
-                          // the Complete checkbox, not by clicking this pill.
-                          if (r.hidden) return;
-                          const next = r.status === "active" ? "paused" : "active";
-                          patchLocal(r.id, { status: next, pausedAt: next === "paused" ? new Date().toISOString().slice(0, 10) : null });
-                          setActivityStatus(r.id, next).catch((e) => console.error("Save failed:", e));
-                        }}
-                        disabled={r.hidden}
-                        style={{
-                          padding: "4px 10px",
-                          borderRadius: 12,
-                          border: `1px solid ${r.hidden ? "var(--muted)" : r.status === "paused" ? "var(--red)" : "var(--border)"}`,
-                          background: r.hidden ? "var(--muted)" : r.status === "paused" ? "var(--red)" : "var(--card-bg)",
-                          color: r.hidden ? "var(--cream)" : r.status === "paused" ? "var(--cream)" : "var(--muted)",
-                          fontSize: "0.75rem",
-                          cursor: r.hidden ? "default" : "pointer",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {r.hidden ? "Complete" : r.status === "paused" ? "Paused" : "Active"}
-                      </button>
-                      {weeks !== null && weeks >= 6 && (
-                        <span
-                          style={{
-                            padding: "2px 8px",
-                            borderRadius: 10,
-                            fontSize: "0.68rem",
-                            fontWeight: 600,
-                            whiteSpace: "nowrap",
-                            background: weeks >= 10 ? "#B3261E" : "#B98900",
-                            color: "#fff",
-                          }}
-                        >
-                          {weeks}w paused
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td style={{ ...cellStyle, textAlign: "center" }}>
-                    <input
-                      type="checkbox"
-                      checked={r.hidden}
-                      onChange={(e) => {
-                        const hidden = e.target.checked;
-                        patchLocal(r.id, {
-                          hidden,
-                          endDate: hidden ? new Date().toISOString().slice(0, 10) : null,
-                          status: hidden ? "archived" : "active",
-                        });
-                        setActivityHidden(r.id, hidden).catch((err) => console.error("Save failed:", err));
-                      }}
-                    />
-                  </td>
-                  <TextCell
-                    value={r.description}
-                    onSave={(v) => {
-                      patchLocal(r.id, { description: v || null });
-                      save(r.id, { description: v || null });
-                    }}
-                    editing={editing?.id === r.id && editing.field === "description"}
-                    onEdit={() => setEditing({ id: r.id, field: "description" })}
-                    onDone={() => setEditing(null)}
-                  />
-                </tr>
-              );
-            })}
+                  >
+                    Add events
+                  </button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
-      {cadenceModalFor && (
-        <CadenceEditorModal
-          row={cadenceModalFor}
-          onClose={() => setCadenceModalFor(null)}
-          onSave={(cadenceType, cadenceConfig) => {
-            patchLocal(cadenceModalFor.id, { cadenceType, cadenceConfig });
-            updateActivityCadence(cadenceModalFor.id, cadenceType, cadenceConfig).catch((e) => console.error("Save failed:", e));
-            setCadenceModalFor(null);
-          }}
-        />
+      {formModal && (
+        <ModalShell title={formModal.mode === "edit" ? "Edit Activity" : "Add Activity"} onClose={() => setFormModal(null)}>
+          <CreateActivityForm
+            categories={categories}
+            neighbourhoods={neighbourhoods}
+            mode={formModal.mode}
+            initial={formModal.mode === "edit" ? formModal.activity : undefined}
+            onCancel={() => setFormModal(null)}
+            // Reloading rather than hand-patching local state — the modal
+            // form can change fields this grid no longer displays (cadence,
+            // roster, notes...), and a full reload is simpler and more
+            // reliable than keeping every one of those in sync by hand.
+            onSaved={() => window.location.reload()}
+          />
+        </ModalShell>
       )}
 
-      {adding && (
-        <AddActivityModal
-          categories={categories}
-          neighbourhoods={neighbourhoods}
-          onClose={() => setAdding(false)}
-          onCreated={(row) => {
-            setRows((rs) => [...rs, row]);
-            setAdding(false);
-          }}
-        />
-      )}
+      {eventsModalFor && <AddEventsModal row={eventsModalFor} onClose={() => setEventsModalFor(null)} />}
     </div>
   );
 }
@@ -531,20 +369,68 @@ function CategoryDropdown({
   );
 }
 
+function NeighbourhoodDropdown({
+  neighbourhoods,
+  selected,
+  onToggle,
+}: {
+  neighbourhoods: Neighbourhood[];
+  selected: Set<string>;
+  onToggle: (neighbourhoodId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = selected.size > 0;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <Pill active={active} onClick={() => setOpen((v) => !v)}>
+        Neighbourhood{active ? ` (${selected.size})` : ""}
+      </Pill>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 45 }} />
+          <div
+            style={{
+              position: "absolute",
+              top: "calc(100% + 6px)",
+              left: 0,
+              zIndex: 50,
+              minWidth: 180,
+              background: "var(--card-bg)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              boxShadow: "var(--shadow-elevated)",
+              padding: "var(--space-2)",
+            }}
+          >
+            {neighbourhoods.map((n) => (
+              <label
+                key={n.id}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: "0.8rem", color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}
+              >
+                <input type="checkbox" checked={selected.has(n.id)} onChange={() => onToggle(n.id)} />
+                {n.name}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function TextCell({
   value,
   onSave,
   editing,
   onEdit,
   onDone,
-  type = "text",
 }: {
   value: string | null;
   onSave: (v: string) => void;
   editing: boolean;
   onEdit: () => void;
   onDone: () => void;
-  type?: "text" | "date";
 }) {
   const [draft, setDraft] = useState(value || "");
 
@@ -565,7 +451,7 @@ function TextCell({
     <td style={cellStyle}>
       <input
         autoFocus
-        type={type}
+        type="date"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
@@ -573,7 +459,7 @@ function TextCell({
           if (e.key === "Enter") commit();
           if (e.key === "Escape") onDone();
         }}
-        style={type === "date" ? { ...inputStyle, fontSize: "0.75rem" } : inputStyle}
+        style={{ ...inputStyle, fontSize: "0.75rem" }}
       />
     </td>
   );
@@ -601,125 +487,82 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
   );
 }
 
-// Draft-state wrapper around the shared CadenceFields so Cancel discards
-// edits — CadenceFields itself reports every change live, but this modal
-// only commits to the real row (via onSave) when its own Save is clicked.
-function CadenceEditorModal({
-  row,
-  onClose,
-  onSave,
-}: {
-  row: Row;
-  onClose: () => void;
-  onSave: (cadenceType: CadenceType, cadenceConfig: CadenceConfig) => void;
-}) {
-  const [draftType, setDraftType] = useState<CadenceType>((row.cadenceType as CadenceType) || "ad_hoc");
-  const [draftConfig, setDraftConfig] = useState<CadenceConfig>((row.cadenceConfig ?? {}) as CadenceConfig);
-
-  return (
-    <ModalShell title={`Cadence — ${row.name}`} onClose={onClose}>
-      <CadenceFields
-        initialType={draftType}
-        initialConfig={draftConfig}
-        onChange={(type, config) => {
-          setDraftType(type);
-          setDraftConfig(config);
-        }}
-      />
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: "var(--space-4)" }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer", padding: "8px 12px" }}>
-          Cancel
-        </button>
-        <button
-          onClick={() => onSave(draftType, draftConfig)}
-          style={{ background: "var(--deep)", color: "var(--cream)", border: "none", borderRadius: 2, padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer" }}
-        >
-          Save
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
-function AddActivityModal({
-  categories,
-  neighbourhoods,
-  onClose,
-  onCreated,
-}: {
-  categories: Category[];
-  neighbourhoods: Neighbourhood[];
-  onClose: () => void;
-  onCreated: (row: Row) => void;
-}) {
-  const [name, setName] = useState("");
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
-  const [neighbourhoodId, setNeighbourhoodId] = useState(neighbourhoods[0]?.id ?? "");
-  const [startDate, setStartDate] = useState("");
+function AddEventsModal({ row, onClose }: { row: Row; onClose: () => void }) {
+  const [firstDate, setFirstDate] = useState(row.startDate ?? "");
+  const [lastDate, setLastDate] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ created: number; skipped: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleCreate() {
-    if (!name.trim() || !categoryId || !neighbourhoodId) return;
     setBusy(true);
+    setError(null);
     try {
-      const created = await createActivity({ name, categoryId, neighbourhoodId, startDate: startDate || null });
-      onCreated({
-        id: created.id,
-        name: created.name,
-        categoryId: created.categoryId,
-        categoryLabel: categories.find((c) => c.id === created.categoryId)?.label ?? null,
-        neighbourhoodId: created.neighbourhoodId,
-        neighbourhoodName: neighbourhoods.find((n) => n.id === created.neighbourhoodId)?.name ?? null,
-        description: created.description,
-        status: created.status as "active" | "paused" | "archived",
-        pausedAt: created.pausedAt,
-        startDate: created.startDate,
-        endDate: created.endDate,
-        hidden: created.hidden,
-        cadenceType: created.cadenceType,
-        cadenceConfig: created.cadenceConfig,
-      });
+      const res = await bulkCreateEventsFromCadence(row.id, firstDate, lastDate);
+      setResult(res);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't create sessions.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <ModalShell title="Add Activity" onClose={onClose}>
+    <ModalShell title={`Add Events — ${row.name}`} onClose={onClose}>
       <div style={{ display: "grid", gap: "var(--space-3)" }}>
-        <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} style={{ ...inputStyle, border: "1px solid var(--border)" }} />
-        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} style={{ ...inputStyle, border: "1px solid var(--border)" }}>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {categoryAbbrev(c.id)}
-            </option>
-          ))}
-        </select>
-        <select value={neighbourhoodId} onChange={(e) => setNeighbourhoodId(e.target.value)} style={{ ...inputStyle, border: "1px solid var(--border)" }}>
-          {neighbourhoods.map((n) => (
-            <option key={n.id} value={n.id}>
-              {n.name}
-            </option>
-          ))}
-        </select>
         <label style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-          Start date
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ ...inputStyle, border: "1px solid var(--border)", marginTop: 4 }} />
+          First date
+          <input
+            type="date"
+            value={firstDate}
+            onChange={(e) => setFirstDate(e.target.value)}
+            disabled={!!result}
+            style={{ ...inputStyle, border: "1px solid var(--border)", marginTop: 4 }}
+          />
         </label>
-        <p style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Cadence starts as Ad-hoc — set it from the Cadence column after creating.</p>
+        <label style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+          Last date
+          <input
+            type="date"
+            value={lastDate}
+            onChange={(e) => setLastDate(e.target.value)}
+            disabled={!!result}
+            style={{ ...inputStyle, border: "1px solid var(--border)", marginTop: 4 }}
+          />
+        </label>
+        <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: 0 }}>
+          Creates a blank session for every date in this range matching the activity&rsquo;s cadence — ready to mark attendance for in Bulk Edit Attendance.
+        </p>
+        {error && <p style={{ color: "var(--red)", fontSize: "0.85rem", margin: 0 }}>{error}</p>}
+        {result && (
+          <p style={{ color: "var(--green)", fontSize: "0.85rem", margin: 0 }}>
+            {result.created} session{result.created === 1 ? "" : "s"} created{result.skipped > 0 ? ` (${result.skipped} already existed)` : ""}.
+          </p>
+        )}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer", padding: "8px 12px" }}>
-            Cancel
+            {result ? "Close" : "Cancel"}
           </button>
-          <button
-            onClick={handleCreate}
-            disabled={busy || !name.trim()}
-            style={{ background: "var(--deep)", color: "var(--cream)", border: "none", borderRadius: 2, padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer" }}
-          >
-            {busy ? "Creating…" : "Create"}
-          </button>
+          {!result && (
+            <button
+              onClick={handleCreate}
+              disabled={busy || !firstDate || !lastDate}
+              style={{ background: "var(--deep)", color: "var(--cream)", border: "none", borderRadius: 2, padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer" }}
+            >
+              {busy ? "Creating…" : "Create Sessions"}
+            </button>
+          )}
         </div>
       </div>
     </ModalShell>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
   );
 }

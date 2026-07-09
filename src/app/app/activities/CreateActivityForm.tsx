@@ -42,16 +42,30 @@ function toPersonInput(p: PickedPerson) {
   return p.kind === "existing" ? { kind: "existing" as const, id: p.id } : { kind: "new" as const, name: p.name };
 }
 
+export type SavedActivitySummary = {
+  id: string;
+  name: string;
+  startDate: string | null;
+  cadenceType: CadenceType;
+  hidden: boolean;
+};
+
 export function CreateActivityForm({
   categories,
   neighbourhoods,
   mode = "create",
   initial,
+  onSaved,
+  onCancel,
 }: {
   categories: Category[];
   neighbourhoods: Neighbourhood[];
   mode?: "create" | "edit";
   initial?: ActivityForEdit;
+  // Embeds this form inside a modal (the admin grid's Add/Edit popups)
+  // instead of the standalone page's own success screen + router navigation.
+  onSaved?: (result: SavedActivitySummary) => void;
+  onCancel?: () => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initial?.name ?? "");
@@ -106,8 +120,10 @@ export function CreateActivityForm({
           facilitators: facilitators.map(toPersonInput),
           participants: participants.map(toPersonInput),
         });
+        if (onSaved) onSaved({ id: initial!.id, name, startDate: initial!.startDate, cadenceType, hidden: status === "archived" });
+        else setDone(true);
       } else {
-        await createActivityWithRoster({
+        const created = await createActivityWithRoster({
           name,
           categoryId,
           neighbourhoodId,
@@ -118,8 +134,9 @@ export function CreateActivityForm({
           facilitators: facilitators.map(toPersonInput),
           participants: participants.map(toPersonInput),
         });
+        if (onSaved) onSaved({ id: created.id, name, startDate: created.startDate, cadenceType, hidden: false });
+        else setDone(true);
       }
-      setDone(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : `Couldn't ${mode === "edit" ? "save" : "create"} that activity.`);
     } finally {
@@ -153,13 +170,8 @@ export function CreateActivityForm({
 
   return (
     <div style={{ display: "grid", gap: "var(--space-5)", paddingBottom: "var(--space-6)" }}>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.35rem", color: "var(--heading)" }}>
-        {mode === "edit" ? "Edit Activity" : "Create Activity"}
-      </h2>
-
       {mode === "edit" && (
         <section>
-          <FieldLabel>Status</FieldLabel>
           <StatusPills value={status} onChange={setStatus} locked={statusLocked} />
         </section>
       )}
@@ -235,7 +247,7 @@ export function CreateActivityForm({
 
       <div style={{ display: "flex", gap: "var(--space-3)" }}>
         <button
-          onClick={() => router.push("/app/activities")}
+          onClick={onCancel ?? (() => router.push("/app/activities"))}
           disabled={submitting}
           style={{
             minHeight: "var(--tap-min)",
@@ -271,43 +283,51 @@ export function CreateActivityForm({
   );
 }
 
-const STATUS_OPTIONS: { value: ActivityStatus; label: string }[] = [
-  { value: "active", label: "Active" },
-  { value: "paused", label: "Paused" },
-  { value: "archived", label: "Finished" },
-];
+// Same verb/done-label pattern as the attendance session's Confirm/Confirmed
+// pill: a neutral outline inviting the action when it's not the current
+// state, a bold colour fill naming the resulting state once it is. Active
+// is the one exception — it's the "normal" baseline state rather than an
+// action, so it's always white and just dims when something else is current
+// instead of switching to the neutral-outline look the other two use.
+const STATUS_META: Record<ActivityStatus, { verb: string; done: string; bg: string; text: string }> = {
+  active: { verb: "Active", done: "Active", bg: "#FFFFFF", text: "var(--deep)" },
+  paused: { verb: "Pause", done: "Paused", bg: "var(--gold)", text: "var(--deep)" },
+  archived: { verb: "Close", done: "Closed", bg: "var(--blue)", text: "var(--cream)" },
+};
+const STATUS_ORDER: ActivityStatus[] = ["active", "paused", "archived"];
 
 function StatusPills({ value, onChange, locked }: { value: ActivityStatus; onChange: (v: ActivityStatus) => void; locked: boolean }) {
   return (
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      {STATUS_OPTIONS.map((opt) => {
-        const active = value === opt.value;
-        const disabled = locked && !active;
+      {STATUS_ORDER.map((s) => {
+        const meta = STATUS_META[s];
+        const isCurrent = value === s;
+        const isActivePill = s === "active";
+        const disabled = locked && !isCurrent;
         return (
           <button
-            key={opt.value}
-            onClick={() => !locked && onChange(opt.value)}
+            key={s}
+            onClick={() => !locked && onChange(s)}
             disabled={disabled}
             style={{
               padding: "6px 16px",
               borderRadius: "var(--radius-pill)",
-              border: `1px solid ${active ? "var(--deep)" : "var(--border)"}`,
-              background: active ? "var(--deep)" : "var(--card-bg)",
-              color: active ? "var(--cream)" : "var(--text)",
+              border: isCurrent && !isActivePill ? "1px solid transparent" : "1px solid var(--border)",
+              background: isActivePill ? "#FFFFFF" : isCurrent ? meta.bg : "var(--card-bg)",
+              color: isActivePill ? "var(--deep)" : isCurrent ? meta.text : "var(--muted)",
               fontSize: "0.85rem",
+              fontWeight: isCurrent ? 600 : 400,
               cursor: locked ? "default" : "pointer",
-              opacity: disabled ? 0.5 : 1,
+              opacity: disabled ? 0.35 : isActivePill && !isCurrent ? 0.4 : 1,
               whiteSpace: "nowrap",
             }}
           >
-            {opt.label}
+            {isCurrent ? meta.done : meta.verb}
           </button>
         );
       })}
       {locked && (
-        <p style={{ width: "100%", margin: 0, fontSize: "0.75rem", color: "var(--muted)" }}>
-          Finished activities can&rsquo;t be reopened.
-        </p>
+        <p style={{ width: "100%", margin: 0, fontSize: "0.75rem", color: "var(--muted)" }}>Closed activities can&rsquo;t be reopened.</p>
       )}
     </div>
   );
