@@ -534,9 +534,11 @@ function RosterSection({
                 <span style={{ fontSize: "0.9rem", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {r.preferredName || r.name}
                 </span>
-                {(r.linkStatus === "pending" || !isPersonInfoComplete(r.dob, r.householdId, r.householdContactPersonId, r.householdContactMobile)) && (
-                  <PersonInfoBadge person={r} onSaved={onChanged} />
-                )}
+                <PersonInfoBadge
+                  person={r}
+                  onSaved={onChanged}
+                  infoNeeded={r.linkStatus === "pending" || !isPersonInfoComplete(r.dob, r.householdId, r.householdContactPersonId, r.householdContactMobile)}
+                />
               </div>
               {editMode ? (
                 <button
@@ -656,18 +658,19 @@ const modalInputStyle: React.CSSProperties = {
   color: "var(--text)",
 };
 
-// Flags a person who's either still pending reconciliation or missing
-// required info (DOB, household) — "Add Info" replaces the old "Not
-// Linked" wording, since a quick-added person is already a real People row
-// now (there's no separate spreadsheet to "link" to); what's actually
-// missing is the info itself.
-function PersonInfoBadge({ person, onSaved }: { person: RosterRow; onSaved: () => void }) {
+// Flags a field that's part of isPersonInfoComplete and still empty.
+const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)" };
+
+// Every person gets this pill, opening the same modal either way — only the
+// label changes, so it always reads as "here's this person's info" while
+// still flagging when something required is actually missing.
+function PersonInfoBadge({ person, onSaved, infoNeeded }: { person: RosterRow; onSaved: () => void; infoNeeded: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
     <span style={{ position: "relative" }}>
       <button onClick={() => setOpen(true)} style={{ ...badgeStyle, background: "none", cursor: "pointer" }}>
-        Add Info
+        {infoNeeded ? "Add Info" : "Info"}
       </button>
       {open && <AddInfoModal person={person} onClose={() => setOpen(false)} onSaved={onSaved} />}
     </span>
@@ -685,7 +688,6 @@ function AddInfoModal({
 }) {
   const [name, setName] = useState(person.name);
   const [dob, setDob] = useState(person.dob ?? "");
-  const [regoYear, setRegoYear] = useState(person.regoYear !== null ? String(person.regoYear) : "");
   const [householdId, setHouseholdId] = useState(person.householdId);
   const [householdQuery, setHouseholdQuery] = useState(person.householdName ?? "");
   const [householdResults, setHouseholdResults] = useState<{ id: string; name: string }[]>([]);
@@ -762,7 +764,6 @@ function AddInfoModal({
         name,
         dob: dob || null,
         householdId: finalHouseholdId,
-        regoYear: regoYear.trim() ? parseInt(regoYear, 10) : null,
       });
       if (finalHouseholdId) {
         await saveHouseholdContact(finalHouseholdId, contactPersonId, contactMobile || null);
@@ -804,14 +805,19 @@ function AddInfoModal({
             <input value={name} onChange={(e) => setName(e.target.value)} style={modalInputStyle} />
           </ModalField>
           <ModalField label="DOB">
-            <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={{ ...modalInputStyle, fontSize: "0.8rem" }} />
+            <input
+              type="date"
+              value={dob}
+              onChange={(e) => setDob(e.target.value)}
+              style={{ ...modalInputStyle, fontSize: "0.8rem", ...(!dob ? missingBorderStyle : {}) }}
+            />
           </ModalField>
           <ModalField label="Household">
             <input
               placeholder="Search household…"
               value={householdQuery}
               onChange={(e) => handleHouseholdSearch(e.target.value)}
-              style={modalInputStyle}
+              style={{ ...modalInputStyle, ...(!householdId ? missingBorderStyle : {}) }}
             />
             {householdQuery.trim() && householdId === null && (
               <button
@@ -864,7 +870,7 @@ function AddInfoModal({
               placeholder="Search contact…"
               value={contactQuery}
               onChange={(e) => handleContactSearch(e.target.value)}
-              style={modalInputStyle}
+              style={{ ...modalInputStyle, ...(!contactPersonId ? missingBorderStyle : {}) }}
             />
             {contactQuery.trim() && contactPersonId === null && (
               <button
@@ -915,17 +921,7 @@ function AddInfoModal({
               onChange={(e) => setContactMobile(e.target.value)}
               disabled={!contactPersonId}
               placeholder={contactPersonId ? undefined : "Pick a contact first"}
-              style={{ ...modalInputStyle, opacity: contactPersonId ? 1 : 0.6 }}
-            />
-          </ModalField>
-          <ModalField label="Rego Year">
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={regoYear}
-              onChange={(e) => setRegoYear(e.target.value.replace(/\D/g, ""))}
-              style={modalInputStyle}
+              style={{ ...modalInputStyle, opacity: contactPersonId ? 1 : 0.6, ...(!contactMobile ? missingBorderStyle : {}) }}
             />
           </ModalField>
         </div>
