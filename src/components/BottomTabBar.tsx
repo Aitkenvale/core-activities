@@ -8,6 +8,7 @@ const MAIN_TABS = [
   { href: "/app", label: "Home", icon: HomeIcon, match: (p: string) => p === "/app" },
   { href: "/app/attendance", label: "Attendance", icon: AttendanceIcon, match: (p: string) => p.startsWith("/app/attendance") },
   { href: "/app/people", label: "People", icon: PeopleIcon, match: (p: string) => p.startsWith("/app/people") },
+  { href: "/app/activities", label: "Activities", icon: ActivityIcon, match: (p: string) => p.startsWith("/app/activities") },
 ];
 
 // The admin data grids are full desktop width (see PhoneFrame) and have

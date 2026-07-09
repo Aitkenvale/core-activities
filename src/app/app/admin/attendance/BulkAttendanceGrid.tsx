@@ -55,24 +55,39 @@ function formatShort(iso: string) {
   return `${d.getDate()} ${MONTH_ABBR[d.getMonth()]}`;
 }
 
+// Hardcoded for now, matching the category IDs used elsewhere (PSEC/JYSEP/SC
+// abbreviations) — expand this list as more categories come into use.
+const CATEGORY_FILTER_OPTIONS = ["psec", "jysep", "sc"];
+
 export function BulkAttendanceGrid({ initialActivities }: { initialActivities: ActivityBlock[] }) {
   const [activities, setActivities] = useState(initialActivities);
   const [filterText, setFilterText] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
   const [statusByActivity, setStatusByActivity] = useState<Record<string, Record<string, Record<string, Status>>>>(() =>
     Object.fromEntries(initialActivities.map((a) => [a.id, a.statusByDatePerson])),
   );
   const [error, setError] = useState<string | null>(null);
+
+  function toggleCategory(categoryId: string) {
+    setCategoryFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) next.delete(categoryId);
+      else next.add(categoryId);
+      return next;
+    });
+  }
 
   // A match on the activity's own name/category means "show me this whole
   // roster" — but a match on a person's name means "show me just them",
   // even though the same person can turn up again under a different
   // activity they're also enrolled in.
   const visible = useMemo(() => {
+    const byCategory = categoryFilter.size === 0 ? activities : activities.filter((a) => categoryFilter.has(a.categoryId));
     const q = filterText.trim().toLowerCase();
-    if (!q) return activities;
+    if (!q) return byCategory;
     const activityMatches = (a: ActivityBlock) => a.name.toLowerCase().includes(q) || (a.categoryLabel ?? "").toLowerCase().includes(q);
     const result: ActivityBlock[] = [];
-    for (const a of activities) {
+    for (const a of byCategory) {
       if (activityMatches(a)) {
         result.push(a);
         continue;
@@ -81,7 +96,7 @@ export function BulkAttendanceGrid({ initialActivities }: { initialActivities: A
       if (matchingAttendees.length > 0) result.push({ ...a, attendees: matchingAttendees });
     }
     return result;
-  }, [activities, filterText]);
+  }, [activities, filterText, categoryFilter]);
 
   // Admins can override both the non-admin edit window and a locked
   // session here — bulk edits are often exactly about backdating or
@@ -127,26 +142,44 @@ export function BulkAttendanceGrid({ initialActivities }: { initialActivities: A
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
           Edit Attendance
         </h2>
-        <input
-          placeholder="Search by activity, category, attendee…"
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          style={{
-            width: 320,
-            boxSizing: "border-box",
-            fontSize: "0.85rem",
-            minHeight: "var(--tap-min)",
-            padding: "8px 10px",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-sm)",
-            background: "var(--card-bg)",
-            color: "var(--text)",
-          }}
-        />
-        <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: 8 }}>
-          Checked = present, unchecked = absent. As an admin, this overrides the lock icon shown on confirmed
-          sessions — use with care.
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <input
+            placeholder="Search by activity, category, attendee…"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            style={{
+              width: 320,
+              boxSizing: "border-box",
+              fontSize: "0.85rem",
+              minHeight: "var(--tap-min)",
+              padding: "8px 10px",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--card-bg)",
+              color: "var(--text)",
+            }}
+          />
+          {CATEGORY_FILTER_OPTIONS.map((categoryId) => (
+            <button
+              key={categoryId}
+              onClick={() => toggleCategory(categoryId)}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 20,
+                border: `1px solid ${categoryFilter.has(categoryId) ? "var(--deep)" : "var(--border)"}`,
+                background: categoryFilter.has(categoryId) ? "var(--deep)" : "var(--card-bg)",
+                color: categoryFilter.has(categoryId) ? "var(--cream)" : "var(--muted)",
+                fontSize: "0.75rem",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {categoryId}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div style={{ padding: "0 9px", display: "grid", gap: "var(--space-7)" }}>

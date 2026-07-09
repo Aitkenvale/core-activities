@@ -18,7 +18,7 @@ const tileStyle = {
 export default async function AppHome() {
   const session = await auth.api.getSession({ headers: await headers() });
   const isAdmin = session?.user?.role === "admin";
-  const userTiles = USER_TILES.filter((t) => !t.adminOnly || isAdmin);
+  const userTiles = USER_TILES.filter((t) => !t.hiddenFromHub && (!t.adminOnly || isAdmin));
 
   return (
     <>

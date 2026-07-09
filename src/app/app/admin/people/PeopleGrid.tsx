@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { updatePerson, searchHouseholds, type PersonPatch } from "./actions";
-import { getCategoryLabel, CATEGORY_LABELS } from "@/lib/category";
+import { getCategoryLabel, CATEGORY_LABELS, formatCategoryLabel } from "@/lib/category";
 import { isPersonInfoComplete } from "@/lib/personCompleteness";
 
 type Row = {
@@ -345,7 +345,7 @@ function CategoryDropdown({ selected, onToggle }: { selected: Set<string>; onTog
                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: "0.8rem", color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}
               >
                 <input type="checkbox" checked={selected.has(label)} onChange={() => onToggle(label)} />
-                {label}
+                {formatCategoryLabel(label)}
               </label>
             ))}
           </div>

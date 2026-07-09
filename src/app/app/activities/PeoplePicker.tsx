@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { searchPeopleForPicker } from "./actions";
 import { formatFullName } from "@/lib/formatName";
-import { CATEGORY_LABELS, FACILITATOR_INELIGIBLE_CATEGORIES } from "@/lib/category";
+import { CATEGORY_LABELS, FACILITATOR_INELIGIBLE_CATEGORIES, PARTICIPANT_INELIGIBLE_CATEGORIES, formatCategoryLabel } from "@/lib/category";
 
 export type PickedPerson =
   | { kind: "existing"; id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" }
@@ -43,7 +43,8 @@ export function PeoplePicker({
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
   const [results, setResults] = useState<SearchResult[]>([]);
-  const categoryOptions = role === "facilitator" ? CATEGORY_LABELS.filter((c) => !FACILITATOR_INELIGIBLE_CATEGORIES.includes(c)) : CATEGORY_LABELS;
+  const ineligible = role === "facilitator" ? FACILITATOR_INELIGIBLE_CATEGORIES : PARTICIPANT_INELIGIBLE_CATEGORIES;
+  const categoryOptions = CATEGORY_LABELS.filter((c) => !ineligible.includes(c));
 
   useEffect(() => {
     let cancelled = false;
@@ -117,7 +118,7 @@ export function PeoplePicker({
               whiteSpace: "nowrap",
             }}
           >
-            {cat}
+            {formatCategoryLabel(cat)}
           </button>
         ))}
       </div>

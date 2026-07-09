@@ -7,7 +7,7 @@ import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
-import { getCategoryLabel, FACILITATOR_INELIGIBLE_CATEGORIES } from "@/lib/category";
+import { getCategoryLabel, FACILITATOR_INELIGIBLE_CATEGORIES, PARTICIPANT_INELIGIBLE_CATEGORIES } from "@/lib/category";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
 
 async function requireUserId() {
@@ -49,6 +49,9 @@ export async function searchPeopleForPicker(query: string, categories: string[],
   }
   if (role === "facilitator") {
     filtered = filtered.filter((r) => !FACILITATOR_INELIGIBLE_CATEGORIES.includes(getCategoryLabel(r.dob) ?? ""));
+  }
+  if (role === "participant") {
+    filtered = filtered.filter((r) => !PARTICIPANT_INELIGIBLE_CATEGORIES.includes(getCategoryLabel(r.dob) ?? ""));
   }
   return filtered.map(({ id, name, preferredName, linkStatus }) => ({ id, name, preferredName, linkStatus }));
 }

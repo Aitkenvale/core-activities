@@ -10,6 +10,16 @@ export const CATEGORY_LABELS = LABELS;
 // results and filter pills alike), not just Adult-only-by-convention.
 export const FACILITATOR_INELIGIBLE_CATEGORIES = ["1. Infant", "2. Young Child", "3. Older Child"];
 
+// Too young for any structured class at all — participant classes start at
+// Young Child.
+export const PARTICIPANT_INELIGIBLE_CATEGORIES = ["1. Infant"];
+
+// The leading "N. " exists so LABELS sorts and looks up in age order — it's
+// an implementation detail, not something anyone needs to see on a pill.
+export function formatCategoryLabel(label: string): string {
+  return label.replace(/^\d+\.\s*/, "");
+}
+
 export function calculateAge(dob: string): number {
   const birth = new Date(`${dob}T00:00:00Z`);
   const today = new Date();

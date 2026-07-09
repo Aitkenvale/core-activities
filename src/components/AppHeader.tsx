@@ -33,7 +33,7 @@ export function AppHeader() {
           so it doesn't push the title rightward out of alignment. */}
       <BackButton />
       <Link href="/app" style={{ display: "inline-block" }}>
-        <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.35rem", color: "var(--heading)" }}>
+        <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.35rem", color: "var(--text)" }}>
           {title}
         </h1>
       </Link>

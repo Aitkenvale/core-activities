@@ -13,7 +13,6 @@ import {
   setLockStatus,
   getCancelledStatus,
   setCancelledStatus,
-  mergePendingPerson,
   searchHouseholdsForRoster,
   updatePersonInfo,
 } from "./actions";
@@ -168,7 +167,7 @@ export function SessionClient({
 
   return (
     <>
-      {pillSlot && createPortal(<LockStatusPill locked={locked} onToggle={toggleLocked} disabled={!canToggleLock} />, pillSlot)}
+      {pillSlot && createPortal(<LockStatusPill locked={locked} cancelled={cancelled} onToggle={toggleLocked} disabled={!canToggleLock} />, pillSlot)}
 
       <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 4px" }}>
         {activityName}
@@ -279,26 +278,37 @@ export function SessionClient({
   );
 }
 
-function LockStatusPill({ locked, onToggle, disabled }: { locked: boolean; onToggle: () => void; disabled: boolean }) {
+function LockStatusPill({
+  locked,
+  cancelled,
+  onToggle,
+  disabled,
+}: {
+  locked: boolean;
+  cancelled: boolean;
+  onToggle: () => void;
+  disabled: boolean;
+}) {
+  const isDisabled = disabled || cancelled;
   return (
     <button
       onClick={onToggle}
-      disabled={disabled}
+      disabled={isDisabled}
       style={{
         padding: "6px 14px",
         borderRadius: "var(--radius-pill)",
-        border: `1px solid ${locked ? "var(--red)" : "var(--green)"}`,
-        background: locked ? "var(--red)" : "var(--card-bg)",
-        color: locked ? "var(--cream)" : "var(--green)",
+        border: `1px solid ${cancelled ? "var(--muted)" : locked ? "var(--red)" : "var(--green)"}`,
+        background: cancelled ? "var(--border)" : locked ? "var(--red)" : "var(--card-bg)",
+        color: cancelled ? "var(--muted)" : locked ? "var(--cream)" : "var(--green)",
         fontSize: "0.7rem",
         letterSpacing: "0.04em",
         textTransform: "uppercase",
-        cursor: disabled ? "default" : "pointer",
-        opacity: disabled ? 0.6 : 1,
+        cursor: isDisabled ? "default" : "pointer",
+        opacity: isDisabled ? 0.6 : 1,
         whiteSpace: "nowrap",
       }}
     >
-      {locked ? "Locked" : "Unlocked"}
+      {cancelled ? "Cancelled" : locked ? "Confirmed" : "Unconfirmed"}
     </button>
   );
 }
@@ -401,6 +411,42 @@ function DatePicker({
                   {formatShort(d)}
                 </button>
               ))}
+              {/* Ad-hoc activities never have quick-pick pills (no cadence
+                  to suggest a date from), and this list is only ever
+                  already-held dates — this is the only way to reach a
+                  genuinely new date otherwise. */}
+              <label
+                style={{
+                  display: "block",
+                  marginTop: 4,
+                  paddingTop: 6,
+                  borderTop: heldDates.length > 0 ? "1px solid var(--border)" : undefined,
+                  fontSize: "0.7rem",
+                  color: "var(--muted)",
+                }}
+              >
+                Or choose another date
+                <input
+                  type="date"
+                  value=""
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    onPick(e.target.value);
+                    setOpen(false);
+                  }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    marginTop: 4,
+                    fontSize: "0.8rem",
+                    padding: "6px 8px",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                    background: "var(--card-bg)",
+                    color: "var(--text)",
+                  }}
+                />
+              </label>
             </div>
           </>
         )}
@@ -481,7 +527,7 @@ function RosterSection({
                   {r.preferredName || r.name}
                 </span>
                 {(r.linkStatus === "pending" || !isPersonInfoComplete(r.dob, r.householdId)) && (
-                  <PersonInfoBadge person={r} isAdmin={isAdmin} onSaved={onChanged} />
+                  <PersonInfoBadge person={r} onSaved={onChanged} />
                 )}
               </div>
               {editMode ? (
@@ -607,7 +653,7 @@ const modalInputStyle: React.CSSProperties = {
 // Linked" wording, since a quick-added person is already a real People row
 // now (there's no separate spreadsheet to "link" to); what's actually
 // missing is the info itself.
-function PersonInfoBadge({ person, isAdmin, onSaved }: { person: RosterRow; isAdmin: boolean; onSaved: () => void }) {
+function PersonInfoBadge({ person, onSaved }: { person: RosterRow; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -615,19 +661,17 @@ function PersonInfoBadge({ person, isAdmin, onSaved }: { person: RosterRow; isAd
       <button onClick={() => setOpen(true)} style={{ ...badgeStyle, background: "none", cursor: "pointer" }}>
         Add Info
       </button>
-      {open && <AddInfoModal person={person} isAdmin={isAdmin} onClose={() => setOpen(false)} onSaved={onSaved} />}
+      {open && <AddInfoModal person={person} onClose={() => setOpen(false)} onSaved={onSaved} />}
     </span>
   );
 }
 
 function AddInfoModal({
   person,
-  isAdmin,
   onClose,
   onSaved,
 }: {
   person: RosterRow;
-  isAdmin: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -639,7 +683,6 @@ function AddInfoModal({
   const [householdResults, setHouseholdResults] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showMerge, setShowMerge] = useState(false);
 
   async function handleHouseholdSearch(value: string) {
     setHouseholdQuery(value);
@@ -731,7 +774,14 @@ function AddInfoModal({
             )}
           </ModalField>
           <ModalField label="Rego Year">
-            <input type="number" value={regoYear} onChange={(e) => setRegoYear(e.target.value)} style={modalInputStyle} />
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={regoYear}
+              onChange={(e) => setRegoYear(e.target.value.replace(/\D/g, ""))}
+              style={modalInputStyle}
+            />
           </ModalField>
         </div>
 
@@ -751,27 +801,6 @@ function AddInfoModal({
           </button>
         </div>
         {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 8 }}>{error}</p>}
-
-        {isAdmin && (
-          <div style={{ marginTop: "var(--space-4)", borderTop: "1px solid var(--border)", paddingTop: "var(--space-3)" }}>
-            {showMerge ? (
-              <MergeSearch
-                personId={person.personId}
-                onDone={() => {
-                  onSaved();
-                  onClose();
-                }}
-              />
-            ) : (
-              <button
-                onClick={() => setShowMerge(true)}
-                style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer", textDecoration: "underline", padding: 0 }}
-              >
-                Actually the same person as someone already in the system? Search to merge instead
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </>
   );
@@ -783,74 +812,6 @@ function ModalField({ label, children }: { label: string; children: React.ReactN
       <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</span>
       {children}
     </label>
-  );
-}
-
-// Folds this person's enrollments + attendance history onto an existing
-// real record — for when they turn out to be a duplicate of someone
-// already in the system under a fuller/different name. Admin-only,
-// matching every other People-data change in the app (unlike the rest of
-// this modal, which any signed-in user can use).
-function MergeSearch({ personId, onDone }: { personId: string; onDone: () => void }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [busy, setBusy] = useState(false);
-
-  async function handleChange(value: string) {
-    setQuery(value);
-    if (value.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    setResults((await searchPeople(value)).filter((r) => r.id !== personId));
-  }
-
-  async function handlePick(targetId: string, targetName: string) {
-    if (!window.confirm(`Move this person's attendance history onto "${targetName}"? This can't be easily undone.`)) return;
-    setBusy(true);
-    try {
-      await mergePendingPerson(personId, targetId);
-      onDone();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div>
-      <input
-        autoFocus
-        placeholder="Search People…"
-        value={query}
-        onChange={(e) => handleChange(e.target.value)}
-        style={modalInputStyle}
-      />
-      <div style={{ marginTop: 6, display: "grid", gap: 4, maxHeight: 160, overflowY: "auto" }}>
-        {results.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => handlePick(r.id, formatFullName(r.name, r.preferredName))}
-            disabled={busy}
-            style={{
-              textAlign: "left",
-              padding: "6px 8px",
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--border)",
-              background: "var(--card-bg)",
-              fontSize: "0.8rem",
-              color: "var(--text)",
-              cursor: "pointer",
-            }}
-          >
-            {formatFullName(r.name, r.preferredName)}
-            {r.linkStatus === "pending" && <span style={{ color: "var(--muted)" }}> (pending)</span>}
-          </button>
-        ))}
-        {query.trim().length >= 2 && results.length === 0 && (
-          <p style={{ fontSize: "0.75rem", color: "var(--muted)", padding: "4px 8px" }}>No matches.</p>
-        )}
-      </div>
-    </div>
   );
 }
 
