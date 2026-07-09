@@ -95,7 +95,6 @@ export function CreateActivityForm({
   const [notesTouched, setNotesTouched] = useState(mode === "edit");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
 
   // Keeps recomputing the note from facilitators until the creator edits
   // it themselves — after that, their wording wins.
@@ -129,7 +128,7 @@ export function CreateActivityForm({
           participants: participants.map(toPersonInput),
         });
         if (onSaved) onSaved({ id: initial!.id, name, startDate: initial!.startDate, cadenceType, hidden: status === "archived" });
-        else setDone(true);
+        else router.push("/app/activities");
       } else {
         const created = await createActivityWithRoster({
           name,
@@ -143,7 +142,7 @@ export function CreateActivityForm({
           participants: participants.map(toPersonInput),
         });
         if (onSaved) onSaved({ id: created.id, name, startDate: created.startDate, cadenceType, hidden: false });
-        else setDone(true);
+        else router.push("/app/activities");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : `Couldn't ${mode === "edit" ? "save" : "create"} that activity.`);
@@ -164,30 +163,6 @@ export function CreateActivityForm({
       return;
     }
     handleSubmit();
-  }
-
-  if (done) {
-    return (
-      <div style={{ display: "grid", gap: "var(--space-3)" }}>
-        <p style={{ color: "var(--text)", fontSize: "0.95rem" }}>{mode === "edit" ? "Activity updated." : "Activity created."}</p>
-        <button
-          onClick={() => router.push("/app/activities")}
-          style={{
-            minHeight: "var(--tap-min)",
-            padding: "0 24px",
-            borderRadius: "var(--radius-pill)",
-            border: "none",
-            background: "var(--deep)",
-            color: "var(--cream)",
-            fontSize: "0.9rem",
-            cursor: "pointer",
-            justifySelf: "start",
-          }}
-        >
-          Back to Activities
-        </button>
-      </div>
-    );
   }
 
   return (

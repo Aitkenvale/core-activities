@@ -280,7 +280,7 @@ function ActivitySection({
           No one enrolled yet —{" "}
           <button
             onClick={() => onOpenEnrol(activity)}
-            style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--warm)", textDecoration: "underline", cursor: "pointer" }}
+            style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--heading)", textDecoration: "underline", cursor: "pointer" }}
           >
             enrol participants
           </button>{" "}
