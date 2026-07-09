@@ -543,7 +543,7 @@ function TextCell({
 
   if (!editing) {
     return (
-      <td style={cellStyle} onClick={onEdit}>
+      <td style={{ ...cellStyle, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} onClick={onEdit}>
         {value || <span style={{ color: "var(--border)" }}>—</span>}
       </td>
     );
