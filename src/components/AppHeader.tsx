@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { AccountMenu } from "@/components/AccountMenu";
 import { BackButton } from "@/components/BackButton";
 import { isAdminWidePage } from "@/lib/adminWidePages";
+import { getPageTitle } from "@/lib/pageTitle";
 
 // The admin data grids need the vertical space for the spreadsheet — this
 // header (title, back button, account menu) would just be redundant there,
@@ -12,6 +13,7 @@ import { isAdminWidePage } from "@/lib/adminWidePages";
 export function AppHeader() {
   const pathname = usePathname();
   if (isAdminWidePage(pathname)) return null;
+  const title = getPageTitle(pathname);
 
   return (
     <div
@@ -32,7 +34,7 @@ export function AppHeader() {
       <BackButton />
       <Link href="/app" style={{ display: "inline-block" }}>
         <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.35rem", color: "var(--heading)" }}>
-          Core Activities
+          {title}
         </h1>
       </Link>
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>

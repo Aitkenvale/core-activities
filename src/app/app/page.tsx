@@ -1,17 +1,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-
-const USER_TILES = [
-  { href: "/app/attendance", label: "Update Attendance" },
-  { href: "/app/activities", label: "Create New Activity" },
-  { href: "/app/people", label: "Find Person" },
-  { href: "/app/cpp-training", label: "CPP Training" },
-  { href: "/app/qr", label: "Share Registration QR Code" },
-];
-
-// Admin-only — everything not listed here is a user function.
-const ADMIN_TILES = [{ href: "/app/admin", label: "Admin Functions" }];
+import { USER_TILES, ADMIN_TILES } from "@/lib/navTiles";
 
 const tileStyle = {
   display: "flex",
@@ -28,13 +18,24 @@ const tileStyle = {
 export default async function AppHome() {
   const session = await auth.api.getSession({ headers: await headers() });
   const isAdmin = session?.user?.role === "admin";
+  const userTiles = USER_TILES.filter((t) => !t.adminOnly || isAdmin);
 
   return (
     <>
       <div style={{ display: "grid", gap: "var(--space-3)" }}>
-        {USER_TILES.map((tile) => (
+        {userTiles.map((tile) => (
           <Link key={tile.href} href={tile.href} style={tileStyle}>
-            {tile.label}
+            {/* The QR tile is one link for now (text + icon) — each half
+                gets its own destination once the registration form and
+                QR share flow are actually built. */}
+            {tile.href === "/app/qr" ? (
+              <>
+                <span style={{ flex: 1 }}>{tile.label}</span>
+                <QrIcon />
+              </>
+            ) : (
+              tile.label
+            )}
           </Link>
         ))}
       </div>
@@ -52,5 +53,19 @@ export default async function AppHome() {
         </>
       )}
     </>
+  );
+}
+
+function QrIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="3" height="3" rx="0.5" />
+      <rect x="18" y="14" width="3" height="3" rx="0.5" />
+      <rect x="14" y="18" width="3" height="3" rx="0.5" />
+      <rect x="18" y="18" width="3" height="3" rx="0.5" />
+    </svg>
   );
 }
