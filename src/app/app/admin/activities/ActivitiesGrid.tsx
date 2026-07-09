@@ -340,14 +340,13 @@ export function ActivitiesGrid({
                     <button
                       onClick={() => setCadenceModalFor(r)}
                       style={{
-                        background: "none",
-                        border: "1px dashed var(--gold)",
-                        borderRadius: 2,
-                        padding: "4px 8px",
-                        fontSize: "0.8rem",
-                        color: "var(--warm)",
+                        ...inputStyle,
+                        border: "1px solid var(--border)",
+                        textAlign: "left",
                         cursor: "pointer",
                         whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
                     >
                       {describeCadence(r.cadenceType, r.cadenceConfig)}
