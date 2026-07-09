@@ -298,7 +298,7 @@ function ActivitySection({
                             <button
                               onClick={() => onToggleLocked(activity.id, d.sessionDate, !d.locked)}
                               title={d.locked ? "Unconfirm this session" : "Confirm this session"}
-                              style={iconButtonStyle(d.locked, "var(--red)")}
+                              style={iconButtonStyle(d.locked, "var(--green)")}
                             >
                               <LockGlyph />
                             </button>
