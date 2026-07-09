@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   searchPeopleDirectory,
   updatePersonMobile,
@@ -37,6 +37,17 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // autoFocus alone can be unreliable right after a client-side route
+  // transition — focusing imperatively on mount is more consistent. Note
+  // this puts the caret in the box either way, but iOS Safari specifically
+  // still won't slide the on-screen keyboard up on a script-triggered focus
+  // (only a real tap does that) — that part is a platform restriction, not
+  // something fixable from here.
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   async function handleChange(value: string) {
     setQuery(value);
@@ -59,6 +70,7 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
           throughout (search box included) so the whole flow — search,
           result, and the edit form — fits one mobile screen. */}
       <input
+        ref={inputRef}
         autoFocus
         placeholder="Search by name or household…"
         value={query}
@@ -122,7 +134,11 @@ function PersonDetail({
       <DetailRow label="AKA" value={result.preferredName ?? "—"} />
       <DetailRow label="Mobile" value={result.mobile ?? "—"} href={result.mobile ? `tel:${result.mobile}` : undefined} />
       <DetailRow label="Household" value={result.householdName ?? "—"} />
-      <DetailRow label="Address" value={result.householdAddress ?? "—"} />
+      <DetailRow
+        label="Address"
+        value={result.householdAddress ?? "—"}
+        action={result.householdAddress ? <MapsLinkButton address={result.householdAddress} /> : undefined}
+      />
       {result.comment && <DetailRow label="Notes" value={result.comment} />}
       {isAdmin && (
         <button
@@ -330,17 +346,65 @@ function FieldInput({ label, value, onChange }: { label: string; value: string; 
   );
 }
 
-function DetailRow({ label, value, href }: { label: string; value: string; href?: string }) {
+function DetailRow({ label, value, href, action }: { label: string; value: string; href?: string; action?: React.ReactNode }) {
   return (
-    <p style={{ fontSize: "0.85rem", color: "var(--text)", margin: 0 }}>
-      <span style={{ color: "var(--muted)" }}>{label}: </span>
-      {href ? (
-        <a href={href} style={{ color: "var(--warm)" }}>
-          {value}
-        </a>
-      ) : (
-        value
-      )}
-    </p>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+      <p style={{ fontSize: "0.85rem", color: "var(--text)", margin: 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ color: "var(--muted)" }}>{label}: </span>
+        {href ? (
+          <a href={href} style={{ color: "var(--warm)" }}>
+            {value}
+          </a>
+        ) : (
+          value
+        )}
+      </p>
+      {action}
+    </div>
+  );
+}
+
+// Opens the address in whichever maps app the device actually treats as
+// default — Apple Maps via universal link on iOS, Google Maps everywhere
+// else (Android intent-handles this into its own app when installed).
+// Computed at click time (not as a static href) so there's no server/client
+// mismatch from reading navigator.userAgent during render.
+function MapsLinkButton({ address }: { address: string }) {
+  function handleClick() {
+    const encoded = encodeURIComponent(address);
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const href = isIOS ? `https://maps.apple.com/?q=${encoded}` : `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+    window.open(href, "_blank", "noopener,noreferrer");
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      title="Open in Maps"
+      style={{
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 26,
+        height: 26,
+        padding: 0,
+        border: "none",
+        background: "none",
+        color: "var(--warm)",
+        cursor: "pointer",
+      }}
+    >
+      <MapPinIcon />
+    </button>
+  );
+}
+
+function MapPinIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
   );
 }
