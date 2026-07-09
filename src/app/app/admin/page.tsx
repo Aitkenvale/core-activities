@@ -29,10 +29,9 @@ export default async function AdminMenuPage() {
 
   return (
     <>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-6)" }}>
-        Admin Functions
-      </h2>
-      <div style={{ display: "grid", gap: "var(--space-3)" }}>
+      {/* No body heading — AppHeader's sticky title already shows "Admin
+          Functions" for this route (src/lib/pageTitle.ts). */}
+      <div style={{ display: "grid", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
         {ADMIN_TILES.map((tile) => (
           <Link key={tile.href} href={tile.href} style={tileStyle}>
             {tile.label}

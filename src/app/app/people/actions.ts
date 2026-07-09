@@ -24,8 +24,8 @@ export async function searchPeopleDirectory(query: string) {
       name: people.name,
       preferredName: people.preferredName,
       householdName: households.name,
+      householdAddress: households.address,
       mobile: people.mobile,
-      email: people.email,
     })
     .from(people)
     .leftJoin(households, eq(households.id, people.householdId))

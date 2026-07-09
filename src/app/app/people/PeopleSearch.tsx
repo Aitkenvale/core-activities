@@ -9,8 +9,8 @@ type Result = {
   name: string;
   preferredName: string | null;
   householdName: string | null;
+  householdAddress: string | null;
   mobile: string | null;
-  email: string | null;
 };
 
 export function PeopleSearch() {
@@ -30,9 +30,8 @@ export function PeopleSearch() {
 
   return (
     <>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-5)" }}>
-        Find Person
-      </h2>
+      {/* No body heading here — AppHeader's sticky title already shows
+          "Find Person" for this route (src/lib/pageTitle.ts). */}
       <input
         autoFocus
         placeholder="Search by name…"
@@ -44,6 +43,7 @@ export function PeopleSearch() {
           fontSize: 16,
           minHeight: "var(--tap-min)",
           padding: "10px 12px",
+          marginTop: "var(--space-2)",
           border: "1px solid var(--border)",
           borderRadius: "var(--radius-sm)",
           background: "var(--card-bg)",
@@ -74,9 +74,11 @@ export function PeopleSearch() {
               </button>
               {expanded && (
                 <div style={{ padding: "0 var(--space-4) var(--space-4)", display: "grid", gap: 6 }}>
+                  <DetailRow label="Real Name" value={r.name} />
+                  <DetailRow label="AKA" value={r.preferredName ?? "—"} />
+                  <DetailRow label="Mobile" value={r.mobile ?? "—"} href={r.mobile ? `tel:${r.mobile}` : undefined} />
                   <DetailRow label="Household" value={r.householdName ?? "—"} />
-                  {r.mobile && <DetailRow label="Mobile" value={r.mobile} href={`tel:${r.mobile}`} />}
-                  {r.email && <DetailRow label="Email" value={r.email} href={`mailto:${r.email}`} />}
+                  <DetailRow label="Address" value={r.householdAddress ?? "—"} />
                 </div>
               )}
             </div>

@@ -12,10 +12,9 @@ export default async function AttendanceCategoryPicker() {
 
   return (
     <>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-6)" }}>
-        Update Attendance
-      </h2>
-      <div style={{ display: "grid", gap: "var(--space-3)" }}>
+      {/* No body heading — AppHeader's sticky title already shows "Update
+          Attendance" for this route (src/lib/pageTitle.ts). */}
+      <div style={{ display: "grid", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
         {categories.map((cat) => (
           <Link
             key={cat.id}
