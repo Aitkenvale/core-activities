@@ -3,7 +3,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { updateHousehold, createHousehold, searchPeopleForContact, mergeHouseholds, type HouseholdPatch } from "./actions";
+import { updateHousehold, createHousehold, searchPeopleForContact, createContactPerson, mergeHouseholds, type HouseholdPatch } from "./actions";
 
 type Row = {
   id: string;
@@ -551,6 +551,7 @@ function ContactCell({
 }) {
   const [query, setQuery] = useState(row.contactName ?? "");
   const [results, setResults] = useState<{ id: string; name: string; preferredName: string | null }[]>([]);
+  const [creating, setCreating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const router = useRouter();
@@ -601,6 +602,19 @@ function ContactCell({
     setResults(await searchPeopleForContact(value));
   }
 
+  async function handleCreateContact() {
+    const trimmed = query.trim();
+    if (!trimmed || creating) return;
+    setCreating(true);
+    try {
+      const created = await createContactPerson(trimmed);
+      onSave(created.id, created.name, created.preferredName);
+      onDone();
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <td style={cellStyle}>
       <input
@@ -641,6 +655,26 @@ function ContactCell({
             >
               (no contact)
             </button>
+            {query.trim() && (
+              <button
+                onClick={handleCreateContact}
+                disabled={creating}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "6px 10px",
+                  fontSize: "0.8rem",
+                  color: "var(--warm)",
+                  border: "none",
+                  borderTop: "1px dashed var(--border)",
+                  background: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {creating ? "Creating…" : `+ Create new contact: “${query.trim()}”`}
+              </button>
+            )}
             {results.map((p) => (
               <button
                 key={p.id}

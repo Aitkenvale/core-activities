@@ -45,6 +45,20 @@ export async function searchPeopleForContact(query: string) {
   return rows.filter((r) => !CONTACT_INELIGIBLE_CATEGORIES.includes(getCategoryLabel(r.dob) ?? "")).map(({ id, name, preferredName }) => ({ id, name, preferredName }));
 }
 
+// Same reasoning as the attendance Add Info flow's createContactPerson — a
+// bare person record, not enrolled anywhere, just so a household can point
+// its contact at someone who isn't in People yet.
+export async function createContactPerson(name: string) {
+  await requireAdmin();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name is required");
+  const [created] = await db
+    .insert(people)
+    .values({ name: trimmed, personType: "adult", linkStatus: "pending", source: "quick_add" })
+    .returning({ id: people.id, name: people.name, preferredName: people.preferredName });
+  return created;
+}
+
 // Moves every person from the secondary household onto the primary, then
 // hides the (now-empty) secondary — same soft-delete convention as
 // mergePendingPerson for a duplicate person, kept for history rather than
