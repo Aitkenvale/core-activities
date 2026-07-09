@@ -52,11 +52,13 @@ const inputStyle: React.CSSProperties = {
   color: "var(--text)",
 };
 
-export function HouseholdsGrid({ initialRows }: { initialRows: Row[] }) {
+export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRows: Row[]; initialFilter?: string }) {
   const [rows, setRows] = useState(initialRows);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
-  const [filterText, setFilterText] = useState("");
+  // Seeded from ?q= — the People grid's household link icon jumps here with
+  // the household name pre-filled so the linked record is immediately visible.
+  const [filterText, setFilterText] = useState(initialFilter);
   const [showHidden, setShowHidden] = useState(false);
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
   const [newName, setNewName] = useState("");

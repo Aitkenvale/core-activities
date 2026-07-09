@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { updatePerson, searchHouseholds, type PersonPatch } from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS } from "@/lib/category";
 
@@ -259,6 +260,7 @@ export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
                 />
                 <TextCell
                   value={r.mobile}
+                  copyable
                   onSave={(v) => {
                     patchLocal(r.id, { mobile: v || null });
                     save(r.id, { mobile: v || null });
@@ -375,6 +377,52 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
+// Shared by the mobile column's copy button and the household column's
+// link button — sits to the left of the cell's display text, only when
+// not editing, so it never collides with the click-to-edit target.
+const iconButtonStyle: React.CSSProperties = {
+  flexShrink: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 20,
+  height: 20,
+  padding: 0,
+  border: "none",
+  background: "none",
+  color: "var(--muted)",
+  cursor: "pointer",
+};
+
+function CopyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="8" y="8" width="13" height="13" rx="2" />
+      <path d="M5 16H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+// A chain link — distinct from the copy icon, since this navigates to
+// another record rather than copying this cell's value.
+function LinkIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warm)" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 17H7A5 5 0 0 1 7 7h2" />
+      <path d="M15 7h2a5 5 0 1 1 0 10h-2" />
+      <path d="M8 12h8" />
+    </svg>
+  );
+}
+
 function TextCell({
   value,
   onSave,
@@ -382,6 +430,7 @@ function TextCell({
   onEdit,
   onDone,
   type = "text",
+  copyable = false,
 }: {
   value: string | null;
   onSave: (v: string) => void;
@@ -389,13 +438,33 @@ function TextCell({
   onEdit: () => void;
   onDone: () => void;
   type?: "text" | "date";
+  copyable?: boolean;
 }) {
   const [draft, setDraft] = useState(value || "");
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!value) return;
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  }
 
   if (!editing) {
     return (
-      <td style={{ ...cellStyle, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} onClick={onEdit}>
-        {value || <span style={{ color: "var(--border)" }}>—</span>}
+      <td style={{ ...cellStyle, cursor: "pointer" }} onClick={onEdit}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          {copyable && value && (
+            <button onClick={handleCopy} title="Copy" style={iconButtonStyle}>
+              {copied ? <CheckIcon /> : <CopyIcon />}
+            </button>
+          )}
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+            {value || <span style={{ color: "var(--border)" }}>—</span>}
+          </span>
+        </span>
       </td>
     );
   }
@@ -440,6 +509,7 @@ function HouseholdCell({
   const [results, setResults] = useState<{ id: string; name: string }[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const router = useRouter();
 
   // The table wraps in an overflow:auto container to allow horizontal
   // scrolling, which also clips any absolutely-positioned child — so the
@@ -462,8 +532,24 @@ function HouseholdCell({
 
   if (!editing) {
     return (
-      <td style={{ ...cellStyle, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} onClick={onEdit}>
-        {row.householdName || <span style={{ color: "var(--border)" }}>—</span>}
+      <td style={{ ...cellStyle, cursor: "pointer" }} onClick={onEdit}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          {row.householdName && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/app/admin/households?q=${encodeURIComponent(row.householdName!)}`);
+              }}
+              title="Open in Edit Households"
+              style={iconButtonStyle}
+            >
+              <LinkIcon />
+            </button>
+          )}
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+            {row.householdName || <span style={{ color: "var(--border)" }}>—</span>}
+          </span>
+        </span>
       </td>
     );
   }

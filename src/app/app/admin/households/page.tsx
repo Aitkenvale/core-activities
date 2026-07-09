@@ -6,9 +6,14 @@ import { households } from "@/db/schema/households";
 import { people } from "@/db/schema/people";
 import { HouseholdsGrid } from "./HouseholdsGrid";
 
-export default async function AdminHouseholdsPage() {
+export default async function AdminHouseholdsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.role !== "admin") redirect("/app");
+  const { q } = await searchParams;
 
   const [allHouseholds, allPeople] = await Promise.all([
     db.select().from(households),
@@ -30,5 +35,5 @@ export default async function AdminHouseholdsPage() {
     peopleCount: peopleCounts.get(h.id) ?? 0,
   }));
 
-  return <HouseholdsGrid initialRows={rows} />;
+  return <HouseholdsGrid initialRows={rows} initialFilter={q ?? ""} />;
 }
