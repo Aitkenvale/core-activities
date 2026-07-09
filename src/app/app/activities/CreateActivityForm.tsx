@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createActivityWithRoster } from "./actions";
+import { createActivityWithRoster, updateActivityWithRoster, type ActivityForEdit } from "./actions";
 import { CadenceFields } from "@/components/CadenceFields";
 import { PeoplePicker, type PickedPerson } from "./PeoplePicker";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
@@ -42,18 +42,31 @@ function toPersonInput(p: PickedPerson) {
   return p.kind === "existing" ? { kind: "existing" as const, id: p.id } : { kind: "new" as const, name: p.name };
 }
 
-export function CreateActivityForm({ categories, neighbourhoods }: { categories: Category[]; neighbourhoods: Neighbourhood[] }) {
+export function CreateActivityForm({
+  categories,
+  neighbourhoods,
+  mode = "create",
+  initial,
+}: {
+  categories: Category[];
+  neighbourhoods: Neighbourhood[];
+  mode?: "create" | "edit";
+  initial?: ActivityForEdit;
+}) {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
-  const [neighbourhoodId, setNeighbourhoodId] = useState(neighbourhoods[0]?.id ?? "");
-  const [startDate, setStartDate] = useState("");
-  const [cadenceType, setCadenceType] = useState<CadenceType>("ad_hoc");
-  const [cadenceConfig, setCadenceConfig] = useState<CadenceConfig>({});
-  const [facilitators, setFacilitators] = useState<PickedPerson[]>([]);
-  const [participants, setParticipants] = useState<PickedPerson[]>([]);
-  const [notes, setNotes] = useState("");
-  const [notesTouched, setNotesTouched] = useState(false);
+  const [name, setName] = useState(initial?.name ?? "");
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? categories[0]?.id ?? "");
+  const [neighbourhoodId, setNeighbourhoodId] = useState(initial?.neighbourhoodId ?? neighbourhoods[0]?.id ?? "");
+  const [startDate, setStartDate] = useState(initial?.startDate ?? "");
+  const [cadenceType, setCadenceType] = useState<CadenceType>(initial?.cadenceType ?? "ad_hoc");
+  const [cadenceConfig, setCadenceConfig] = useState<CadenceConfig>(initial?.cadenceConfig ?? {});
+  const [facilitators, setFacilitators] = useState<PickedPerson[]>(initial?.facilitators ?? []);
+  const [participants, setParticipants] = useState<PickedPerson[]>(initial?.participants ?? []);
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  // Editing an existing activity starts "touched" — the loaded notes may
+  // already be custom wording, so the unlinked-facilitator auto-note below
+  // shouldn't stomp on them the moment the form mounts.
+  const [notesTouched, setNotesTouched] = useState(mode === "edit");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -77,20 +90,33 @@ export function CreateActivityForm({ categories, neighbourhoods }: { categories:
     setSubmitting(true);
     setError(null);
     try {
-      await createActivityWithRoster({
-        name,
-        categoryId,
-        neighbourhoodId,
-        startDate: startDate || null,
-        cadenceType,
-        cadenceConfig,
-        notes,
-        facilitators: facilitators.map(toPersonInput),
-        participants: participants.map(toPersonInput),
-      });
+      if (mode === "edit") {
+        await updateActivityWithRoster(initial!.id, {
+          name,
+          categoryId,
+          neighbourhoodId,
+          cadenceType,
+          cadenceConfig,
+          notes,
+          facilitators: facilitators.map(toPersonInput),
+          participants: participants.map(toPersonInput),
+        });
+      } else {
+        await createActivityWithRoster({
+          name,
+          categoryId,
+          neighbourhoodId,
+          startDate: startDate || null,
+          cadenceType,
+          cadenceConfig,
+          notes,
+          facilitators: facilitators.map(toPersonInput),
+          participants: participants.map(toPersonInput),
+        });
+      }
       setDone(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't create that activity.");
+      setError(e instanceof Error ? e.message : `Couldn't ${mode === "edit" ? "save" : "create"} that activity.`);
     } finally {
       setSubmitting(false);
     }
@@ -99,7 +125,7 @@ export function CreateActivityForm({ categories, neighbourhoods }: { categories:
   if (done) {
     return (
       <div style={{ display: "grid", gap: "var(--space-3)" }}>
-        <p style={{ color: "var(--text)", fontSize: "0.95rem" }}>Activity created.</p>
+        <p style={{ color: "var(--text)", fontSize: "0.95rem" }}>{mode === "edit" ? "Activity updated." : "Activity created."}</p>
         <button
           onClick={() => router.push("/app")}
           style={{
@@ -149,10 +175,12 @@ export function CreateActivityForm({ categories, neighbourhoods }: { categories:
         </select>
       </section>
 
-      <section>
-        <FieldLabel>Start Date (optional)</FieldLabel>
-        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={inputStyle} />
-      </section>
+      {mode === "create" && (
+        <section>
+          <FieldLabel>Start Date (optional)</FieldLabel>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={inputStyle} />
+        </section>
+      )}
 
       <section>
         <h3 style={sectionHeadingStyle}>Cadence</h3>
@@ -203,7 +231,7 @@ export function CreateActivityForm({ categories, neighbourhoods }: { categories:
           cursor: "pointer",
         }}
       >
-        {submitting ? "Creating…" : "Create Activity"}
+        {mode === "edit" ? (submitting ? "Saving…" : "Save Activity") : submitting ? "Creating…" : "Create Activity"}
       </button>
     </div>
   );

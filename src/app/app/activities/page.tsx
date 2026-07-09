@@ -1,21 +1,26 @@
-import { asc, eq } from "drizzle-orm";
-import { db } from "@/db/client";
-import { activityCategories } from "@/db/schema/activityCategories";
-import { neighbourhoods } from "@/db/schema/neighbourhoods";
-import { CreateActivityForm } from "./CreateActivityForm";
+import Link from "next/link";
 
-// This page has no auth check to force dynamic rendering (it's
-// intentionally open to any signed-in user, not just admins), so without
-// this Next.js would prerender it statically and freeze the category/
-// neighbourhood lists at build time — new neighbourhoods wouldn't show up
-// here until the next deploy.
-export const dynamic = "force-dynamic";
+const tileStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  minHeight: "var(--tap-min)",
+  background: "var(--card-bg)",
+  borderRadius: "var(--radius-lg)",
+  boxShadow: "var(--shadow-card)",
+  padding: "var(--space-5)",
+  fontSize: "1.05rem",
+  color: "var(--text)",
+};
 
-export default async function ActivitiesPage() {
-  const [categories, neighbourhoodRows] = await Promise.all([
-    db.select().from(activityCategories).where(eq(activityCategories.enabled, true)).orderBy(asc(activityCategories.sortOrder)),
-    db.select().from(neighbourhoods).orderBy(asc(neighbourhoods.name)),
-  ]);
-
-  return <CreateActivityForm categories={categories} neighbourhoods={neighbourhoodRows} />;
+export default function ActivitiesHomePage() {
+  return (
+    <div style={{ display: "grid", gap: "var(--space-3)" }}>
+      <Link href="/app/activities/edit" style={tileStyle}>
+        Edit Activity
+      </Link>
+      <Link href="/app/activities/create" style={tileStyle}>
+        Create Activity
+      </Link>
+    </div>
+  );
 }

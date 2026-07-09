@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, asc, eq, ilike, or } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
@@ -112,4 +112,147 @@ export async function createActivityWithRoster(input: {
   await enroll(input.participants, "participant");
 
   return activity;
+}
+
+// Not admin-gated, same reasoning as searchPeopleForPicker above — any
+// signed-in facilitator can edit an activity, not just admins. Complete
+// (hidden) activities are excluded — those belong in the admin grid's
+// "Complete" filter, not here.
+export async function searchActivitiesForPicker(query: string) {
+  await requireUserId();
+  const rows = await db
+    .select({ id: activityInstances.id, name: activityInstances.name, categoryId: activityInstances.categoryId })
+    .from(activityInstances)
+    .where(eq(activityInstances.hidden, false))
+    .orderBy(asc(activityInstances.name));
+
+  const q = query.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter((r) => r.name.toLowerCase().includes(q));
+}
+
+export type ActivityForEdit = {
+  id: string;
+  name: string;
+  categoryId: string;
+  neighbourhoodId: string;
+  startDate: string | null;
+  cadenceType: CadenceType;
+  cadenceConfig: CadenceConfig;
+  notes: string;
+  facilitators: { kind: "existing"; id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" }[];
+  participants: { kind: "existing"; id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" }[];
+};
+
+export async function getActivityForEdit(activityInstanceId: string): Promise<ActivityForEdit | null> {
+  await requireUserId();
+  const [activity] = await db.select().from(activityInstances).where(eq(activityInstances.id, activityInstanceId));
+  if (!activity) return null;
+
+  const roster = await db
+    .select({
+      personId: people.id,
+      name: people.name,
+      preferredName: people.preferredName,
+      linkStatus: people.linkStatus,
+      role: activityEnrollments.role,
+    })
+    .from(activityEnrollments)
+    .innerJoin(people, eq(people.id, activityEnrollments.personId))
+    .where(and(eq(activityEnrollments.activityInstanceId, activityInstanceId), eq(activityEnrollments.active, true)));
+
+  function byRole(role: "facilitator" | "participant") {
+    return roster
+      .filter((r) => r.role === role)
+      .map((r) => ({ kind: "existing" as const, id: r.personId, name: r.name, preferredName: r.preferredName, linkStatus: r.linkStatus }));
+  }
+
+  return {
+    id: activity.id,
+    name: activity.name,
+    categoryId: activity.categoryId,
+    neighbourhoodId: activity.neighbourhoodId,
+    startDate: activity.startDate,
+    cadenceType: activity.cadenceType as CadenceType,
+    cadenceConfig: (activity.cadenceConfig ?? {}) as CadenceConfig,
+    notes: activity.description ?? "",
+    facilitators: byRole("facilitator"),
+    participants: byRole("participant"),
+  };
+}
+
+// Reconciles the desired roster against whoever's currently actively
+// enrolled — same enroll/disable pattern as the attendance session's own
+// roster actions (enrollExistingPerson / setEnrollmentActive), rather than
+// wiping and recreating enrollments, so attendance history tied to an
+// enrollment (if any is ever added later) isn't disturbed by an edit.
+export async function updateActivityWithRoster(
+  activityInstanceId: string,
+  input: {
+    name: string;
+    categoryId: string;
+    neighbourhoodId: string;
+    cadenceType: CadenceType;
+    cadenceConfig: CadenceConfig;
+    notes: string;
+    facilitators: PersonInput[];
+    participants: PersonInput[];
+  },
+) {
+  await requireUserId();
+  const trimmedName = input.name.trim();
+  if (!trimmedName) throw new Error("Name is required");
+
+  await db
+    .update(activityInstances)
+    .set({
+      name: trimmedName,
+      categoryId: input.categoryId,
+      neighbourhoodId: input.neighbourhoodId,
+      description: input.notes.trim() || null,
+      cadenceType: input.cadenceType,
+      cadenceConfig: input.cadenceConfig,
+      updatedAt: new Date(),
+    })
+    .where(eq(activityInstances.id, activityInstanceId));
+
+  async function reconcile(entries: PersonInput[], role: "participant" | "facilitator") {
+    const currentlyActive = await db
+      .select({ personId: activityEnrollments.personId })
+      .from(activityEnrollments)
+      .where(and(eq(activityEnrollments.activityInstanceId, activityInstanceId), eq(activityEnrollments.role, role), eq(activityEnrollments.active, true)));
+    const currentIds = new Set(currentlyActive.map((r) => r.personId));
+    const desiredIds = new Set(entries.filter((e) => e.kind === "existing").map((e) => e.id));
+
+    for (const personId of currentIds) {
+      if (!desiredIds.has(personId)) {
+        await db
+          .update(activityEnrollments)
+          .set({ active: false })
+          .where(and(eq(activityEnrollments.activityInstanceId, activityInstanceId), eq(activityEnrollments.personId, personId)));
+      }
+    }
+
+    for (const entry of entries) {
+      if (entry.kind === "existing") {
+        if (currentIds.has(entry.id)) continue;
+        await db
+          .insert(activityEnrollments)
+          .values({ activityInstanceId, personId: entry.id, role })
+          .onConflictDoUpdate({
+            target: [activityEnrollments.activityInstanceId, activityEnrollments.personId],
+            set: { role, active: true },
+          });
+      } else {
+        const [created] = await db
+          .insert(people)
+          .values({ name: entry.name.trim(), personType: role === "facilitator" ? "adult" : "child", linkStatus: "pending", source: "quick_add" })
+          .returning();
+        await db.insert(activityEnrollments).values({ activityInstanceId, personId: created.id, role });
+      }
+    }
+  }
+
+  await reconcile(input.facilitators, "facilitator");
+  await reconcile(input.participants, "participant");
 }
