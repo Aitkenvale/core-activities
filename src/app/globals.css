@@ -104,11 +104,12 @@ input[type="date"] {
   color-scheme: light dark;
 }
 
-/* Same issue for checkboxes — the browser renders a plain white box
-   regardless of page theme unless told to use its own dark form chrome,
-   and accent-color themes the checked-fill/tick to match our palette
+/* Same issue for checkboxes and radios — the browser renders a plain white
+   control regardless of page theme unless told to use its own dark form
+   chrome, and accent-color themes the checked-fill/dot to match our palette
    instead of the browser's default blue. */
-input[type="checkbox"] {
+input[type="checkbox"],
+input[type="radio"] {
   color-scheme: light dark;
   accent-color: var(--deep);
 }
