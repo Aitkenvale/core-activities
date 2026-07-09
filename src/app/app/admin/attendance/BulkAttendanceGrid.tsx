@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { setAttendance } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/actions";
+import { setAttendance, setLockStatus, setCancelledStatus } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/actions";
 import { addAttendanceDate } from "./actions";
 
 type Attendee = { personId: string; name: string; preferredName: string | null };
@@ -20,7 +20,9 @@ export type ActivityBlock = {
 };
 
 const NAME_COL_WIDTH = 170;
-const DATE_COL_WIDTH = 44;
+// Wider than a bare date needs, to fit the Confirm/Cancel icon buttons
+// underneath without wrapping.
+const DATE_COL_WIDTH = 60;
 const ROW_HEIGHT = 36;
 
 const nameCellStyle: React.CSSProperties = {
@@ -119,6 +121,34 @@ export function BulkAttendanceGrid({ initialActivities }: { initialActivities: A
     });
   }
 
+  function patchDate(activityId: string, sessionDate: string, patch: Partial<DateCol>) {
+    setActivities((acts) =>
+      acts.map((a) => (a.id === activityId ? { ...a, dates: a.dates.map((d) => (d.sessionDate === sessionDate ? { ...d, ...patch } : d)) } : a)),
+    );
+  }
+
+  function toggleLocked(activityId: string, sessionDate: string, next: boolean) {
+    setError(null);
+    patchDate(activityId, sessionDate, { locked: next });
+    setLockStatus(activityId, sessionDate, next).catch((e) => {
+      patchDate(activityId, sessionDate, { locked: !next });
+      setError(e instanceof Error ? e.message : "Couldn't save that change.");
+    });
+  }
+
+  // Cancelling is only offered while every checkbox for that date is clear
+  // (enforced by the caller disabling the control) — but reversing a
+  // mistaken cancel is always allowed, since nothing was lost by cancelling
+  // in the first place.
+  function toggleCancelled(activityId: string, sessionDate: string, next: boolean) {
+    setError(null);
+    patchDate(activityId, sessionDate, { cancelled: next });
+    setCancelledStatus(activityId, sessionDate, next).catch((e) => {
+      patchDate(activityId, sessionDate, { cancelled: !next });
+      setError(e instanceof Error ? e.message : "Couldn't save that change.");
+    });
+  }
+
   async function handleAddDate(activityId: string, sessionDate: string) {
     setError(null);
     try {
@@ -184,7 +214,15 @@ export function BulkAttendanceGrid({ initialActivities }: { initialActivities: A
 
       <div style={{ padding: "0 9px", display: "grid", gap: "var(--space-7)" }}>
         {visible.map((a) => (
-          <ActivitySection key={a.id} activity={a} statusByDatePerson={statusByActivity[a.id] ?? {}} onToggle={toggle} onAddDate={handleAddDate} />
+          <ActivitySection
+            key={a.id}
+            activity={a}
+            statusByDatePerson={statusByActivity[a.id] ?? {}}
+            onToggle={toggle}
+            onAddDate={handleAddDate}
+            onToggleLocked={toggleLocked}
+            onToggleCancelled={toggleCancelled}
+          />
         ))}
         {visible.length === 0 && <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>No matching activities.</p>}
       </div>
@@ -199,11 +237,15 @@ function ActivitySection({
   statusByDatePerson,
   onToggle,
   onAddDate,
+  onToggleLocked,
+  onToggleCancelled,
 }: {
   activity: ActivityBlock;
   statusByDatePerson: Record<string, Record<string, Status>>;
   onToggle: (activityId: string, sessionDate: string, personId: string) => void;
   onAddDate: (activityId: string, sessionDate: string) => void;
+  onToggleLocked: (activityId: string, sessionDate: string, next: boolean) => void;
+  onToggleCancelled: (activityId: string, sessionDate: string, next: boolean) => void;
 }) {
   return (
     <section>
@@ -230,24 +272,54 @@ function ActivitySection({
                 <thead>
                   <tr>
                     <th style={{ ...nameCellStyle, zIndex: 2, background: "var(--table-header-bg)", textAlign: "left", fontWeight: 500 }}>Name</th>
-                    {activity.dates.map((d) => (
-                      <th
-                        key={d.sessionDate}
-                        title={d.cancelled ? "Class cancelled — no attendance" : undefined}
-                        style={{
-                          ...dateCellStyle,
-                          background: "var(--table-header-bg)",
-                          fontWeight: 500,
-                          fontSize: "0.65rem",
-                          padding: "4px 2px",
-                          color: d.cancelled ? "var(--red)" : undefined,
-                          textDecoration: d.cancelled ? "line-through" : undefined,
-                        }}
-                      >
-                        {formatShort(d.sessionDate)}
-                        {d.locked && !d.cancelled && <LockGlyph />}
-                      </th>
-                    ))}
+                    {activity.dates.map((d) => {
+                      const dateStatuses = statusByDatePerson[d.sessionDate] ?? {};
+                      const anyChecked = activity.attendees.some((p) => dateStatuses[p.personId] === "present");
+                      // Cancelling would otherwise silently orphan whatever's
+                      // already checked — only offer it while every box for
+                      // this date is clear. Reversing a cancel is always
+                      // allowed, since nothing was lost by cancelling.
+                      const canCancel = d.cancelled || !anyChecked;
+                      return (
+                        <th
+                          key={d.sessionDate}
+                          style={{
+                            ...dateCellStyle,
+                            background: "var(--table-header-bg)",
+                            fontWeight: 500,
+                            fontSize: "0.65rem",
+                            padding: "4px 2px",
+                            color: d.cancelled ? "var(--red)" : undefined,
+                            textDecoration: d.cancelled ? "line-through" : undefined,
+                          }}
+                        >
+                          {formatShort(d.sessionDate)}
+                          <div style={{ display: "flex", justifyContent: "center", gap: 3, marginTop: 3 }}>
+                            <button
+                              onClick={() => onToggleLocked(activity.id, d.sessionDate, !d.locked)}
+                              title={d.locked ? "Unconfirm this session" : "Confirm this session"}
+                              style={iconButtonStyle(d.locked, "var(--red)")}
+                            >
+                              <LockGlyph />
+                            </button>
+                            <button
+                              onClick={() => canCancel && onToggleCancelled(activity.id, d.sessionDate, !d.cancelled)}
+                              disabled={!canCancel}
+                              title={
+                                d.cancelled
+                                  ? "Un-cancel this session"
+                                  : canCancel
+                                    ? "Cancel this session"
+                                    : "Clear every checkbox for this date before cancelling"
+                              }
+                              style={{ ...iconButtonStyle(d.cancelled, "var(--red)"), opacity: canCancel ? 1 : 0.35 }}
+                            >
+                              <CancelGlyph />
+                            </button>
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -357,11 +429,36 @@ function AddDateControl({ activityId, onAddDate }: { activityId: string; onAddDa
   );
 }
 
+function iconButtonStyle(active: boolean, activeColor: string): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 18,
+    height: 18,
+    padding: 0,
+    border: `1px solid ${active ? activeColor : "var(--border)"}`,
+    borderRadius: "var(--radius-sm)",
+    background: active ? activeColor : "var(--card-bg)",
+    color: active ? "var(--cream)" : "var(--muted)",
+    cursor: "pointer",
+  };
+}
+
 function LockGlyph() {
   return (
-    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", margin: "2px auto 0" }}>
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
       <rect x="5" y="11" width="14" height="9" rx="1.5" />
       <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
+function CancelGlyph() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="m6 6 12 12" />
     </svg>
   );
 }
