@@ -18,6 +18,7 @@ const ADMIN_TABS = [
   { href: "/app/admin/people", label: "People", icon: PeopleIcon, match: (p: string) => p.startsWith("/app/admin/people") },
   { href: "/app/admin/households", label: "Households", icon: HouseholdIcon, match: (p: string) => p.startsWith("/app/admin/households") },
   { href: "/app/admin/activities", label: "Activities", icon: ActivityIcon, match: (p: string) => p.startsWith("/app/admin/activities") },
+  { href: "/app/admin/settings", label: "Settings", icon: SettingsIcon, match: (p: string) => p.startsWith("/app/admin/settings") },
 ];
 
 // A persistent bottom tab bar for the app's primary sections, per Apple HIG's
@@ -125,6 +126,15 @@ function ActivityIcon({ active }: { active: boolean }) {
       <rect x="4" y="5" width="16" height="15" rx="2.5" />
       <path d="M8 3v4M16 3v4M4 10h16" />
       <path d="M8 14h2M14 14h2M8 17h2M14 17h2" />
+    </svg>
+  );
+}
+
+function SettingsIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 13.5a1.7 1.7 0 0 0 .34 1.87l.06.06a2.06 2.06 0 1 1-2.92 2.92l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V19.5a2.06 2.06 0 1 1-4.12 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2.06 2.06 0 1 1-2.92-2.92l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H4.5a2.06 2.06 0 1 1 0-4.12h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2.06 2.06 0 1 1 2.92-2.92l.06.06a1.7 1.7 0 0 0 1.87.34H10.6a1.7 1.7 0 0 0 1.03-1.56V4.5a2.06 2.06 0 1 1 4.12 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2.06 2.06 0 1 1 2.92 2.92l-.06.06a1.7 1.7 0 0 0-.34 1.87V10.6a1.7 1.7 0 0 0 1.56 1.03h.09a2.06 2.06 0 1 1 0 4.12h-.09a1.7 1.7 0 0 0-1.56 1.03Z" />
     </svg>
   );
 }

@@ -6,15 +6,13 @@ import { db } from "@/db/client";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { activityCategories } from "@/db/schema/activityCategories";
 import { neighbourhoods } from "@/db/schema/neighbourhoods";
-import { termDates } from "@/db/schema/termDates";
 import { ActivitiesGrid } from "./ActivitiesGrid";
-import { TermDatesEditor } from "./TermDatesEditor";
 
 export default async function AdminActivitiesPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.role !== "admin") redirect("/app");
 
-  const [rows, categories, neighbourhoodRows, terms] = await Promise.all([
+  const [rows, categories, neighbourhoodRows] = await Promise.all([
     db
       .select({
         id: activityInstances.id,
@@ -38,13 +36,7 @@ export default async function AdminActivitiesPage() {
       .orderBy(asc(activityInstances.name)),
     db.select().from(activityCategories).orderBy(asc(activityCategories.sortOrder)),
     db.select().from(neighbourhoods).orderBy(asc(neighbourhoods.name)),
-    db.select().from(termDates).orderBy(asc(termDates.year), asc(termDates.termNumber)),
   ]);
 
-  return (
-    <>
-      <ActivitiesGrid initialRows={rows} categories={categories} neighbourhoods={neighbourhoodRows} />
-      <TermDatesEditor initialTerms={terms} />
-    </>
-  );
+  return <ActivitiesGrid initialRows={rows} categories={categories} neighbourhoods={neighbourhoodRows} />;
 }

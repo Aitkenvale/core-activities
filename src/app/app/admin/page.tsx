@@ -7,6 +7,7 @@ const ADMIN_TILES = [
   { href: "/app/admin/people", label: "Edit All People" },
   { href: "/app/admin/households", label: "Edit Households" },
   { href: "/app/admin/activities", label: "Edit Activities" },
+  { href: "/app/admin/settings", label: "Settings" },
 ];
 
 const tileStyle = {

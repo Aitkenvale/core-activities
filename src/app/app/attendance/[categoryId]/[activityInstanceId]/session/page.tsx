@@ -9,6 +9,7 @@ import { termDates } from "@/db/schema/termDates";
 import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { getNextExpectedDate, getRecentExpectedDates, type CadenceConfig, type CadenceType } from "@/lib/cadence";
+import { getEditWindowMonths } from "@/lib/settings";
 import { SessionClient } from "./SessionClient";
 
 export default async function SessionPage({
@@ -22,7 +23,7 @@ export default async function SessionPage({
   const { date } = await searchParams;
 
   // Independent queries — fire together instead of one round trip at a time.
-  const [session, [activity], terms, roster] = await Promise.all([
+  const [session, [activity], terms, roster, editWindowMonths] = await Promise.all([
     auth.api.getSession({ headers: await headers() }),
     db.select().from(activityInstances).where(eq(activityInstances.id, activityInstanceId)),
     db.select().from(termDates),
@@ -38,6 +39,7 @@ export default async function SessionPage({
       .from(activityEnrollments)
       .innerJoin(people, eq(people.id, activityEnrollments.personId))
       .where(eq(activityEnrollments.activityInstanceId, activityInstanceId)),
+    getEditWindowMonths(),
   ]);
   const isAdmin = session?.user?.role === "admin";
 
@@ -68,6 +70,7 @@ export default async function SessionPage({
       roster={roster}
       statusByPersonId={statusByPersonId}
       isAdmin={isAdmin}
+      editWindowMonths={editWindowMonths}
     />
   );
 }

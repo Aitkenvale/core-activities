@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "@/components/AccountMenu";
 import { BackButton } from "@/components/BackButton";
+import { isAdminWidePage } from "@/lib/adminWidePages";
 
-// The admin data grids have their own tab bar and need the vertical space
-// for the spreadsheet — this header (title, back button, account menu)
-// would just be redundant there, so it hides itself on those routes.
+// The admin data grids need the vertical space for the spreadsheet — this
+// header (title, back button, account menu) would just be redundant there,
+// so it hides itself on those routes only.
 export function AppHeader() {
   const pathname = usePathname();
-  if (pathname.startsWith("/app/admin/")) return null;
+  if (isAdminWidePage(pathname)) return null;
 
   return (
     <div

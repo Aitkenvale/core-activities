@@ -25,14 +25,13 @@ type RosterRow = {
 
 type Status = "present" | "absent" | undefined;
 
-// Must match NON_ADMIN_EDIT_WINDOW_MONTHS in actions.ts — this is only a UI
-// hint (disabling controls so nothing looks saved when the server would
-// reject it); the actual rule is enforced server-side regardless.
-const NON_ADMIN_EDIT_WINDOW_MONTHS = 3;
-
-function isOutsideEditWindow(sessionDate: string): boolean {
+// editWindowMonths is passed down from the server (Settings > Security,
+// src/lib/settings.ts) — this is only a UI hint (disabling controls so
+// nothing looks saved when the server would reject it); the actual rule is
+// enforced server-side regardless.
+function isOutsideEditWindow(sessionDate: string, editWindowMonths: number): boolean {
   const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - NON_ADMIN_EDIT_WINDOW_MONTHS);
+  cutoff.setMonth(cutoff.getMonth() - editWindowMonths);
   return sessionDate < cutoff.toISOString().slice(0, 10);
 }
 
@@ -45,6 +44,7 @@ export function SessionClient({
   roster,
   statusByPersonId,
   isAdmin,
+  editWindowMonths,
 }: {
   categoryId: string;
   activityInstanceId: string;
@@ -54,6 +54,7 @@ export function SessionClient({
   roster: RosterRow[];
   statusByPersonId: Record<string, Status>;
   isAdmin: boolean;
+  editWindowMonths: number;
 }) {
   const router = useRouter();
   const [statuses, setStatuses] = useState<Record<string, Status>>(statusByPersonId);
@@ -68,8 +69,8 @@ export function SessionClient({
 
   // Facilitators can't edit sessions past the window at all, regardless of
   // the locked flag (locked can still be toggled off by an admin later).
-  const readOnly = locked || (!isAdmin && isOutsideEditWindow(selectedDate));
-  const canToggleLock = isAdmin || !isOutsideEditWindow(selectedDate);
+  const readOnly = locked || (!isAdmin && isOutsideEditWindow(selectedDate, editWindowMonths));
+  const canToggleLock = isAdmin || !isOutsideEditWindow(selectedDate, editWindowMonths);
 
   // Switching the date pill, or a router.refresh() after enrolling/merging
   // someone, re-renders this component with new props (same component
@@ -148,7 +149,7 @@ export function SessionClient({
 
       {!isAdmin && !canToggleLock && (
         <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginBottom: "var(--space-4)" }}>
-          This session is more than {NON_ADMIN_EDIT_WINDOW_MONTHS} months old — only an admin can make changes.
+          This session is more than {editWindowMonths} months old — only an admin can make changes.
         </p>
       )}
 

@@ -9,6 +9,7 @@ import { people } from "@/db/schema/people";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
+import { getEditWindowMonths } from "@/lib/settings";
 
 async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -24,14 +25,14 @@ async function requireUserId() {
 // Facilitators can only edit recent history — admins are unrestricted, for
 // corrections. Reinforces the `locked` flag rather than replacing it: this
 // still applies even if a session was never explicitly confirmed/locked.
-const NON_ADMIN_EDIT_WINDOW_MONTHS = 3;
-
-function assertWithinEditWindow(sessionDate: string, role: string) {
+// The window itself is an admin-editable setting (Settings > Security).
+async function assertWithinEditWindow(sessionDate: string, role: string) {
   if (role === "admin") return;
+  const months = await getEditWindowMonths();
   const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - NON_ADMIN_EDIT_WINDOW_MONTHS);
+  cutoff.setMonth(cutoff.getMonth() - months);
   if (sessionDate < cutoff.toISOString().slice(0, 10)) {
-    throw new Error(`Only an admin can edit sessions more than ${NON_ADMIN_EDIT_WINDOW_MONTHS} months old.`);
+    throw new Error(`Only an admin can edit sessions more than ${months} months old.`);
   }
 }
 
@@ -58,7 +59,7 @@ export async function setAttendance(
   status: "present" | "absent",
 ) {
   const session = await requireSession();
-  assertWithinEditWindow(sessionDate, session.user.role);
+  await assertWithinEditWindow(sessionDate, session.user.role);
   const userId = session.user.id;
   const eventId = await getOrCreateEventId(activityInstanceId, sessionDate, userId);
   await db
@@ -84,7 +85,7 @@ export async function getLockStatus(activityInstanceId: string, sessionDate: str
 // to get around the edit window.
 export async function setLockStatus(activityInstanceId: string, sessionDate: string, locked: boolean) {
   const session = await requireSession();
-  assertWithinEditWindow(sessionDate, session.user.role);
+  await assertWithinEditWindow(sessionDate, session.user.role);
   const eventId = await getOrCreateEventId(activityInstanceId, sessionDate, session.user.id);
   await db.update(attendanceEvents).set({ locked }).where(eq(attendanceEvents.id, eventId));
 }

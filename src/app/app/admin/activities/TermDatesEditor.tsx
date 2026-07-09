@@ -5,11 +5,9 @@ import { createTermDate, updateTermDate } from "./actions";
 
 type TermRow = { id: string; year: number; termNumber: number; startDate: string; endDate: string };
 
-// Fixed row height so a cell doesn't grow taller when it switches from
-// display text to an input — native date inputs in particular render taller
-// than a plain text input unless explicitly constrained, which was causing
-// the row to visibly jitter.
-const ROW_HEIGHT = 34;
+// Same ROW_HEIGHT/margin as ActivitiesGrid — kept identical so this table's
+// rows line up visually when both sit on the same page (see fix bug#25).
+const ROW_HEIGHT = 40;
 
 const cellStyle: React.CSSProperties = {
   height: ROW_HEIGHT,
@@ -21,7 +19,7 @@ const cellStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  height: ROW_HEIGHT - 2,
+  height: ROW_HEIGHT - 6,
   boxSizing: "border-box",
   fontSize: "0.85rem",
   padding: "4px 6px",
@@ -56,10 +54,10 @@ export function TermDatesEditor({ initialTerms }: { initialTerms: TermRow[] }) {
   }
 
   return (
-    <div style={{ maxWidth: 1400, margin: "var(--space-7) auto 0", padding: "0 9px" }}>
-      <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.15rem", color: "var(--heading)", marginBottom: 12 }}>
+    <div>
+      <h4 style={{ fontSize: "0.85rem", color: "var(--text)", marginBottom: 12 }}>
         Term Dates
-      </h3>
+      </h4>
       <div style={{ overflow: "hidden", overflowX: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
         {/* width:100% + minWidth, same reasoning as ActivitiesGrid — fills a
             wide container instead of leaving empty space, but won't shrink
