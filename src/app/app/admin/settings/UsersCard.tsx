@@ -5,7 +5,7 @@ import { updateUserRole, addAllowedSignup, removeAllowedSignup } from "./actions
 import { cardStyle, cardTitleStyle } from "./styles";
 
 type ExistingUser = { id: string; name: string; email: string; role: string };
-type PendingInvite = { id: string; name: string; email: string; isAdmin: boolean };
+type PendingSignup = { id: string; name: string; email: string; isAdmin: boolean };
 
 const rowStyle: React.CSSProperties = {
   display: "flex",
@@ -47,9 +47,9 @@ const inputStyle: React.CSSProperties = {
   color: "var(--text)",
 };
 
-export function UsersCard({ initialUsers, initialInvites, currentUserId }: { initialUsers: ExistingUser[]; initialInvites: PendingInvite[]; currentUserId: string }) {
+export function UsersCard({ initialUsers, initialPending, currentUserId }: { initialUsers: ExistingUser[]; initialPending: PendingSignup[]; currentUserId: string }) {
   const [users, setUsers] = useState(initialUsers);
-  const [invites, setInvites] = useState(initialInvites);
+  const [pending, setPending] = useState(initialPending);
   const [error, setError] = useState<string | null>(null);
 
   function toggleRole(u: ExistingUser) {
@@ -64,10 +64,10 @@ export function UsersCard({ initialUsers, initialInvites, currentUserId }: { ini
     });
   }
 
-  function handleRemoveInvite(id: string) {
-    setInvites((rows) => rows.filter((r) => r.id !== id));
+  function handleRemove(id: string) {
+    setPending((rows) => rows.filter((r) => r.id !== id));
     removeAllowedSignup(id).catch((e) => {
-      setError(e instanceof Error ? e.message : "Couldn't remove that invite.");
+      setError(e instanceof Error ? e.message : "Couldn't remove that.");
     });
   }
 
@@ -107,29 +107,29 @@ export function UsersCard({ initialUsers, initialInvites, currentUserId }: { ini
         {users.length === 0 && <p style={{ fontSize: "0.8rem", color: "var(--muted)" }}>No one has signed up yet.</p>}
       </div>
 
-      <h4 style={{ fontSize: "0.85rem", color: "var(--text)", marginBottom: 8 }}>Invited, not yet signed up</h4>
+      <h4 style={{ fontSize: "0.85rem", color: "var(--text)", marginBottom: 8 }}>Added, not yet signed up</h4>
       <div>
-        {invites.map((inv) => (
-          <div key={inv.id} style={rowStyle}>
-            <span style={nameStyle}>{inv.name}</span>
-            <span style={emailStyle}>{inv.email}</span>
+        {pending.map((p) => (
+          <div key={p.id} style={rowStyle}>
+            <span style={nameStyle}>{p.name}</span>
+            <span style={emailStyle}>{p.email}</span>
             <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              {inv.isAdmin ? "Admin" : "Facilitator"}
+              {p.isAdmin ? "Admin" : "Facilitator"}
             </span>
             <button
-              onClick={() => handleRemoveInvite(inv.id)}
-              title="Remove invite"
+              onClick={() => handleRemove(p.id)}
+              title="Remove"
               style={{ minHeight: 32, padding: "0 10px", border: "none", background: "none", color: "var(--red)", fontSize: "0.75rem", cursor: "pointer" }}
             >
               Remove
             </button>
           </div>
         ))}
-        {invites.length === 0 && <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: 12 }}>No pending invites.</p>}
+        {pending.length === 0 && <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: 12 }}>Nothing pending.</p>}
       </div>
 
-      <AddInviteForm
-        onAdded={(created) => setInvites((rows) => [...rows, created])}
+      <AddSignupForm
+        onAdded={(created) => setPending((rows) => [...rows, created])}
         onError={(msg) => setError(msg)}
       />
 
@@ -138,7 +138,7 @@ export function UsersCard({ initialUsers, initialInvites, currentUserId }: { ini
   );
 }
 
-function AddInviteForm({ onAdded, onError }: { onAdded: (invite: PendingInvite) => void; onError: (msg: string) => void }) {
+function AddSignupForm({ onAdded, onError }: { onAdded: (signup: PendingSignup) => void; onError: (msg: string) => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -154,7 +154,7 @@ function AddInviteForm({ onAdded, onError }: { onAdded: (invite: PendingInvite) 
       setEmail("");
       setIsAdmin(false);
     } catch (e) {
-      onError(e instanceof Error ? e.message : "Couldn't add that invite.");
+      onError(e instanceof Error ? e.message : "Couldn't add that.");
     } finally {
       setBusy(false);
     }
@@ -182,7 +182,7 @@ function AddInviteForm({ onAdded, onError }: { onAdded: (invite: PendingInvite) 
           cursor: "pointer",
         }}
       >
-        + Invite
+        + Add
       </button>
     </div>
   );

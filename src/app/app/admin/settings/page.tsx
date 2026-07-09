@@ -19,7 +19,7 @@ export default async function AdminSettingsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.role !== "admin") redirect("/app");
 
-  const [editWindowMonths, terms, users, invites] = await Promise.all([
+  const [editWindowMonths, terms, users, pendingSignups] = await Promise.all([
     getEditWindowMonths(),
     db.select().from(termDates).orderBy(asc(termDates.year), asc(termDates.termNumber)),
     db.select({ id: user.id, name: user.name, email: user.email, role: user.role }).from(user).orderBy(asc(user.name)),
@@ -44,7 +44,7 @@ export default async function AdminSettingsPage() {
           <TermDatesEditor initialTerms={terms} />
         </div>
 
-        <UsersCard initialUsers={users} initialInvites={invites} currentUserId={session.user.id} />
+        <UsersCard initialUsers={users} initialPending={pendingSignups} currentUserId={session.user.id} />
       </div>
     </div>
   );

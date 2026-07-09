@@ -44,7 +44,7 @@ export async function addAllowedSignup(name: string, email: string, isAdmin: boo
     .values({ name: trimmedName, email: normalizedEmail, isAdmin })
     .onConflictDoNothing({ target: allowedSignups.email })
     .returning();
-  if (!created) throw new Error("That email is already invited.");
+  if (!created) throw new Error("That email has already been added.");
   return created;
 }
 
