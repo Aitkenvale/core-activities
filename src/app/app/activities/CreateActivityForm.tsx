@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { createActivityWithRoster, updateActivityWithRoster, type ActivityForEdit, type ActivityStatus } from "./actions";
 import { CadenceFields } from "@/components/CadenceFields";
 import { PeoplePicker, type PickedPerson } from "./PeoplePicker";
-import { formatFullName } from "@/lib/formatName";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
 
 type Category = { id: string; label: string };
@@ -225,10 +224,8 @@ export function CreateActivityForm({
 
       {mode === "edit" ? (
         <section>
-          <RosterList label="Facilitators" people={facilitators} />
-          <div style={{ height: "var(--space-4)" }} />
-          <RosterList label="Participants" people={participants} />
-          <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "var(--space-3)" }}>
+          <h4 style={{ fontSize: "0.85rem", color: "var(--text)", marginBottom: 8 }}>Attendees</h4>
+          <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: 0 }}>
             Facilitators and participants can be added or hidden in the activity&rsquo;s Attendance.
           </p>
         </section>
@@ -300,15 +297,16 @@ export function CreateActivityForm({
 // Same verb/done-label pattern as the attendance session's Confirm/Confirmed
 // pill: a neutral outline inviting the action when it's not the current
 // state, a bold colour fill naming the resulting state once it is. Active
-// is the one exception — it's the "normal" baseline state rather than an
-// action, so it's always white and just dims when something else is current
-// instead of switching to the neutral-outline look the other two use.
+// and Pause share one exception — their "not current" look is the same
+// dulled-white chip rather than the neutral outline Close uses, since both
+// are casual, reversible toggles rather than a final action.
 const STATUS_META: Record<ActivityStatus, { verb: string; done: string; bg: string; text: string }> = {
-  active: { verb: "Active", done: "Active", bg: "#FFFFFF", text: "var(--deep)" },
+  active: { verb: "Activate", done: "Active", bg: "#FFFFFF", text: "var(--deep)" },
   paused: { verb: "Pause", done: "Paused", bg: "var(--gold)", text: "var(--deep)" },
   archived: { verb: "Close", done: "Closed", bg: "var(--blue)", text: "var(--cream)" },
 };
 const STATUS_ORDER: ActivityStatus[] = ["active", "paused", "archived"];
+const DULLS_WHEN_NOT_CURRENT: Record<ActivityStatus, boolean> = { active: true, paused: true, archived: false };
 
 function StatusPills({ value, onChange, locked }: { value: ActivityStatus; onChange: (v: ActivityStatus) => void; locked: boolean }) {
   return (
@@ -316,7 +314,10 @@ function StatusPills({ value, onChange, locked }: { value: ActivityStatus; onCha
       {STATUS_ORDER.map((s) => {
         const meta = STATUS_META[s];
         const isCurrent = value === s;
-        const isActivePill = s === "active";
+        const dulls = DULLS_WHEN_NOT_CURRENT[s];
+        // A clean colour badge (no border) only for the current Pause/Close
+        // pill — Active's current state is still a plain white chip.
+        const coloredFill = isCurrent && s !== "active";
         const disabled = locked && !isCurrent;
         return (
           <button
@@ -326,13 +327,13 @@ function StatusPills({ value, onChange, locked }: { value: ActivityStatus; onCha
             style={{
               padding: "6px 16px",
               borderRadius: "var(--radius-pill)",
-              border: isCurrent && !isActivePill ? "1px solid transparent" : "1px solid var(--border)",
-              background: isActivePill ? "#FFFFFF" : isCurrent ? meta.bg : "var(--card-bg)",
-              color: isActivePill ? "var(--deep)" : isCurrent ? meta.text : "var(--muted)",
+              border: coloredFill ? "1px solid transparent" : "1px solid var(--border)",
+              background: isCurrent ? (s === "active" ? "#FFFFFF" : meta.bg) : dulls ? "#FFFFFF" : "var(--card-bg)",
+              color: isCurrent ? (s === "active" ? "var(--deep)" : meta.text) : dulls ? "var(--deep)" : "var(--muted)",
               fontSize: "0.85rem",
               fontWeight: isCurrent ? 600 : 400,
               cursor: locked ? "default" : "pointer",
-              opacity: disabled ? 0.35 : isActivePill && !isCurrent ? 0.4 : 1,
+              opacity: disabled ? 0.35 : !isCurrent && dulls ? 0.4 : 1,
               whiteSpace: "nowrap",
             }}
           >
@@ -342,40 +343,6 @@ function StatusPills({ value, onChange, locked }: { value: ActivityStatus; onCha
       })}
       {locked && (
         <p style={{ width: "100%", margin: 0, fontSize: "0.75rem", color: "var(--muted)" }}>Closed activities can&rsquo;t be reopened.</p>
-      )}
-    </div>
-  );
-}
-
-// Edit Activity shows the roster but can't touch it — removing someone here
-// would silently drop their attendance history from views that only look at
-// active enrollments (the bulk admin grid, the session roster), even though
-// nothing in attendance_records itself is deleted. Adding/hiding attendees
-// stays possible, just from the activity's own Attendance screen instead.
-function RosterList({ label, people }: { label: string; people: PickedPerson[] }) {
-  return (
-    <div>
-      <h4 style={{ fontSize: "0.85rem", color: "var(--text)", marginBottom: 8 }}>{label}</h4>
-      {people.length === 0 ? (
-        <p style={{ fontSize: "0.8rem", color: "var(--muted)", margin: 0 }}>None yet.</p>
-      ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {people.map((p) => (
-            <span
-              key={p.kind === "existing" ? p.id : p.tempId}
-              style={{
-                padding: "3px 10px",
-                borderRadius: "var(--radius-pill)",
-                background: "var(--card-bg)",
-                border: "1px solid var(--border)",
-                fontSize: "0.78rem",
-                color: "var(--text)",
-              }}
-            >
-              {p.kind === "existing" ? formatFullName(p.name, p.preferredName) : `${p.name} (new)`}
-            </span>
-          ))}
-        </div>
       )}
     </div>
   );
