@@ -88,11 +88,13 @@ const COLUMN_WIDTHS = {
 };
 const NOTES_MIN_WIDTH = 150;
 
-// Fixed row height so a cell never grows taller when it switches from
-// display text to an input/select/date-input — that vertical resize was
-// part of the page "jitter" (native date inputs in particular render taller
-// than a plain text input unless explicitly constrained).
-const ROW_HEIGHT = 34;
+// Same ROW_HEIGHT/margin as PeopleGrid and HouseholdsGrid — kept identical
+// across all three admin grids so rows visually match between them, not
+// just internally consistent within one file. `height` on a table cell is
+// only a minimum, not a cap — a native <select>/date input can still render
+// taller than requested even with appearance:none, so this needs real
+// headroom (not just 1-2px) to reliably win against browser quirks.
+const ROW_HEIGHT = 40;
 
 const cellStyle: React.CSSProperties = {
   height: ROW_HEIGHT,
@@ -104,7 +106,7 @@ const cellStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  height: ROW_HEIGHT - 2,
+  height: ROW_HEIGHT - 6,
   boxSizing: "border-box",
   fontSize: "0.85rem",
   padding: "4px 6px",

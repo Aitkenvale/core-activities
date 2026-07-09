@@ -41,10 +41,12 @@ const COLUMNS: { key: SortKey; label: string; width: number | undefined }[] = [
 const COMMENT_MIN_WIDTH = 180;
 
 // Fixed row height so a cell never grows taller when it switches from
-// display text to an input/select/date-input — that vertical resize (native
-// date inputs and <select> especially render taller than a plain text input
-// unless explicitly constrained) was the page "jitter".
-const ROW_HEIGHT = 34;
+// display text to an input/select/date-input. `height` on a table cell is
+// only a minimum, not a cap — a native <select>/date input can still render
+// taller than requested even with appearance:none, so this needs real
+// headroom (not just 1-2px) to reliably win against browser quirks and
+// match Households/Activities, which have fewer native controls fighting it.
+const ROW_HEIGHT = 40;
 
 const cellStyle: React.CSSProperties = {
   height: ROW_HEIGHT,
@@ -56,7 +58,7 @@ const cellStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  height: ROW_HEIGHT - 2,
+  height: ROW_HEIGHT - 6,
   boxSizing: "border-box",
   fontSize: "0.85rem",
   padding: "4px 6px",

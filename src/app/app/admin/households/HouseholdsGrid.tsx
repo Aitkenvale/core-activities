@@ -27,9 +27,10 @@ const COLUMNS: { key: SortKey; label: string; width: number | undefined; align?:
 ];
 const NOTES_MIN_WIDTH = 220;
 
-// Fixed row height so a cell never grows taller when it switches from
-// display text to an input — that vertical resize was the page "jitter".
-const ROW_HEIGHT = 34;
+// Same ROW_HEIGHT/margin as PeopleGrid and ActivitiesGrid — kept identical
+// across all three admin grids so rows visually match between them, not
+// just internally consistent within one file.
+const ROW_HEIGHT = 40;
 
 const cellStyle: React.CSSProperties = {
   height: ROW_HEIGHT,
@@ -41,7 +42,7 @@ const cellStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  height: ROW_HEIGHT - 2,
+  height: ROW_HEIGHT - 6,
   boxSizing: "border-box",
   fontSize: "0.85rem",
   padding: "4px 6px",
