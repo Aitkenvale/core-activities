@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { searchPeopleForPicker } from "./actions";
 import { formatFullName } from "@/lib/formatName";
-import { CATEGORY_LABELS } from "@/lib/category";
+import { CATEGORY_LABELS, FACILITATOR_INELIGIBLE_CATEGORIES } from "@/lib/category";
 
 export type PickedPerson =
   | { kind: "existing"; id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" }
@@ -29,10 +29,21 @@ const compactInputStyle: React.CSSProperties = {
 // quick-add someone not yet in People. Nothing is written to the database
 // here — selections just accumulate in local state until the page's final
 // submit creates the activity and every enrollment together.
-export function PeoplePicker({ label, selected, onChange }: { label: string; selected: PickedPerson[]; onChange: (next: PickedPerson[]) => void }) {
+export function PeoplePicker({
+  label,
+  role,
+  selected,
+  onChange,
+}: {
+  label: string;
+  role: "facilitator" | "participant";
+  selected: PickedPerson[];
+  onChange: (next: PickedPerson[]) => void;
+}) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
   const [results, setResults] = useState<SearchResult[]>([]);
+  const categoryOptions = role === "facilitator" ? CATEGORY_LABELS.filter((c) => !FACILITATOR_INELIGIBLE_CATEGORIES.includes(c)) : CATEGORY_LABELS;
 
   useEffect(() => {
     let cancelled = false;
@@ -41,14 +52,14 @@ export function PeoplePicker({ label, selected, onChange }: { label: string; sel
         setResults([]);
         return;
       }
-      const rows = await searchPeopleForPicker(query, [...categoryFilter]);
+      const rows = await searchPeopleForPicker(query, [...categoryFilter], role);
       if (!cancelled) setResults(rows);
     }
     run();
     return () => {
       cancelled = true;
     };
-  }, [query, categoryFilter]);
+  }, [query, categoryFilter, role]);
 
   function toggleCategory(cat: string) {
     setCategoryFilter((prev) => {
@@ -91,7 +102,7 @@ export function PeoplePicker({ label, selected, onChange }: { label: string; sel
       />
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-        {CATEGORY_LABELS.map((cat) => (
+        {categoryOptions.map((cat) => (
           <button
             key={cat}
             onClick={() => toggleCategory(cat)}

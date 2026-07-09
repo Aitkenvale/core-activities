@@ -4,11 +4,9 @@
 export type NavTile = { href: string; label: string; adminOnly?: boolean };
 
 export const USER_TILES: NavTile[] = [
-  { href: "/app/attendance", label: "Update Attendance" },
-  { href: "/app/activities", label: "Create New Activity" },
-  { href: "/app/people", label: "Find Person" },
+  { href: "/app/activities", label: "Activities" },
   { href: "/app/cpp-training", label: "CPP Training", adminOnly: true },
-  { href: "/app/qr", label: "Registration Form" },
+  { href: "/app/qr", label: "Registration Form", adminOnly: true },
 ];
 
 // Admin-only — everything not listed here is a user function.

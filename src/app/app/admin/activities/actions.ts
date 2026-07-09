@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { termDates } from "@/db/schema/termDates";
+import { neighbourhoods } from "@/db/schema/neighbourhoods";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
 
 async function requireAdmin() {
@@ -93,4 +94,12 @@ export async function createTermDate(input: { year: number; termNumber: number; 
 export async function updateTermDate(id: string, patch: Partial<{ year: number; termNumber: number; startDate: string; endDate: string }>) {
   await requireAdmin();
   await db.update(termDates).set(patch).where(eq(termDates.id, id));
+}
+
+export async function createNeighbourhood(name: string) {
+  await requireAdmin();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name is required");
+  const [created] = await db.insert(neighbourhoods).values({ name: trimmed }).returning();
+  return created;
 }

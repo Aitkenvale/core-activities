@@ -27,8 +27,19 @@ function toISODate(d: Date): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+// School terms conventionally end on a Friday, but a weekend-cadence class
+// (e.g. Saturday) that meets the day after term technically ends is still
+// part of that closing weekend — extend the effective end date to the
+// Sunday of that same week rather than cutting it off mid-weekend.
+function extendToEndOfWeek(d: Date): Date {
+  const end = new Date(d);
+  const daysUntilSunday = (7 - end.getDay()) % 7;
+  end.setDate(end.getDate() + daysUntilSunday);
+  return end;
+}
+
 function isWithinAnyTerm(date: Date, terms: TermRange[]): boolean {
-  return terms.some((t) => date >= toDate(t.startDate) && date <= toDate(t.endDate));
+  return terms.some((t) => date >= toDate(t.startDate) && date <= extendToEndOfWeek(toDate(t.endDate)));
 }
 
 // Whole weeks between two dates, counting from each date's own week-start

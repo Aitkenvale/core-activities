@@ -7,7 +7,7 @@ import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
-import { getCategoryLabel } from "@/lib/category";
+import { getCategoryLabel, FACILITATOR_INELIGIBLE_CATEGORIES } from "@/lib/category";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
 
 async function requireUserId() {
@@ -20,7 +20,14 @@ async function requireUserId() {
 // same as the "Create New Activity" tile living under the non-admin User
 // section of the home hub (mirrors quick-add-a-person already being
 // non-admin elsewhere in the attendance flow).
-export async function searchPeopleForPicker(query: string, categories: string[]) {
+//
+// No SQL LIMIT here — People is a few hundred rows total, trivial to fetch
+// in full. An earlier LIMIT 100 (applied before the category filter) cut
+// off legitimate matches whenever a category's members sorted past the
+// 100th row alphabetically ("Adult" and "Young Child" filters both cut off
+// mid-alphabet as a result) — filtering needs to see everyone, not just an
+// arbitrary early slice.
+export async function searchPeopleForPicker(query: string, categories: string[], role?: "facilitator" | "participant") {
   await requireUserId();
   const q = query.trim();
   if (q.length < 2 && categories.length === 0) return [];
@@ -34,11 +41,16 @@ export async function searchPeopleForPicker(query: string, categories: string[])
         q.length >= 2 ? or(ilike(people.name, `%${q}%`), ilike(people.preferredName, `%${q}%`)) : undefined,
       ),
     )
-    .orderBy(people.name)
-    .limit(100);
+    .orderBy(people.name);
 
-  const filtered = categories.length > 0 ? rows.filter((r) => categories.includes(getCategoryLabel(r.dob) ?? "")) : rows;
-  return filtered.slice(0, 30).map(({ id, name, preferredName, linkStatus }) => ({ id, name, preferredName, linkStatus }));
+  let filtered = rows;
+  if (categories.length > 0) {
+    filtered = filtered.filter((r) => categories.includes(getCategoryLabel(r.dob) ?? ""));
+  }
+  if (role === "facilitator") {
+    filtered = filtered.filter((r) => !FACILITATOR_INELIGIBLE_CATEGORIES.includes(getCategoryLabel(r.dob) ?? ""));
+  }
+  return filtered.map(({ id, name, preferredName, linkStatus }) => ({ id, name, preferredName, linkStatus }));
 }
 
 type PersonInput =

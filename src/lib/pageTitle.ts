@@ -7,6 +7,6 @@ const ALL_TILES = [...USER_TILES, ...ADMIN_TILES].sort((a, b) => b.href.length -
 // section (and anything nested under it) shows its own tile's label
 // instead, so the bar reads as "where you are" rather than static branding.
 export function getPageTitle(pathname: string): string {
-  if (pathname === "/app") return "Core Activities";
-  return ALL_TILES.find((t) => pathname.startsWith(t.href))?.label ?? "Core Activities";
+  if (pathname === "/app") return "Aitkenvale";
+  return ALL_TILES.find((t) => pathname.startsWith(t.href))?.label ?? "Aitkenvale";
 }

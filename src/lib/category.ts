@@ -6,6 +6,10 @@ const BREAKPOINTS = [0, 5, 9, 12, 15, 25];
 const LABELS = ["1. Infant", "2. Young Child", "3. Older Child", "4. Junior Youth", "5. Youth", "6. Adult"];
 export const CATEGORY_LABELS = LABELS;
 
+// Too young to run a class — excluded from facilitator pickers (search
+// results and filter pills alike), not just Adult-only-by-convention.
+export const FACILITATOR_INELIGIBLE_CATEGORIES = ["1. Infant", "2. Young Child", "3. Older Child"];
+
 export function calculateAge(dob: string): number {
   const birth = new Date(`${dob}T00:00:00Z`);
   const today = new Date();

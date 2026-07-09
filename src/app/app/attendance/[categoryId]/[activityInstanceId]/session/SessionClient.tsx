@@ -173,12 +173,6 @@ export function SessionClient({
         </p>
       )}
 
-      {cancelled && (
-        <p style={{ color: "var(--red)", fontSize: "0.78rem", marginBottom: "var(--space-4)" }}>
-          Class cancelled — no attendance recorded for this session.
-        </p>
-      )}
-
       <RosterSection
         title="Participants"
         rows={participants}
@@ -191,6 +185,7 @@ export function SessionClient({
         activeByPersonId={activeByPersonId}
         onToggleActive={toggleActive}
         readOnly={readOnly}
+        cancelled={cancelled}
         isAdmin={isAdmin}
       />
       <RosterSection
@@ -205,6 +200,7 @@ export function SessionClient({
         activeByPersonId={activeByPersonId}
         onToggleActive={toggleActive}
         readOnly={readOnly}
+        cancelled={cancelled}
         isAdmin={isAdmin}
       />
 
@@ -393,6 +389,7 @@ function RosterSection({
   activeByPersonId,
   onToggleActive,
   readOnly,
+  cancelled,
   isAdmin,
 }: {
   title: string;
@@ -406,6 +403,7 @@ function RosterSection({
   activeByPersonId: Record<string, boolean>;
   onToggleActive: (personId: string) => void;
   readOnly: boolean;
+  cancelled: boolean;
   isAdmin: boolean;
 }) {
   const [adding, setAdding] = useState(false);
@@ -467,12 +465,12 @@ function RosterSection({
                       minHeight: 36,
                       padding: "0 var(--space-3)",
                       borderRadius: "var(--radius-sm)",
-                      border: "1px solid var(--green)",
-                      background: statuses[r.personId] === "present" ? "var(--green)" : "var(--card-bg)",
-                      color: statuses[r.personId] === "present" ? "var(--cream)" : "var(--green)",
+                      border: `1px solid ${cancelled ? "var(--border)" : "var(--green)"}`,
+                      background: cancelled ? "var(--border)" : statuses[r.personId] === "present" ? "var(--green)" : "var(--card-bg)",
+                      color: cancelled ? "var(--muted)" : statuses[r.personId] === "present" ? "var(--cream)" : "var(--green)",
                       fontSize: "0.75rem",
                       cursor: readOnly ? "default" : "pointer",
-                      opacity: readOnly ? 0.6 : 1,
+                      opacity: readOnly && !cancelled ? 0.6 : 1,
                     }}
                   >
                     Present
@@ -484,12 +482,12 @@ function RosterSection({
                       minHeight: 36,
                       padding: "0 var(--space-3)",
                       borderRadius: "var(--radius-sm)",
-                      border: "1px solid var(--red)",
-                      background: statuses[r.personId] === "absent" ? "var(--red)" : "var(--card-bg)",
-                      color: statuses[r.personId] === "absent" ? "var(--cream)" : "var(--red)",
+                      border: `1px solid ${cancelled ? "var(--border)" : "var(--red)"}`,
+                      background: cancelled ? "var(--border)" : statuses[r.personId] === "absent" ? "var(--red)" : "var(--card-bg)",
+                      color: cancelled ? "var(--muted)" : statuses[r.personId] === "absent" ? "var(--cream)" : "var(--red)",
                       fontSize: "0.75rem",
                       cursor: readOnly ? "default" : "pointer",
-                      opacity: readOnly ? 0.6 : 1,
+                      opacity: readOnly && !cancelled ? 0.6 : 1,
                     }}
                   >
                     Absent

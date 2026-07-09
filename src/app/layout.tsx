@@ -3,7 +3,7 @@ import { PhoneFrame } from "@/components/PhoneFrame";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Core Activities",
+  title: "Aitkenvale",
   description: "Attendance, activities and people tracker for the Aitkenvale Bahá'í community programs",
 };
 

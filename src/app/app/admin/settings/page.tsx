@@ -5,10 +5,12 @@ import { asc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { termDates } from "@/db/schema/termDates";
+import { neighbourhoods } from "@/db/schema/neighbourhoods";
 import { user } from "@/db/schema/auth";
 import { allowedSignups } from "@/db/schema/allowedSignups";
 import { getEditWindowMonths } from "@/lib/settings";
 import { TermDatesEditor } from "@/app/app/admin/activities/TermDatesEditor";
+import { NeighbourhoodsEditor } from "@/app/app/admin/activities/NeighbourhoodsEditor";
 import { SecurityCard } from "./SecurityCard";
 import { UsersCard } from "./UsersCard";
 import { cardStyle, cardTitleStyle } from "./styles";
@@ -19,9 +21,10 @@ export default async function AdminSettingsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.role !== "admin") redirect("/app");
 
-  const [editWindowMonths, terms, users, pendingSignups] = await Promise.all([
+  const [editWindowMonths, terms, neighbourhoodRows, users, pendingSignups] = await Promise.all([
     getEditWindowMonths(),
     db.select().from(termDates).orderBy(asc(termDates.year), asc(termDates.termNumber)),
+    db.select().from(neighbourhoods).orderBy(asc(neighbourhoods.name)),
     db.select({ id: user.id, name: user.name, email: user.email, role: user.role }).from(user).orderBy(asc(user.name)),
     db.select().from(allowedSignups).orderBy(asc(allowedSignups.name)),
   ]);
@@ -44,6 +47,9 @@ export default async function AdminSettingsPage() {
         <div style={cardStyle}>
           <h3 style={cardTitleStyle}>Activities</h3>
           <TermDatesEditor initialTerms={terms} />
+
+          <h4 style={{ fontSize: "0.85rem", color: "var(--text)", margin: "var(--space-5) 0 8px" }}>Neighbourhoods</h4>
+          <NeighbourhoodsEditor initialNeighbourhoods={neighbourhoodRows} />
         </div>
       </div>
     </div>

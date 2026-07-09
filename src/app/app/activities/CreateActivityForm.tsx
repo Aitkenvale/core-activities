@@ -167,11 +167,11 @@ export function CreateActivityForm({ categories, neighbourhoods }: { categories:
       </section>
 
       <section>
-        <PeoplePicker label="Facilitators" selected={facilitators} onChange={setFacilitators} />
+        <PeoplePicker label="Facilitators" role="facilitator" selected={facilitators} onChange={setFacilitators} />
       </section>
 
       <section>
-        <PeoplePicker label="Participants" selected={participants} onChange={setParticipants} />
+        <PeoplePicker label="Participants" role="participant" selected={participants} onChange={setParticipants} />
       </section>
 
       <section>
