@@ -21,7 +21,7 @@ export type ActivityPatch = Partial<{
   startDate: string | null;
   endDate: string | null;
   hidden: boolean;
-  status: "active" | "paused";
+  status: "active" | "paused" | "archived";
   pausedAt: string | null;
 }>;
 
@@ -42,12 +42,19 @@ export async function setActivityStatus(id: string, status: "active" | "paused")
 }
 
 // Ending a class works like hiding a person/household, plus records when —
-// unchecking brings it back and clears the end date.
+// unchecking brings it back as Active specifically (not whatever it was
+// paused at before) and clears the end date. Also forces status to
+// "archived" (shown as "Complete" in the UI) so Status can't show something
+// contradictory like Active while Complete is checked.
 export async function setActivityHidden(id: string, hidden: boolean) {
   await requireAdmin();
   await db
     .update(activityInstances)
-    .set({ hidden, endDate: hidden ? new Date().toISOString().slice(0, 10) : null })
+    .set({
+      hidden,
+      endDate: hidden ? new Date().toISOString().slice(0, 10) : null,
+      status: hidden ? "archived" : "active",
+    })
     .where(eq(activityInstances.id, id));
 }
 

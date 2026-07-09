@@ -2,10 +2,12 @@ import { pgTable, uuid, text, date, boolean, timestamp, pgEnum, jsonb } from "dr
 import { activityCategories } from "./activityCategories";
 import { neighbourhoods } from "./neighbourhoods";
 
-// The underlying Postgres enums still also permit the old 'weekly_term'/
-// 'nth_weekday_of_month'/'archived' values (Postgres can't drop enum values,
+// The underlying Postgres enum also still permits the old 'weekly_term'/
+// 'nth_weekday_of_month' cadence values (Postgres can't drop enum values,
 // and nothing ever used them) — the app just never reads or writes them.
-export const activityStatusEnum = pgEnum("activity_status", ["active", "paused"]);
+// 'archived' was likewise dead until now — repurposed as the DB value for
+// "Complete" (see hidden/endDate below) rather than adding a new one.
+export const activityStatusEnum = pgEnum("activity_status", ["active", "paused", "archived"]);
 export const cadenceTypeEnum = pgEnum("cadence_type", [
   "school_term",
   "every_n_weeks",
@@ -29,8 +31,9 @@ export const activityInstances = pgTable("activity_instances", {
   pausedAt: date("paused_at"),
   // Never suggest a session date before this (the class didn't exist yet).
   startDate: date("start_date"),
-  // Ending a class works like People/Households: hidden + a recorded date,
-  // not a third status value.
+  // Ending a class works like People/Households: hidden + a recorded date.
+  // Also forces status to "archived" (shown as "Complete") so the two can't
+  // show a contradictory combination like Active-but-Hidden.
   endDate: date("end_date"),
   hidden: boolean("hidden").notNull().default(false),
   cadenceType: cadenceTypeEnum("cadence_type").notNull(),

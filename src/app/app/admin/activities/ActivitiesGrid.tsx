@@ -22,7 +22,7 @@ type Row = {
   neighbourhoodId: string;
   neighbourhoodName: string | null;
   description: string | null;
-  status: "active" | "paused";
+  status: "active" | "paused" | "archived";
   pausedAt: string | null;
   startDate: string | null;
   endDate: string | null;
@@ -84,7 +84,7 @@ const COLUMN_WIDTHS = {
   cadence: 170,
   startDate: 110,
   status: 100,
-  hidden: 60,
+  complete: 80,
 };
 const NOTES_MIN_WIDTH = 150;
 
@@ -134,7 +134,7 @@ export function ActivitiesGrid({
 }) {
   const [rows, setRows] = useState(initialRows);
   const [filterText, setFilterText] = useState("");
-  const [showHidden, setShowHidden] = useState(false);
+  const [showComplete, setShowComplete] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
   const [cadenceModalFor, setCadenceModalFor] = useState<Row | null>(null);
@@ -184,7 +184,7 @@ export function ActivitiesGrid({
 
   const visibleRows = useMemo(() => {
     const q = filterText.trim().toLowerCase();
-    let filtered = showHidden ? rows : rows.filter((r) => !r.hidden);
+    let filtered = showComplete ? rows : rows.filter((r) => !r.hidden);
     if (categoryFilter.size > 0) {
       filtered = filtered.filter((r) => categoryFilter.has(r.categoryId));
     }
@@ -196,7 +196,7 @@ export function ActivitiesGrid({
       return sortAsc ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, filterText, showHidden, categoryFilter, sortKey, sortAsc]);
+  }, [rows, filterText, showComplete, categoryFilter, sortKey, sortAsc]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
@@ -214,8 +214,8 @@ export function ActivitiesGrid({
             onChange={(e) => setFilterText(e.target.value)}
             style={{ ...inputStyle, width: 320, border: "1px solid var(--border)" }}
           />
-          <Pill active={showHidden} onClick={() => setShowHidden((v) => !v)}>
-            Hidden
+          <Pill active={showComplete} onClick={() => setShowComplete((v) => !v)}>
+            Complete
           </Pill>
           <CategoryDropdown categories={categories} selected={categoryFilter} onToggle={toggleCategory} />
           <button
@@ -262,7 +262,7 @@ export function ActivitiesGrid({
                   { label: "Cadence", width: COLUMN_WIDTHS.cadence, sortKey: null },
                   { label: "Start Date", width: COLUMN_WIDTHS.startDate, sortKey: "startDate" as const },
                   { label: "Status", width: COLUMN_WIDTHS.status, sortKey: "status" as const },
-                  { label: "Hidden", width: COLUMN_WIDTHS.hidden, sortKey: null },
+                  { label: "Complete", width: COLUMN_WIDTHS.complete, sortKey: null },
                   { label: "Notes", width: undefined, sortKey: null }, // no width set — absorbs whatever space is left
                 ] satisfies { label: string; width: number | undefined; sortKey: SortKey | null }[]
               ).map((col) => (
@@ -367,22 +367,26 @@ export function ActivitiesGrid({
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       <button
                         onClick={() => {
+                          // Complete overrides Active/Paused — flip it off via
+                          // the Complete checkbox, not by clicking this pill.
+                          if (r.hidden) return;
                           const next = r.status === "active" ? "paused" : "active";
                           patchLocal(r.id, { status: next, pausedAt: next === "paused" ? new Date().toISOString().slice(0, 10) : null });
                           setActivityStatus(r.id, next).catch((e) => console.error("Save failed:", e));
                         }}
+                        disabled={r.hidden}
                         style={{
                           padding: "4px 10px",
                           borderRadius: 12,
-                          border: `1px solid ${r.status === "paused" ? "var(--red)" : "var(--border)"}`,
-                          background: r.status === "paused" ? "var(--red)" : "var(--card-bg)",
-                          color: r.status === "paused" ? "var(--cream)" : "var(--muted)",
+                          border: `1px solid ${r.hidden ? "var(--muted)" : r.status === "paused" ? "var(--red)" : "var(--border)"}`,
+                          background: r.hidden ? "var(--muted)" : r.status === "paused" ? "var(--red)" : "var(--card-bg)",
+                          color: r.hidden ? "var(--cream)" : r.status === "paused" ? "var(--cream)" : "var(--muted)",
                           fontSize: "0.75rem",
-                          cursor: "pointer",
+                          cursor: r.hidden ? "default" : "pointer",
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {r.status === "paused" ? "Paused" : "Active"}
+                        {r.hidden ? "Complete" : r.status === "paused" ? "Paused" : "Active"}
                       </button>
                       {weeks !== null && weeks >= 6 && (
                         <span
@@ -407,7 +411,11 @@ export function ActivitiesGrid({
                       checked={r.hidden}
                       onChange={(e) => {
                         const hidden = e.target.checked;
-                        patchLocal(r.id, { hidden, endDate: hidden ? new Date().toISOString().slice(0, 10) : null });
+                        patchLocal(r.id, {
+                          hidden,
+                          endDate: hidden ? new Date().toISOString().slice(0, 10) : null,
+                          status: hidden ? "archived" : "active",
+                        });
                         setActivityHidden(r.id, hidden).catch((err) => console.error("Save failed:", err));
                       }}
                     />
@@ -793,7 +801,7 @@ function AddActivityModal({
         neighbourhoodId: created.neighbourhoodId,
         neighbourhoodName: neighbourhoods.find((n) => n.id === created.neighbourhoodId)?.name ?? null,
         description: created.description,
-        status: created.status as "active" | "paused",
+        status: created.status as "active" | "paused" | "archived",
         pausedAt: created.pausedAt,
         startDate: created.startDate,
         endDate: created.endDate,
