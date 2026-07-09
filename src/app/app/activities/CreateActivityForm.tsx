@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createActivityWithRoster, updateActivityWithRoster, type ActivityForEdit, type ActivityStatus } from "./actions";
 import { CadenceFields } from "@/components/CadenceFields";
 import { PeoplePicker, type PickedPerson } from "./PeoplePicker";
+import { formatFullName } from "@/lib/formatName";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
 
 type Category = { id: string; label: string };
@@ -222,13 +223,26 @@ export function CreateActivityForm({
         />
       </section>
 
-      <section>
-        <PeoplePicker label="Facilitators" role="facilitator" selected={facilitators} onChange={setFacilitators} />
-      </section>
+      {mode === "edit" ? (
+        <section>
+          <RosterList label="Facilitators" people={facilitators} />
+          <div style={{ height: "var(--space-4)" }} />
+          <RosterList label="Participants" people={participants} />
+          <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "var(--space-3)" }}>
+            Facilitators and participants can be added or hidden in the activity&rsquo;s Attendance.
+          </p>
+        </section>
+      ) : (
+        <>
+          <section>
+            <PeoplePicker label="Facilitators" role="facilitator" selected={facilitators} onChange={setFacilitators} />
+          </section>
 
-      <section>
-        <PeoplePicker label="Participants" role="participant" selected={participants} onChange={setParticipants} />
-      </section>
+          <section>
+            <PeoplePicker label="Participants" role="participant" selected={participants} onChange={setParticipants} />
+          </section>
+        </>
+      )}
 
       <section>
         <FieldLabel>Notes</FieldLabel>
@@ -328,6 +342,40 @@ function StatusPills({ value, onChange, locked }: { value: ActivityStatus; onCha
       })}
       {locked && (
         <p style={{ width: "100%", margin: 0, fontSize: "0.75rem", color: "var(--muted)" }}>Closed activities can&rsquo;t be reopened.</p>
+      )}
+    </div>
+  );
+}
+
+// Edit Activity shows the roster but can't touch it — removing someone here
+// would silently drop their attendance history from views that only look at
+// active enrollments (the bulk admin grid, the session roster), even though
+// nothing in attendance_records itself is deleted. Adding/hiding attendees
+// stays possible, just from the activity's own Attendance screen instead.
+function RosterList({ label, people }: { label: string; people: PickedPerson[] }) {
+  return (
+    <div>
+      <h4 style={{ fontSize: "0.85rem", color: "var(--text)", marginBottom: 8 }}>{label}</h4>
+      {people.length === 0 ? (
+        <p style={{ fontSize: "0.8rem", color: "var(--muted)", margin: 0 }}>None yet.</p>
+      ) : (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {people.map((p) => (
+            <span
+              key={p.kind === "existing" ? p.id : p.tempId}
+              style={{
+                padding: "3px 10px",
+                borderRadius: "var(--radius-pill)",
+                background: "var(--card-bg)",
+                border: "1px solid var(--border)",
+                fontSize: "0.78rem",
+                color: "var(--text)",
+              }}
+            >
+              {p.kind === "existing" ? formatFullName(p.name, p.preferredName) : `${p.name} (new)`}
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );
