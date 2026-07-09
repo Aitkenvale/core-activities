@@ -5,9 +5,12 @@ import { asc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { termDates } from "@/db/schema/termDates";
+import { user } from "@/db/schema/auth";
+import { allowedSignups } from "@/db/schema/allowedSignups";
 import { getEditWindowMonths } from "@/lib/settings";
 import { TermDatesEditor } from "@/app/app/admin/activities/TermDatesEditor";
 import { SecurityCard } from "./SecurityCard";
+import { UsersCard } from "./UsersCard";
 import { cardStyle, cardTitleStyle } from "./styles";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -16,9 +19,11 @@ export default async function AdminSettingsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.role !== "admin") redirect("/app");
 
-  const [editWindowMonths, terms] = await Promise.all([
+  const [editWindowMonths, terms, users, invites] = await Promise.all([
     getEditWindowMonths(),
     db.select().from(termDates).orderBy(asc(termDates.year), asc(termDates.termNumber)),
+    db.select({ id: user.id, name: user.name, email: user.email, role: user.role }).from(user).orderBy(asc(user.name)),
+    db.select().from(allowedSignups).orderBy(asc(allowedSignups.name)),
   ]);
 
   return (
@@ -38,6 +43,8 @@ export default async function AdminSettingsPage() {
           <h3 style={cardTitleStyle}>Activities</h3>
           <TermDatesEditor initialTerms={terms} />
         </div>
+
+        <UsersCard initialUsers={users} initialInvites={invites} currentUserId={session.user.id} />
       </div>
     </div>
   );
