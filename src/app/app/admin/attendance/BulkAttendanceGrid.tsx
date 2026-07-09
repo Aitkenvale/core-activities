@@ -357,29 +357,37 @@ function ActivitySection({
                   </tr>
                 </thead>
                 <tbody>
-                  {activity.attendees.map((p) => (
-                    <tr key={p.personId}>
-                      <td style={nameCellStyle}>{p.preferredName || p.name}</td>
-                      {activity.dates.map((d) => {
-                        const status = statusByDatePerson[d.sessionDate]?.[p.personId];
-                        return (
-                          <td key={d.sessionDate} style={dateCellStyle}>
-                            {d.cancelled ? (
-                              <span style={{ color: "var(--muted)", fontSize: "0.7rem" }} title="Class cancelled">
-                                —
-                              </span>
-                            ) : (
-                              <input
-                                type="checkbox"
-                                checked={status === "present"}
-                                onChange={() => onToggle(activity.id, d.sessionDate, p.personId)}
-                              />
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
+                  {activity.attendees.map((p) => {
+                    const presentCount = activity.dates.filter((d) => statusByDatePerson[d.sessionDate]?.[p.personId] === "present").length;
+                    return (
+                      <tr key={p.personId}>
+                        <td style={nameCellStyle}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{p.preferredName || p.name}</span>
+                            <span style={{ flexShrink: 0, color: "var(--muted)", fontSize: "0.75rem" }}>{presentCount}</span>
+                          </div>
+                        </td>
+                        {activity.dates.map((d) => {
+                          const status = statusByDatePerson[d.sessionDate]?.[p.personId];
+                          return (
+                            <td key={d.sessionDate} style={dateCellStyle}>
+                              {d.cancelled ? (
+                                <span style={{ color: "var(--muted)", fontSize: "0.7rem" }} title="Class cancelled">
+                                  —
+                                </span>
+                              ) : (
+                                <input
+                                  type="checkbox"
+                                  checked={status === "present"}
+                                  onChange={() => onToggle(activity.id, d.sessionDate, p.personId)}
+                                />
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
