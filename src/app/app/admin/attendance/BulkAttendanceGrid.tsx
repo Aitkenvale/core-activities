@@ -269,7 +269,11 @@ function ActivitySection({
   onOpenEnrol: (activity: ActivityBlock) => void;
 }) {
   return (
-    <section>
+    // minWidth: 0 overrides the grid item's default min-width:auto — without
+    // it, a wide table (long attendance history) forces this whole section
+    // (and the page) to grow instead of scrolling within its own overflow
+    // wrapper below.
+    <section style={{ minWidth: 0 }}>
       <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.15rem", color: "var(--heading)", marginBottom: 8 }}>
         {activity.name}
         {activity.categoryLabel ? <span style={{ color: "var(--muted)", fontFamily: "inherit", fontSize: "0.85rem" }}> · {activity.categoryLabel}</span> : null}
