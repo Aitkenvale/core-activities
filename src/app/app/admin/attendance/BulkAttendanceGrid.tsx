@@ -59,15 +59,24 @@ export function BulkAttendanceGrid({ activities }: { activities: ActivityBlock[]
   );
   const [error, setError] = useState<string | null>(null);
 
+  // A match on the activity's own name/category means "show me this whole
+  // roster" — but a match on a person's name means "show me just them",
+  // even though the same person can turn up again under a different
+  // activity they're also enrolled in.
   const visible = useMemo(() => {
     const q = filterText.trim().toLowerCase();
     if (!q) return activities;
-    return activities.filter(
-      (a) =>
-        a.name.toLowerCase().includes(q) ||
-        (a.categoryLabel ?? "").toLowerCase().includes(q) ||
-        a.attendees.some((p) => (p.preferredName || p.name).toLowerCase().includes(q)),
-    );
+    const activityMatches = (a: ActivityBlock) => a.name.toLowerCase().includes(q) || (a.categoryLabel ?? "").toLowerCase().includes(q);
+    const result: ActivityBlock[] = [];
+    for (const a of activities) {
+      if (activityMatches(a)) {
+        result.push(a);
+        continue;
+      }
+      const matchingAttendees = a.attendees.filter((p) => (p.preferredName || p.name).toLowerCase().includes(q));
+      if (matchingAttendees.length > 0) result.push({ ...a, attendees: matchingAttendees });
+    }
+    return result;
   }, [activities, filterText]);
 
   // Admins can override both the non-admin edit window and a locked
@@ -95,7 +104,7 @@ export function BulkAttendanceGrid({ activities }: { activities: ActivityBlock[]
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
       <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px var(--space-3)" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Bulk Edit Attendance
+          Edit Attendance
         </h2>
         <input
           placeholder="Search by activity, category, attendee…"
