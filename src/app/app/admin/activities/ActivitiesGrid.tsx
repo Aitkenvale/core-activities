@@ -133,6 +133,7 @@ export function ActivitiesGrid({
   const [rows, setRows] = useState(initialRows);
   const [filterText, setFilterText] = useState("");
   const [showHidden, setShowHidden] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
   const [cadenceModalFor, setCadenceModalFor] = useState<Row | null>(null);
   const [adding, setAdding] = useState(false);
@@ -145,6 +146,15 @@ export function ActivitiesGrid({
 
   function save(id: string, patch: ActivityPatch) {
     updateActivity(id, patch).catch((e) => console.error("Save failed:", e));
+  }
+
+  function toggleCategory(categoryId: string) {
+    setCategoryFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) next.delete(categoryId);
+      else next.add(categoryId);
+      return next;
+    });
   }
 
   function toggleSort(key: SortKey) {
@@ -173,6 +183,9 @@ export function ActivitiesGrid({
   const visibleRows = useMemo(() => {
     const q = filterText.trim().toLowerCase();
     let filtered = showHidden ? rows : rows.filter((r) => !r.hidden);
+    if (categoryFilter.size > 0) {
+      filtered = filtered.filter((r) => categoryFilter.has(r.categoryId));
+    }
     if (q) {
       filtered = filtered.filter((r) => [r.name, r.categoryLabel, r.neighbourhoodName, r.description].some((v) => v?.toLowerCase().includes(q)));
     }
@@ -181,7 +194,7 @@ export function ActivitiesGrid({
       return sortAsc ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, filterText, showHidden, sortKey, sortAsc]);
+  }, [rows, filterText, showHidden, categoryFilter, sortKey, sortAsc]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 0" }}>
@@ -199,6 +212,7 @@ export function ActivitiesGrid({
           <Pill active={showHidden} onClick={() => setShowHidden((v) => !v)}>
             Hidden
           </Pill>
+          <CategoryDropdown categories={categories} selected={categoryFilter} onToggle={toggleCategory} />
           <button
             onClick={() => setAdding(true)}
             style={{
@@ -457,6 +471,56 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
     >
       {children}
     </button>
+  );
+}
+
+function CategoryDropdown({
+  categories,
+  selected,
+  onToggle,
+}: {
+  categories: Category[];
+  selected: Set<string>;
+  onToggle: (categoryId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = selected.size > 0;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <Pill active={active} onClick={() => setOpen((v) => !v)}>
+        Category{active ? ` (${selected.size})` : ""}
+      </Pill>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 45 }} />
+          <div
+            style={{
+              position: "absolute",
+              top: "calc(100% + 6px)",
+              left: 0,
+              zIndex: 50,
+              minWidth: 180,
+              background: "var(--card-bg)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              boxShadow: "var(--shadow-elevated)",
+              padding: "var(--space-2)",
+            }}
+          >
+            {categories.map((c) => (
+              <label
+                key={c.id}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: "0.8rem", color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}
+              >
+                <input type="checkbox" checked={selected.has(c.id)} onChange={() => onToggle(c.id)} />
+                {categoryAbbrev(c.id)} — {c.label}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

@@ -71,14 +71,19 @@ export function SessionClient({
   const readOnly = locked || (!isAdmin && isOutsideEditWindow(selectedDate));
   const canToggleLock = isAdmin || !isOutsideEditWindow(selectedDate);
 
-  // Switching the date pill re-renders this component with new props (same
-  // component instance, not a remount), so the initial useState value above
-  // only applies on first load. Without this, attendance marks from the
-  // first-viewed date stuck around no matter which date pill was tapped.
+  // Switching the date pill, or a router.refresh() after enrolling/merging
+  // someone, re-renders this component with new props (same component
+  // instance, not a remount) — the useState initializers above only apply on
+  // first mount. Without this, a newly-merged person's enrollment (correctly
+  // active in the database) was invisible client-side: activeByPersonId had
+  // no entry at all for them (never in the roster the page first loaded
+  // with), and `undefined` reads as falsy in the visible() check below, so
+  // they silently vanished from the roster despite their data being intact.
   useEffect(() => {
     setStatuses(statusByPersonId);
+    setActiveByPersonId(Object.fromEntries(roster.map((r) => [r.personId, r.active])));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+  }, [selectedDate, roster, statusByPersonId]);
 
   useEffect(() => {
     getLockStatus(activityInstanceId, selectedDate).then(setLocked);
