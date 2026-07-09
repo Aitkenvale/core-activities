@@ -7,9 +7,14 @@ import { people } from "@/db/schema/people";
 import { households } from "@/db/schema/households";
 import { PeopleGrid } from "./PeopleGrid";
 
-export default async function AdminPeoplePage() {
+export default async function AdminPeoplePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.role !== "admin") redirect("/app");
+  const { q } = await searchParams;
 
   const rows = await db
     .select({
@@ -29,5 +34,5 @@ export default async function AdminPeoplePage() {
     .from(people)
     .leftJoin(households, eq(households.id, people.householdId));
 
-  return <PeopleGrid initialRows={rows} />;
+  return <PeopleGrid initialRows={rows} initialFilter={q ?? ""} />;
 }

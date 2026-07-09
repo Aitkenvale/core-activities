@@ -74,11 +74,13 @@ const inputStyle: React.CSSProperties = {
   MozAppearance: "none",
 };
 
-export function PeopleGrid({ initialRows }: { initialRows: Row[] }) {
+export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: Row[]; initialFilter?: string }) {
   const [rows, setRows] = useState(initialRows);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
-  const [filterText, setFilterText] = useState("");
+  // Seeded from ?q= — the Households grid's link icon jumps here with the
+  // household name pre-filled so its members are immediately visible.
+  const [filterText, setFilterText] = useState(initialFilter);
   const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
   const [noRegoOnly, setNoRegoOnly] = useState(false);

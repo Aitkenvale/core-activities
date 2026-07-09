@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { updateHousehold, createHousehold, type HouseholdPatch } from "./actions";
 
 type Row = {
@@ -51,6 +52,32 @@ const inputStyle: React.CSSProperties = {
   background: "var(--card-bg)",
   color: "var(--text)",
 };
+
+// Same as PeopleGrid's household link icon — sits to the left of the Name
+// column's display text, only when not editing.
+const iconButtonStyle: React.CSSProperties = {
+  flexShrink: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 20,
+  height: 20,
+  padding: 0,
+  border: "none",
+  background: "none",
+  color: "var(--muted)",
+  cursor: "pointer",
+};
+
+function LinkIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warm)" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 17H7A5 5 0 0 1 7 7h2" />
+      <path d="M15 7h2a5 5 0 1 1 0 10h-2" />
+      <path d="M8 12h8" />
+    </svg>
+  );
+}
 
 export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRows: Row[]; initialFilter?: string }) {
   const [rows, setRows] = useState(initialRows);
@@ -223,6 +250,8 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
               <tr key={r.id}>
                 <TextCell
                   value={r.name}
+                  linkHref={`/app/admin/people?q=${encodeURIComponent(r.name)}`}
+                  linkTitle="Open in Edit People"
                   onSave={(v) => {
                     patchLocal(r.id, { name: v });
                     save(r.id, { name: v });
@@ -277,19 +306,42 @@ function TextCell({
   editing,
   onEdit,
   onDone,
+  linkHref,
+  linkTitle,
 }: {
   value: string | null;
   onSave: (v: string) => void;
   editing: boolean;
   onEdit: () => void;
   onDone: () => void;
+  // Optional leading link icon (Name column only) — navigates instead of
+  // editing, so it needs its own click handler with stopPropagation.
+  linkHref?: string;
+  linkTitle?: string;
 }) {
   const [draft, setDraft] = useState(value || "");
+  const router = useRouter();
 
   if (!editing) {
     return (
-      <td style={{ ...cellStyle, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} onClick={onEdit}>
-        {value || <span style={{ color: "var(--border)" }}>—</span>}
+      <td style={{ ...cellStyle, cursor: "pointer" }} onClick={onEdit}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          {linkHref && value && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(linkHref);
+              }}
+              title={linkTitle}
+              style={iconButtonStyle}
+            >
+              <LinkIcon />
+            </button>
+          )}
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+            {value || <span style={{ color: "var(--border)" }}>—</span>}
+          </span>
+        </span>
       </td>
     );
   }
