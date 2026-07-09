@@ -164,7 +164,7 @@ export function ActivitiesGrid({
             style={{ ...inputStyle, width: 320, border: "1px solid var(--border)" }}
           />
           <Pill active={showClosed} onClick={() => setShowClosed((v) => !v)}>
-            Closed
+            Ended
           </Pill>
           <CategoryDropdown categories={categories} selected={categoryFilter} onToggle={toggleCategory} />
           <NeighbourhoodDropdown neighbourhoods={neighbourhoods} selected={neighbourhoodFilter} onToggle={toggleNeighbourhood} />

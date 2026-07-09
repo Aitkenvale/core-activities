@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { updatePerson, searchHouseholds, type PersonPatch } from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS, formatCategoryLabel } from "@/lib/category";
-import { isPersonInfoComplete } from "@/lib/personCompleteness";
 
 type Row = {
   id: string;
@@ -22,7 +21,7 @@ type Row = {
   comment: string | null;
 };
 
-type SortKey = keyof Row | "category" | "complete";
+type SortKey = keyof Row | "category";
 
 // Every column except Comment gets a genuinely fixed width — Comment is left
 // with no width set below, so (with table-layout:fixed + table width:100%)
@@ -36,7 +35,6 @@ const COLUMNS: { key: SortKey; label: string; width: number | undefined }[] = [
   { key: "category", label: "Category", width: 140 },
   { key: "regoYear", label: "Rego Year", width: 90 },
   { key: "mobile", label: "Mobile", width: 130 },
-  { key: "complete", label: "Info", width: 90 },
   { key: "hidden", label: "Hide", width: 70 },
   { key: "comment", label: "Comment", width: undefined },
 ];
@@ -114,7 +112,6 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
 
   function sortValue(r: Row, key: SortKey): string {
     if (key === "category") return getCategoryLabel(r.dob) ?? "";
-    if (key === "complete") return isPersonInfoComplete(r.dob, r.householdId) ? "1" : "0";
     const v = r[key];
     return v === null || v === undefined ? "" : String(v);
   }
@@ -242,6 +239,7 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                 <TextCell
                   type="date"
                   value={r.dob}
+                  emptyLabel="Add Info"
                   onSave={(v) => {
                     patchLocal(r.id, { dob: v || null });
                     save(r.id, { dob: v || null });
@@ -276,32 +274,6 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                   onEdit={() => setEditing({ id: r.id, field: "mobile" })}
                   onDone={() => setEditing(null)}
                 />
-                <td style={cellStyle}>
-                  {/* Computed, not a status anyone sets — flags whatever's
-                      actually missing (DOB, household) rather than a
-                      "linked" concept that stopped meaning anything once
-                      every quick-added person was already a real People row.
-                      Clicking it jumps straight into editing whichever of
-                      the two is actually missing. */}
-                  {!isPersonInfoComplete(r.dob, r.householdId) && (
-                    <button
-                      onClick={() => setEditing({ id: r.id, field: r.dob ? "household" : "dob" })}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        font: "inherit",
-                        fontSize: "0.75rem",
-                        color: "var(--warm)",
-                        textDecoration: "underline",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Add Info
-                    </button>
-                  )}
-                </td>
                 <td style={{ ...cellStyle, textAlign: "center" }}>
                   <input
                     type="checkbox"
@@ -450,6 +422,7 @@ function TextCell({
   onDone,
   type = "text",
   copyable = false,
+  emptyLabel,
 }: {
   value: string | null;
   onSave: (v: string) => void;
@@ -458,6 +431,10 @@ function TextCell({
   onDone: () => void;
   type?: "text" | "date";
   copyable?: boolean;
+  // Shown instead of a plain "—" when this field is essential and missing —
+  // names exactly what the system is waiting for, at the field itself
+  // rather than a separate summary column.
+  emptyLabel?: string;
 }) {
   const [draft, setDraft] = useState(value || "");
   const [copied, setCopied] = useState(false);
@@ -481,7 +458,13 @@ function TextCell({
             </button>
           )}
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-            {value || <span style={{ color: "var(--border)" }}>—</span>}
+            {value ? (
+              value
+            ) : emptyLabel ? (
+              <span style={{ color: "var(--heading)", textDecoration: "underline" }}>{emptyLabel}</span>
+            ) : (
+              <span style={{ color: "var(--border)" }}>—</span>
+            )}
           </span>
         </span>
       </td>
@@ -566,7 +549,7 @@ function HouseholdCell({
             </button>
           )}
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-            {row.householdName || <span style={{ color: "var(--border)" }}>—</span>}
+            {row.householdName || <span style={{ color: "var(--heading)", textDecoration: "underline" }}>Add Info</span>}
           </span>
         </span>
       </td>
