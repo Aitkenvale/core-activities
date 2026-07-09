@@ -18,6 +18,7 @@ type Row = {
   regoYear: number | null;
   hidden: boolean;
   linkStatus: "linked" | "pending";
+  hasEnrollment: boolean;
   comment: string | null;
 };
 
@@ -272,18 +273,24 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                   onDone={() => setEditing(null)}
                 />
                 <td style={cellStyle}>
-                  <select
-                    value={r.linkStatus}
-                    onChange={(e) => {
-                      const v = e.target.value as Row["linkStatus"];
-                      patchLocal(r.id, { linkStatus: v });
-                      save(r.id, { linkStatus: v });
-                    }}
-                    style={{ ...inputStyle, border: "1px solid var(--border)" }}
-                  >
-                    <option value="linked">linked</option>
-                    <option value="pending">pending</option>
-                  </select>
+                  {/* Linked/Pending only means anything for someone who's
+                      actually been rostered onto an activity — for everyone
+                      else it's just the inert default, so show nothing
+                      rather than a meaningless "linked". */}
+                  {r.hasEnrollment && (
+                    <select
+                      value={r.linkStatus}
+                      onChange={(e) => {
+                        const v = e.target.value as Row["linkStatus"];
+                        patchLocal(r.id, { linkStatus: v });
+                        save(r.id, { linkStatus: v });
+                      }}
+                      style={{ ...inputStyle, border: "1px solid var(--border)" }}
+                    >
+                      <option value="linked">linked</option>
+                      <option value="pending">pending</option>
+                    </select>
+                  )}
                 </td>
                 <td style={{ ...cellStyle, textAlign: "center" }}>
                   <input
