@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createActivityWithRoster, updateActivityWithRoster, type ActivityForEdit } from "./actions";
+import { createActivityWithRoster, updateActivityWithRoster, type ActivityForEdit, type ActivityStatus } from "./actions";
 import { CadenceFields } from "@/components/CadenceFields";
 import { PeoplePicker, type PickedPerson } from "./PeoplePicker";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
@@ -63,6 +63,10 @@ export function CreateActivityForm({
   const [facilitators, setFacilitators] = useState<PickedPerson[]>(initial?.facilitators ?? []);
   const [participants, setParticipants] = useState<PickedPerson[]>(initial?.participants ?? []);
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [status, setStatus] = useState<ActivityStatus>(initial?.status ?? "active");
+  // Finished is one-way (enforced again server-side) — once an activity was
+  // already Finished when this form loaded, the pills lock in place.
+  const statusLocked = initial?.status === "archived";
   // Editing an existing activity starts "touched" — the loaded notes may
   // already be custom wording, so the unlinked-facilitator auto-note below
   // shouldn't stomp on them the moment the form mounts.
@@ -98,6 +102,7 @@ export function CreateActivityForm({
           cadenceType,
           cadenceConfig,
           notes,
+          status,
           facilitators: facilitators.map(toPersonInput),
           participants: participants.map(toPersonInput),
         });
@@ -148,6 +153,17 @@ export function CreateActivityForm({
 
   return (
     <div style={{ display: "grid", gap: "var(--space-5)", paddingBottom: "var(--space-6)" }}>
+      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.35rem", color: "var(--heading)" }}>
+        {mode === "edit" ? "Edit Activity" : "Create Activity"}
+      </h2>
+
+      {mode === "edit" && (
+        <section>
+          <FieldLabel>Status</FieldLabel>
+          <StatusPills value={status} onChange={setStatus} locked={statusLocked} />
+        </section>
+      )}
+
       <section>
         <FieldLabel>Name</FieldLabel>
         <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
@@ -217,22 +233,82 @@ export function CreateActivityForm({
 
       {error && <p style={{ color: "var(--red)", fontSize: "0.85rem", margin: 0 }}>{error}</p>}
 
-      <button
-        onClick={handleSubmit}
-        disabled={submitting}
-        style={{
-          minHeight: "var(--tap-min)",
-          padding: "0 24px",
-          borderRadius: "var(--radius-pill)",
-          border: "none",
-          background: "var(--deep)",
-          color: "var(--cream)",
-          fontSize: "0.95rem",
-          cursor: "pointer",
-        }}
-      >
-        {mode === "edit" ? (submitting ? "Saving…" : "Save Activity") : submitting ? "Creating…" : "Create Activity"}
-      </button>
+      <div style={{ display: "flex", gap: "var(--space-3)" }}>
+        <button
+          onClick={() => router.push("/app/activities")}
+          disabled={submitting}
+          style={{
+            minHeight: "var(--tap-min)",
+            padding: "0 24px",
+            borderRadius: "var(--radius-pill)",
+            border: "1px solid var(--border)",
+            background: "var(--card-bg)",
+            color: "var(--text)",
+            fontSize: "0.95rem",
+            cursor: "pointer",
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          style={{
+            minHeight: "var(--tap-min)",
+            padding: "0 24px",
+            borderRadius: "var(--radius-pill)",
+            border: "none",
+            background: "var(--deep)",
+            color: "var(--cream)",
+            fontSize: "0.95rem",
+            cursor: "pointer",
+          }}
+        >
+          {mode === "edit" ? (submitting ? "Saving…" : "Save Activity") : submitting ? "Creating…" : "Create Activity"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const STATUS_OPTIONS: { value: ActivityStatus; label: string }[] = [
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "archived", label: "Finished" },
+];
+
+function StatusPills({ value, onChange, locked }: { value: ActivityStatus; onChange: (v: ActivityStatus) => void; locked: boolean }) {
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      {STATUS_OPTIONS.map((opt) => {
+        const active = value === opt.value;
+        const disabled = locked && !active;
+        return (
+          <button
+            key={opt.value}
+            onClick={() => !locked && onChange(opt.value)}
+            disabled={disabled}
+            style={{
+              padding: "6px 16px",
+              borderRadius: "var(--radius-pill)",
+              border: `1px solid ${active ? "var(--deep)" : "var(--border)"}`,
+              background: active ? "var(--deep)" : "var(--card-bg)",
+              color: active ? "var(--cream)" : "var(--text)",
+              fontSize: "0.85rem",
+              cursor: locked ? "default" : "pointer",
+              opacity: disabled ? 0.5 : 1,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+      {locked && (
+        <p style={{ width: "100%", margin: 0, fontSize: "0.75rem", color: "var(--muted)" }}>
+          Finished activities can&rsquo;t be reopened.
+        </p>
+      )}
     </div>
   );
 }

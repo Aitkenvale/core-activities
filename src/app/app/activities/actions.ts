@@ -131,6 +131,8 @@ export async function searchActivitiesForPicker(query: string) {
   return rows.filter((r) => r.name.toLowerCase().includes(q));
 }
 
+export type ActivityStatus = "active" | "paused" | "archived";
+
 export type ActivityForEdit = {
   id: string;
   name: string;
@@ -140,6 +142,7 @@ export type ActivityForEdit = {
   cadenceType: CadenceType;
   cadenceConfig: CadenceConfig;
   notes: string;
+  status: ActivityStatus;
   facilitators: { kind: "existing"; id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" }[];
   participants: { kind: "existing"; id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" }[];
 };
@@ -176,6 +179,7 @@ export async function getActivityForEdit(activityInstanceId: string): Promise<Ac
     cadenceType: activity.cadenceType as CadenceType,
     cadenceConfig: (activity.cadenceConfig ?? {}) as CadenceConfig,
     notes: activity.description ?? "",
+    status: activity.status,
     facilitators: byRole("facilitator"),
     participants: byRole("participant"),
   };
@@ -195,6 +199,7 @@ export async function updateActivityWithRoster(
     cadenceType: CadenceType;
     cadenceConfig: CadenceConfig;
     notes: string;
+    status: ActivityStatus;
     facilitators: PersonInput[];
     participants: PersonInput[];
   },
@@ -202,6 +207,14 @@ export async function updateActivityWithRoster(
   await requireUserId();
   const trimmedName = input.name.trim();
   if (!trimmedName) throw new Error("Name is required");
+
+  const [current] = await db.select({ status: activityInstances.status }).from(activityInstances).where(eq(activityInstances.id, activityInstanceId));
+  const prevStatus: ActivityStatus = (current?.status as ActivityStatus) ?? "active";
+  // Finished is one-way — once persisted, nothing submitted from the form
+  // can move it back to Active/Paused, even if the form somehow submitted
+  // a different value (the UI itself already locks the pills at that point).
+  const nextStatus: ActivityStatus = prevStatus === "archived" ? "archived" : input.status;
+  const today = new Date().toISOString().slice(0, 10);
 
   await db
     .update(activityInstances)
@@ -212,6 +225,14 @@ export async function updateActivityWithRoster(
       description: input.notes.trim() || null,
       cadenceType: input.cadenceType,
       cadenceConfig: input.cadenceConfig,
+      status: nextStatus,
+      hidden: nextStatus === "archived",
+      // Only stamped the moment a status is newly entered, not re-stamped on
+      // every subsequent save while it stays in that state (that would keep
+      // resetting the "weeks paused" badge / the true Finished date).
+      ...(nextStatus === "paused" && prevStatus !== "paused" ? { pausedAt: today } : {}),
+      ...(nextStatus !== "paused" ? { pausedAt: null } : {}),
+      ...(nextStatus === "archived" && prevStatus !== "archived" ? { endDate: today } : {}),
       updatedAt: new Date(),
     })
     .where(eq(activityInstances.id, activityInstanceId));
