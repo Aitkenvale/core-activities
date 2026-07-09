@@ -37,7 +37,7 @@ const COLUMNS: { key: SortKey; label: string; width: number | undefined }[] = [
   { key: "regoYear", label: "Rego Year", width: 90 },
   { key: "mobile", label: "Mobile", width: 130 },
   { key: "complete", label: "Info", width: 90 },
-  { key: "hidden", label: "Hidden", width: 70 },
+  { key: "hidden", label: "Hide", width: 70 },
   { key: "comment", label: "Comment", width: undefined },
 ];
 const COMMENT_MIN_WIDTH = 180;
@@ -251,7 +251,9 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                   onDone={() => setEditing(null)}
                 />
                 {/* Computed live from DOB (matches the old sheet's LOOKUP formula) — not stored, not editable, so it never goes stale as someone ages. */}
-                <td style={cellStyle}>{getCategoryLabel(r.dob) || <span style={{ color: "var(--border)" }}>—</span>}</td>
+                <td style={cellStyle}>
+                  {getCategoryLabel(r.dob) ? formatCategoryLabel(getCategoryLabel(r.dob)!) : <span style={{ color: "var(--border)" }}>—</span>}
+                </td>
                 <TextCell
                   value={r.regoYear === null ? null : String(r.regoYear)}
                   onSave={(v) => {
@@ -278,9 +280,26 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                   {/* Computed, not a status anyone sets — flags whatever's
                       actually missing (DOB, household) rather than a
                       "linked" concept that stopped meaning anything once
-                      every quick-added person was already a real People row. */}
+                      every quick-added person was already a real People row.
+                      Clicking it jumps straight into editing whichever of
+                      the two is actually missing. */}
                   {!isPersonInfoComplete(r.dob, r.householdId) && (
-                    <span style={{ fontSize: "0.75rem", color: "var(--warm)", whiteSpace: "nowrap" }}>Add Info</span>
+                    <button
+                      onClick={() => setEditing({ id: r.id, field: r.dob ? "household" : "dob" })}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        font: "inherit",
+                        fontSize: "0.75rem",
+                        color: "var(--warm)",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Add Info
+                    </button>
                   )}
                 </td>
                 <td style={{ ...cellStyle, textAlign: "center" }}>
