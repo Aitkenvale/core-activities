@@ -1,5 +1,5 @@
-import { Stub } from "@/components/Stub";
+import { PeopleSearch } from "./PeopleSearch";
 
 export default function PeoplePage() {
-  return <Stub title="Find Person" />;
+  return <PeopleSearch />;
 }

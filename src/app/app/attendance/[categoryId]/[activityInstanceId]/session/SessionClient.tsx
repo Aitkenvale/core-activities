@@ -13,6 +13,7 @@ import {
   setLockStatus,
   mergePendingPerson,
 } from "./actions";
+import { formatFullName } from "@/lib/formatName";
 
 type RosterRow = {
   personId: string;
@@ -485,13 +486,6 @@ function RosterSection({
 }
 
 type SearchResult = { id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" };
-
-// Search-result lists (linking a pending person, adding someone existing)
-// show both names — the formal name is what matches official records, the
-// AKA alone isn't enough to tell people with the same nickname apart.
-function formatFullName(name: string, preferredName: string | null): string {
-  return preferredName ? `${name} (${preferredName})` : name;
-}
 
 const badgeStyle: React.CSSProperties = {
   flexShrink: 0,
