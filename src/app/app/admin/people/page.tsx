@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
@@ -16,6 +17,7 @@ export default async function AdminPeoplePage({
   if (session?.user?.role !== "admin") redirect("/app");
   const { q } = await searchParams;
 
+  const householdContacts = alias(people, "household_contacts");
   const [rows, contactRows] = await Promise.all([
     db
       .select({
@@ -31,9 +33,14 @@ export default async function AdminPeoplePage({
         hidden: people.hidden,
         linkStatus: people.linkStatus,
         comment: people.comment,
+        householdContactPersonId: households.contactPersonId,
+        householdContactName: householdContacts.name,
+        householdContactPreferredName: householdContacts.preferredName,
+        householdContactMobile: householdContacts.mobile,
       })
       .from(people)
-      .leftJoin(households, eq(households.id, people.householdId)),
+      .leftJoin(households, eq(households.id, people.householdId))
+      .leftJoin(householdContacts, eq(householdContacts.id, households.contactPersonId)),
     db.select({ contactPersonId: households.contactPersonId }).from(households),
   ]);
 

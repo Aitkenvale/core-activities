@@ -1,9 +1,16 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { updatePerson, searchHouseholds, type PersonPatch } from "./actions";
+import {
+  updatePerson,
+  searchHouseholds,
+  createHousehold,
+  searchPeopleForContact,
+  createContactPerson,
+  saveHouseholdContact,
+  type PersonPatch,
+} from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS, formatCategoryLabel } from "@/lib/category";
 
 type Row = {
@@ -22,6 +29,12 @@ type Row = {
   // Whether this person is set as some household's contact — if so, a
   // missing mobile number is essential info, not merely optional.
   isHouseholdContact: boolean;
+  // This person's own household's designated contact — prefills the
+  // Household column's popup, same fields as the Attendance Add Info modal.
+  householdContactPersonId: string | null;
+  householdContactName: string | null;
+  householdContactPreferredName: string | null;
+  householdContactMobile: string | null;
 };
 
 type SortKey = keyof Row | "category";
@@ -231,12 +244,22 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                 />
                 <HouseholdCell
                   row={r}
-                  editing={editing?.id === r.id && editing.field === "household"}
-                  onEdit={() => setEditing({ id: r.id, field: "household" })}
-                  onDone={() => setEditing(null)}
-                  onSave={(householdId, householdName) => {
-                    patchLocal(r.id, { householdId, householdName });
-                    save(r.id, { householdId });
+                  onSave={(
+                    householdId,
+                    householdName,
+                    householdContactPersonId,
+                    householdContactName,
+                    householdContactPreferredName,
+                    householdContactMobile,
+                  ) => {
+                    patchLocal(r.id, {
+                      householdId,
+                      householdName,
+                      householdContactPersonId,
+                      householdContactName,
+                      householdContactPreferredName,
+                      householdContactMobile,
+                    });
                   }}
                 />
                 <TextCell
@@ -498,128 +521,383 @@ function TextCell({
   );
 }
 
+// Opens the same Add Info-style popup used on the Attendance roster —
+// Household, Contact and the contact's Mobile in one modal — instead of the
+// old inline dropdown, so setting someone's household looks and behaves the
+// same wherever it comes up.
 function HouseholdCell({
   row,
-  editing,
-  onEdit,
-  onDone,
   onSave,
 }: {
   row: Row;
-  editing: boolean;
-  onEdit: () => void;
-  onDone: () => void;
-  onSave: (householdId: string | null, householdName: string | null) => void;
+  onSave: (
+    householdId: string | null,
+    householdName: string | null,
+    householdContactPersonId: string | null,
+    householdContactName: string | null,
+    householdContactPreferredName: string | null,
+    householdContactMobile: string | null,
+  ) => void;
 }) {
-  const [query, setQuery] = useState(row.householdName || "");
-  const [results, setResults] = useState<{ id: string; name: string }[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [open, setOpen] = useState(false);
   const router = useRouter();
 
-  // The table wraps in an overflow:auto container to allow horizontal
-  // scrolling, which also clips any absolutely-positioned child — so the
-  // dropdown gets cut off instead of floating over the rest of the page.
-  // Portal it to <body> with fixed coordinates to escape that clipping.
-  useLayoutEffect(() => {
-    if (!editing) return;
-    function updatePos() {
-      const rect = inputRef.current?.getBoundingClientRect();
-      if (rect) setMenuPos({ top: rect.bottom, left: rect.left, width: rect.width });
-    }
-    updatePos();
-    window.addEventListener("scroll", updatePos, true);
-    window.addEventListener("resize", updatePos);
-    return () => {
-      window.removeEventListener("scroll", updatePos, true);
-      window.removeEventListener("resize", updatePos);
-    };
-  }, [editing]);
-
-  if (!editing) {
-    return (
-      <td style={{ ...cellStyle, cursor: "pointer" }} onClick={onEdit}>
-        <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-          {row.householdName && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/app/admin/households?q=${encodeURIComponent(row.householdName!)}`);
-              }}
-              title="Open in Edit Households"
-              style={iconButtonStyle}
-            >
-              <LinkIcon />
-            </button>
-          )}
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-            {row.householdName || <span style={{ color: "var(--heading)", textDecoration: "underline" }}>Add Info</span>}
-          </span>
+  return (
+    <td style={{ ...cellStyle, cursor: "pointer" }} onClick={() => setOpen(true)}>
+      <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        {row.householdName && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/app/admin/households?q=${encodeURIComponent(row.householdName!)}`);
+            }}
+            title="Open in Edit Households"
+            style={iconButtonStyle}
+          >
+            <LinkIcon />
+          </button>
+        )}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+          {row.householdName || <span style={{ color: "var(--heading)", textDecoration: "underline" }}>Add Info</span>}
         </span>
-      </td>
-    );
+      </span>
+      {open && (
+        <PersonHouseholdModal
+          row={row}
+          onClose={() => setOpen(false)}
+          onSaved={(...args) => {
+            onSave(...args);
+            setOpen(false);
+          }}
+        />
+      )}
+    </td>
+  );
+}
+
+const modalInputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  fontSize: "0.85rem",
+  minHeight: 36,
+  padding: "6px 8px",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--card-bg)",
+  color: "var(--text)",
+};
+
+// Flags a field that's essential to this person's completeness and still empty.
+const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)" };
+
+function ModalField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "grid", gap: 2 }}>
+      <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+// Same Household + Contact + Mobile trio as the Attendance Add Info modal.
+function PersonHouseholdModal({
+  row,
+  onClose,
+  onSaved,
+}: {
+  row: Row;
+  onClose: () => void;
+  onSaved: (
+    householdId: string | null,
+    householdName: string | null,
+    householdContactPersonId: string | null,
+    householdContactName: string | null,
+    householdContactPreferredName: string | null,
+    householdContactMobile: string | null,
+  ) => void;
+}) {
+  const [householdId, setHouseholdId] = useState(row.householdId);
+  const [householdQuery, setHouseholdQuery] = useState(row.householdName ?? "");
+  const [householdResults, setHouseholdResults] = useState<{ id: string; name: string }[]>([]);
+  const [contactPersonId, setContactPersonId] = useState(row.householdContactPersonId);
+  const [contactQuery, setContactQuery] = useState(row.householdContactPreferredName || row.householdContactName || "");
+  const [contactResults, setContactResults] = useState<{ id: string; name: string; preferredName: string | null; mobile: string | null }[]>([]);
+  const [contactMobile, setContactMobile] = useState(row.householdContactMobile ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleHouseholdSearch(value: string) {
+    setHouseholdQuery(value);
+    setHouseholdId(null);
+    setHouseholdResults(await searchHouseholds(value));
   }
 
-  async function handleChange(value: string) {
-    setQuery(value);
-    setResults(await searchHouseholds(value));
+  async function handleCreateHousehold() {
+    const trimmed = householdQuery.trim();
+    if (!trimmed) return;
+    try {
+      const created = await createHousehold(trimmed);
+      setHouseholdId(created.id);
+      setHouseholdQuery(created.name);
+      setHouseholdResults([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't create that household.");
+    }
+  }
+
+  function handleRemoveHousehold() {
+    setHouseholdId(null);
+    setHouseholdQuery("");
+    setHouseholdResults([]);
+    setContactPersonId(null);
+    setContactQuery("");
+    setContactResults([]);
+    setContactMobile("");
+  }
+
+  async function handleContactSearch(value: string) {
+    setContactQuery(value);
+    setContactPersonId(null);
+    setContactResults(await searchPeopleForContact(value));
+  }
+
+  function selectContact(p: { id: string; name: string; preferredName: string | null; mobile: string | null }) {
+    setContactPersonId(p.id);
+    setContactQuery(p.preferredName || p.name);
+    setContactResults([]);
+    setContactMobile(p.mobile ?? "");
+  }
+
+  function handleRemoveContact() {
+    setContactPersonId(null);
+    setContactQuery("");
+    setContactResults([]);
+    setContactMobile("");
+  }
+
+  async function handleCreateContact() {
+    const trimmed = contactQuery.trim();
+    if (!trimmed) return;
+    try {
+      const created = await createContactPerson(trimmed);
+      setContactPersonId(created.id);
+      setContactQuery(created.preferredName || created.name);
+      setContactResults([]);
+      setContactMobile(""); // a brand-new person has no mobile yet
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't create that contact.");
+    }
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      let finalHouseholdId = householdId;
+      // No household yet, but a contact was picked anyway — a contact
+      // doesn't require a household to already exist, so create a bare one
+      // now (named after this person). Can be renamed/merged properly later
+      // in Edit Households.
+      if (!finalHouseholdId && contactPersonId) {
+        const created = await createHousehold(`${row.name} household`);
+        finalHouseholdId = created.id;
+      }
+      await updatePerson(row.id, { householdId: finalHouseholdId });
+      if (finalHouseholdId) {
+        await saveHouseholdContact(finalHouseholdId, contactPersonId, contactMobile || null);
+      }
+      onSaved(
+        finalHouseholdId,
+        finalHouseholdId ? householdQuery : null,
+        contactPersonId,
+        contactPersonId ? contactQuery : null,
+        null,
+        contactPersonId ? contactMobile || null : null,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save that change.");
+      setSaving(false);
+    }
   }
 
   return (
-    <td style={cellStyle}>
-      <input
-        ref={inputRef}
-        autoFocus
-        placeholder="Search household…"
-        value={query}
-        onChange={(e) => handleChange(e.target.value)}
-        onFocus={(e) => e.target.select()}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onDone();
+    <>
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
         }}
-        style={inputStyle}
+        style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.4)" }}
       />
-      {menuPos &&
-        createPortal(
-          <div
-            style={{
-              position: "fixed",
-              top: menuPos.top,
-              left: menuPos.left,
-              width: Math.max(menuPos.width, 220),
-              zIndex: 1000,
-              background: "var(--card-bg)",
-              border: "1px solid var(--border)",
-              borderRadius: 2,
-              maxHeight: 200,
-              overflowY: "auto",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            }}
-          >
-            <button
-              onClick={() => {
-                onSave(null, null);
-                onDone();
-              }}
-              style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 10px", fontSize: "0.8rem", color: "var(--muted)", border: "none", background: "none", cursor: "pointer" }}
-            >
-              (no household)
-            </button>
-            {results.map((h) => (
+      <div
+        style={{
+          position: "fixed",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 91,
+          width: "min(90vw, 340px)",
+          maxHeight: "85vh",
+          overflowY: "auto",
+          background: "var(--card-bg)",
+          borderRadius: "var(--radius-lg)",
+          boxShadow: "var(--shadow-elevated)",
+          padding: "var(--space-5)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>
+          Household
+        </h3>
+
+        <div style={{ display: "grid", gap: "var(--space-3)" }}>
+          <ModalField label="Household">
+            <input
+              placeholder="Search household…"
+              value={householdQuery}
+              onChange={(e) => handleHouseholdSearch(e.target.value)}
+              style={{ ...modalInputStyle, ...(!householdId ? missingBorderStyle : {}) }}
+            />
+            {householdQuery.trim() && householdId === null && (
               <button
-                key={h.id}
-                onClick={() => {
-                  onSave(h.id, h.name);
-                  onDone();
+                onClick={handleCreateHousehold}
+                style={{
+                  marginTop: 4,
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "6px 8px",
+                  border: "1px dashed var(--gold)",
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--cream2)",
+                  color: "var(--warm)",
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
                 }}
-                style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 10px", fontSize: "0.8rem", color: "var(--text)", border: "none", background: "none", cursor: "pointer" }}
               >
-                {h.name}
+                + Create new household: &ldquo;{householdQuery.trim()}&rdquo;
               </button>
-            ))}
-          </div>,
-          document.body,
-        )}
-    </td>
+            )}
+            {householdResults.length > 0 && (
+              <div style={{ marginTop: 4, display: "grid", gap: 2, maxHeight: 120, overflowY: "auto" }}>
+                {householdResults.map((h) => (
+                  <button
+                    key={h.id}
+                    onClick={() => {
+                      setHouseholdId(h.id);
+                      setHouseholdQuery(h.name);
+                      setHouseholdResults([]);
+                    }}
+                    style={{
+                      textAlign: "left",
+                      padding: "4px 8px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-sm)",
+                      background: "var(--card-bg)",
+                      color: "var(--text)",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {h.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {(householdId || householdQuery.trim()) && (
+              <button
+                onClick={handleRemoveHousehold}
+                style={{ marginTop: 4, textAlign: "left", padding: 0, border: "none", background: "none", color: "var(--red)", fontSize: "0.75rem", cursor: "pointer" }}
+              >
+                Remove household
+              </button>
+            )}
+          </ModalField>
+          <ModalField label="Contact">
+            <input
+              placeholder="Search contact…"
+              value={contactQuery}
+              onChange={(e) => handleContactSearch(e.target.value)}
+              style={{ ...modalInputStyle, ...(!contactPersonId ? missingBorderStyle : {}) }}
+            />
+            {contactQuery.trim() && contactPersonId === null && (
+              <button
+                onClick={handleCreateContact}
+                style={{
+                  marginTop: 4,
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "6px 8px",
+                  border: "1px dashed var(--gold)",
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--cream2)",
+                  color: "var(--warm)",
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                }}
+              >
+                + Create new contact: &ldquo;{contactQuery.trim()}&rdquo;
+              </button>
+            )}
+            {contactResults.length > 0 && (
+              <div style={{ marginTop: 4, display: "grid", gap: 2, maxHeight: 120, overflowY: "auto" }}>
+                {contactResults.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => selectContact(p)}
+                    style={{
+                      textAlign: "left",
+                      padding: "4px 8px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-sm)",
+                      background: "var(--card-bg)",
+                      color: "var(--text)",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {p.preferredName ? `${p.name} (${p.preferredName})` : p.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {(contactPersonId || contactQuery.trim()) && (
+              <button
+                onClick={handleRemoveContact}
+                style={{ marginTop: 4, textAlign: "left", padding: 0, border: "none", background: "none", color: "var(--red)", fontSize: "0.75rem", cursor: "pointer" }}
+              >
+                Remove contact
+              </button>
+            )}
+          </ModalField>
+          <ModalField label="Mobile">
+            <input
+              type="tel"
+              value={contactMobile}
+              onChange={(e) => setContactMobile(e.target.value)}
+              disabled={!contactPersonId}
+              placeholder={contactPersonId ? undefined : "Pick a contact first"}
+              style={{ ...modalInputStyle, opacity: contactPersonId ? 1 : 0.6, ...(contactPersonId && !contactMobile ? missingBorderStyle : {}) }}
+            />
+          </ModalField>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: "var(--space-4)" }}>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ minHeight: 36, padding: "0 20px", borderRadius: "var(--radius-pill)", border: "none", background: "var(--deep)", color: "var(--cream)", fontSize: "0.85rem", cursor: "pointer" }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <button
+            onClick={onClose}
+            style={{ minHeight: 36, padding: "0 20px", border: "none", background: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+        </div>
+        {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 8 }}>{error}</p>}
+      </div>
+    </>
   );
 }

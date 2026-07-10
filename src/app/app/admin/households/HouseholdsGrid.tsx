@@ -640,6 +640,13 @@ function HouseholdContactModal({
     setContactMobile(p.mobile ?? "");
   }
 
+  function handleRemoveContact() {
+    setContactPersonId(null);
+    setContactQuery("");
+    setContactResults([]);
+    setContactMobile("");
+  }
+
   async function handleCreateContact() {
     const trimmed = contactQuery.trim();
     if (!trimmed) return;
@@ -744,6 +751,14 @@ function HouseholdContactModal({
                   </button>
                 ))}
               </div>
+            )}
+            {(contactPersonId || contactQuery.trim()) && (
+              <button
+                onClick={handleRemoveContact}
+                style={{ marginTop: 4, textAlign: "left", padding: 0, border: "none", background: "none", color: "var(--red)", fontSize: "0.75rem", cursor: "pointer" }}
+              >
+                Remove contact
+              </button>
             )}
           </ModalField>
           <ModalField label="Mobile">
