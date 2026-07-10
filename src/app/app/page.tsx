@@ -52,6 +52,14 @@ export default async function AppHome() {
           </div>
         </>
       )}
+
+      {/* Purely decorative — sits below every tile (including Admin
+          Functions), never behind/under the buttons themselves. */}
+      <img
+        src="/home-tree.png"
+        alt=""
+        style={{ display: "block", width: "70%", maxWidth: 280, margin: "var(--space-7) auto 0" }}
+      />
     </>
   );
 }
