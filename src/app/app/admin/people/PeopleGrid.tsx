@@ -13,6 +13,10 @@ import {
 } from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS, formatCategoryLabel } from "@/lib/category";
 
+// Infants can't be enrolled in anything — the Participants filter only ever
+// needs Young Child through Adult.
+const PARTICIPANT_CATEGORY_LABELS = CATEGORY_LABELS.slice(1);
+
 type Row = {
   id: string;
   name: string;
@@ -29,6 +33,9 @@ type Row = {
   // Whether this person is set as some household's contact — if so, a
   // missing mobile number is essential info, not merely optional.
   isHouseholdContact: boolean;
+  // Actively on an activity's roster as a participant (not a facilitator) in
+  // a non-Complete activity — drives the Participants filter dropdown.
+  isCurrentParticipant: boolean;
   // This person's own household's designated contact — prefills the
   // Household column's popup, same fields as the Attendance Add Info modal.
   householdContactPersonId: string | null;
@@ -97,12 +104,22 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
   // household name pre-filled so its members are immediately visible.
   const [filterText, setFilterText] = useState(initialFilter);
   const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
+  const [participantFilter, setParticipantFilter] = useState<Set<string>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
   const [noRegoOnly, setNoRegoOnly] = useState(false);
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
 
   function toggleCategory(label: string) {
     setCategoryFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
+
+  function toggleParticipant(label: string) {
+    setParticipantFilter((prev) => {
       const next = new Set(prev);
       if (next.has(label)) next.delete(label);
       else next.add(label);
@@ -141,6 +158,9 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
     if (categoryFilter.size > 0) {
       filtered = filtered.filter((r) => categoryFilter.has(getCategoryLabel(r.dob) ?? ""));
     }
+    if (participantFilter.size > 0) {
+      filtered = filtered.filter((r) => r.isCurrentParticipant && participantFilter.has(getCategoryLabel(r.dob) ?? ""));
+    }
     if (q) {
       filtered = filtered.filter((r) =>
         [r.name, r.preferredName, r.householdName, getCategoryLabel(r.dob), r.comment].some((v) => v?.toLowerCase().includes(q)),
@@ -151,7 +171,7 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
       return sortAsc ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, filterText, categoryFilter, showHidden, noRegoOnly, sortKey, sortAsc]);
+  }, [rows, filterText, categoryFilter, participantFilter, showHidden, noRegoOnly, sortKey, sortAsc]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
@@ -177,7 +197,8 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
           <Pill active={noRegoOnly} onClick={() => setNoRegoOnly((v) => !v)}>
             No Rego
           </Pill>
-          <CategoryDropdown selected={categoryFilter} onToggle={toggleCategory} />
+          <CategoryDropdown label="Category" options={CATEGORY_LABELS} selected={categoryFilter} onToggle={toggleCategory} />
+          <CategoryDropdown label="Participants" options={PARTICIPANT_CATEGORY_LABELS} selected={participantFilter} onToggle={toggleParticipant} />
         </div>
       </div>
 
@@ -330,14 +351,26 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
   );
 }
 
-function CategoryDropdown({ selected, onToggle }: { selected: Set<string>; onToggle: (label: string) => void }) {
+// Shared by the Category and Participants filters — same checkbox-list
+// dropdown, just a different label and set of category options.
+function CategoryDropdown({
+  label,
+  options,
+  selected,
+  onToggle,
+}: {
+  label: string;
+  options: string[];
+  selected: Set<string>;
+  onToggle: (label: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const active = selected.size > 0;
 
   return (
     <div style={{ position: "relative" }}>
       <Pill active={active} onClick={() => setOpen((v) => !v)}>
-        Category{active ? ` (${selected.size})` : ""}
+        {label}{active ? ` (${selected.size})` : ""}
       </Pill>
       {open && (
         <>
@@ -357,13 +390,13 @@ function CategoryDropdown({ selected, onToggle }: { selected: Set<string>; onTog
               padding: "var(--space-2)",
             }}
           >
-            {CATEGORY_LABELS.map((label) => (
+            {options.map((option) => (
               <label
-                key={label}
+                key={option}
                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: "0.8rem", color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}
               >
-                <input type="checkbox" checked={selected.has(label)} onChange={() => onToggle(label)} />
-                {formatCategoryLabel(label)}
+                <input type="checkbox" checked={selected.has(option)} onChange={() => onToggle(option)} />
+                {formatCategoryLabel(option)}
               </label>
             ))}
           </div>

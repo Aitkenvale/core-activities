@@ -1,8 +1,8 @@
-// Mirrors the old sheet's formula exactly:
-// =LOOKUP(age, {0,5,9,12,15,25}, {"1. Infant","2. Young Child","3. Older Child","4. Junior Youth","5. Youth","6. Adult"})
+// Mirrors the old sheet's formula, except Adult now starts at 21 (not 25):
+// =LOOKUP(age, {0,5,9,12,15,21}, {"1. Infant","2. Young Child","3. Older Child","4. Junior Youth","5. Youth","6. Adult"})
 // Always computed live from DOB, never stored — a stored value would go
 // stale the moment a birthday passes.
-const BREAKPOINTS = [0, 5, 9, 12, 15, 25];
+const BREAKPOINTS = [0, 5, 9, 12, 15, 21];
 const LABELS = ["1. Infant", "2. Young Child", "3. Older Child", "4. Junior Youth", "5. Youth", "6. Adult"];
 export const CATEGORY_LABELS = LABELS;
 
