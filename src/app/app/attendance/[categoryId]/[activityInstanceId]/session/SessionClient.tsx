@@ -646,11 +646,15 @@ const badgeStyle: React.CSSProperties = {
   letterSpacing: "0.04em",
 };
 
+// fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
+// whole page on focus, and it doesn't reliably zoom back out on blur (the
+// bug this was fixed for: fields, and the roster behind the modal, staying
+// zoomed in after the keyboard closed).
 const modalInputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  fontSize: "0.85rem",
-  minHeight: 36,
+  fontSize: 16,
+  minHeight: 40,
   padding: "6px 8px",
   border: "1px solid var(--border)",
   borderRadius: "var(--radius-sm)",
@@ -809,7 +813,7 @@ function AddInfoModal({
               type="date"
               value={dob}
               onChange={(e) => setDob(e.target.value)}
-              style={{ ...modalInputStyle, fontSize: "0.8rem", ...(!dob ? missingBorderStyle : {}) }}
+              style={{ ...modalInputStyle, ...(!dob ? missingBorderStyle : {}) }}
             />
           </ModalField>
           <ModalField label="Household">
