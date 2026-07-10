@@ -38,11 +38,25 @@ export async function searchPeopleForContact(query: string) {
   const q = query.trim();
   if (q.length < 2) return [];
   const rows = await db
-    .select({ id: people.id, name: people.name, preferredName: people.preferredName, dob: people.dob })
+    .select({ id: people.id, name: people.name, preferredName: people.preferredName, mobile: people.mobile, dob: people.dob })
     .from(people)
     .where(and(eq(people.hidden, false), or(ilike(people.name, `%${q}%`), ilike(people.preferredName, `%${q}%`))))
     .limit(10);
-  return rows.filter((r) => !CONTACT_INELIGIBLE_CATEGORIES.includes(getCategoryLabel(r.dob) ?? "")).map(({ id, name, preferredName }) => ({ id, name, preferredName }));
+  return rows
+    .filter((r) => !CONTACT_INELIGIBLE_CATEGORIES.includes(getCategoryLabel(r.dob) ?? ""))
+    .map(({ id, name, preferredName, mobile }) => ({ id, name, preferredName, mobile }));
+}
+
+// Sets a household's contact and (if provided) that contact's own mobile
+// number in one go — mirrors the attendance Add Info flow's
+// saveHouseholdContact, admin-gated here since this is the Edit Households
+// grid rather than the roster.
+export async function saveHouseholdContact(householdId: string, contactPersonId: string | null, contactMobile: string | null) {
+  await requireAdmin();
+  await db.update(households).set({ contactPersonId }).where(eq(households.id, householdId));
+  if (contactPersonId) {
+    await db.update(people).set({ mobile: contactMobile || null }).where(eq(people.id, contactPersonId));
+  }
 }
 
 // Same reasoning as the attendance Add Info flow's createContactPerson — a

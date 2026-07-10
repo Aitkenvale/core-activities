@@ -17,7 +17,7 @@ export default async function AdminHouseholdsPage({
 
   const [allHouseholds, allPeople] = await Promise.all([
     db.select().from(households),
-    db.select({ id: people.id, householdId: people.householdId, name: people.name, preferredName: people.preferredName }).from(people),
+    db.select({ id: people.id, householdId: people.householdId, name: people.name, preferredName: people.preferredName, mobile: people.mobile }).from(people),
   ]);
 
   const peopleCounts = new Map<string, number>();
@@ -39,6 +39,7 @@ export default async function AdminHouseholdsPage({
       contactPersonId: h.contactPersonId,
       contactName: contact?.name ?? null,
       contactPreferredName: contact?.preferredName ?? null,
+      contactMobile: contact?.mobile ?? null,
     };
   });
 
