@@ -1,11 +1,8 @@
-import { headers } from "next/headers";
 import Link from "next/link";
 import { and, asc, eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { activityCategories } from "@/db/schema/activityCategories";
 import { activityInstances } from "@/db/schema/activityInstances";
-import { activityFacilitators } from "@/db/schema/activityFacilitators";
 
 export default async function ActivityInstanceList({
   params,
@@ -15,43 +12,25 @@ export default async function ActivityInstanceList({
   const { categoryId } = await params;
 
   // Independent queries — fire together instead of one round trip at a time.
-  const [session, [category]] = await Promise.all([
-    auth.api.getSession({ headers: await headers() }),
+  // Every signed-in user (Facilitator or Admin) sees every active activity
+  // here — the Facilitator/Admin split is about the dedicated Admin
+  // Functions area, not about which activities someone can take attendance
+  // for, so this doesn't need the caller's session at all.
+  const [[category], instances] = await Promise.all([
     db.select().from(activityCategories).where(eq(activityCategories.id, categoryId)),
+    db
+      .select()
+      .from(activityInstances)
+      .where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active"), eq(activityInstances.hidden, false)))
+      .orderBy(asc(activityInstances.name)),
   ]);
-  const isAdmin = session?.user?.role === "admin";
-
-  const instances = isAdmin
-    ? await db
-        .select()
-        .from(activityInstances)
-        .where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active"), eq(activityInstances.hidden, false)))
-        .orderBy(asc(activityInstances.name))
-    : await db
-        .select({ activityInstances })
-        .from(activityInstances)
-        .innerJoin(
-          activityFacilitators,
-          and(
-            eq(activityFacilitators.activityInstanceId, activityInstances.id),
-            eq(activityFacilitators.userId, session!.user.id),
-            eq(activityFacilitators.active, true),
-          ),
-        )
-        .where(and(eq(activityInstances.categoryId, categoryId), eq(activityInstances.status, "active"), eq(activityInstances.hidden, false)))
-        .orderBy(asc(activityInstances.name))
-        .then((rows) => rows.map((r) => r.activityInstances));
 
   return (
     <>
       <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-5)" }}>
         {category?.label}
       </h2>
-      {instances.length === 0 && (
-        <p style={{ color: "var(--muted)" }}>
-          {isAdmin ? "No activities yet in this category." : "You're not assigned to any activities in this category yet."}
-        </p>
-      )}
+      {instances.length === 0 && <p style={{ color: "var(--muted)" }}>No activities yet in this category.</p>}
       {/* Kept deliberately compact (not the full --tap-min height) so ~12
           classes fit on screen without scrolling. */}
       <div style={{ display: "grid", gap: "var(--space-2)" }}>
