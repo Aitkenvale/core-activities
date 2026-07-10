@@ -21,7 +21,20 @@ export default async function AppHome() {
   const userTiles = USER_TILES.filter((t) => !t.hiddenFromHub && (!t.adminOnly || isAdmin));
 
   return (
-    <>
+    // Bleeds past <main>'s 5% side padding so the backdrop reaches the true
+    // edges, then re-adds that same padding inside for the tile grid. Only
+    // this page carries the image — the shared layout/header stay plain.
+    <div
+      style={{
+        margin: "0 -5%",
+        padding: "var(--space-5) 5% 24px",
+        minHeight: "calc(100dvh - var(--app-header-height))",
+        backgroundImage: "url('/home-tree-bg.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "top center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
       <div style={{ display: "grid", gap: "var(--space-3)" }}>
         {userTiles.map((tile) => (
           <Link key={tile.href} href={tile.href} style={tileStyle}>
@@ -52,7 +65,7 @@ export default async function AppHome() {
           </div>
         </>
       )}
-    </>
+    </div>
   );
 }
 
