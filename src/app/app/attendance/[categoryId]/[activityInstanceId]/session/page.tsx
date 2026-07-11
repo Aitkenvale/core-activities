@@ -61,7 +61,7 @@ export default async function SessionPage({
   const cadenceType = activity.cadenceType as CadenceType;
   const cadenceConfig = activity.cadenceConfig as CadenceConfig;
   const nextExpected = getNextExpectedDate(cadenceType, cadenceConfig, termRanges, activity.startDate);
-  const recentDates = getRecentExpectedDates(cadenceType, cadenceConfig, termRanges, 3, activity.startDate);
+  const cadenceRecentDates = getRecentExpectedDates(cadenceType, cadenceConfig, termRanges, 3, activity.startDate);
   const selectedDate = date || nextExpected || new Date().toISOString().slice(0, 10);
 
   const existingEvent = await db.query.attendanceEvents.findFirst({
@@ -85,6 +85,11 @@ export default async function SessionPage({
     .where(and(eq(attendanceEvents.activityInstanceId, activityInstanceId), gte(attendanceEvents.sessionDate, editWindowCutoff.toISOString().slice(0, 10))))
     .orderBy(desc(attendanceEvents.sessionDate));
   const heldDates = heldEvents.map((e) => e.sessionDate);
+
+  // Ad-hoc activities have no cadence, so cadenceRecentDates above is always
+  // empty — the most recent real sessions are the natural equivalent of the
+  // cadence-predicted quick-pick pills for everyone else.
+  const recentDates = cadenceType === "ad_hoc" ? heldDates.slice(0, 3) : cadenceRecentDates;
 
   // Ad-hoc activities have no cadence, so selectedDate above falls all the
   // way through to "today" with nothing to signal that's just a guess, not

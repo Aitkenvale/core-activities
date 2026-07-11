@@ -210,8 +210,10 @@ export function CreateActivityForm({
       {mode === "create" && (
         <section>
           <FieldLabel>Start Date (optional)</FieldLabel>
-          {/* Mobile Safari centers a date input's text by default, unlike every other field here — force it back to match. */}
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ ...inputStyle, textAlign: "left" }} />
+          {/* globals.css overrides the internal pseudo-element iOS Safari
+              actually centers; minWidth:0 stops it rendering wider than
+              every other field here (same fix as the Add Info modal's DOB). */}
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ ...inputStyle, textAlign: "left", minWidth: 0 }} />
         </section>
       )}
 

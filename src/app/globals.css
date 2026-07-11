@@ -108,6 +108,20 @@ input[type="date"] {
   color-scheme: light dark;
 }
 
+/* iOS Safari centers a date input's visible text via an internal shadow
+   pseudo-element that a plain text-align on the input itself doesn't reach —
+   override the part that actually renders the text. Also a grid/flex child's
+   default min-width:auto can size to this control's internal content instead
+   of the width it was actually given, letting it overflow past sibling
+   fields; min-width:0 on the input (set alongside this globally, since every
+   date input in the app wants the same fix) removes that floor. */
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+input[type="date"] {
+  min-width: 0;
+}
+
 /* Same issue for checkboxes and radios — the browser renders a plain white
    control regardless of page theme unless told to use its own dark form
    chrome, and accent-color themes the checked-fill/dot to match our palette
