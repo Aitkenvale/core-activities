@@ -63,6 +63,7 @@ export function SessionClient({
   statusByPersonId,
   isAdmin,
   editWindowMonths,
+  needsDateConfirmation,
 }: {
   categoryId: string;
   activityInstanceId: string;
@@ -74,6 +75,7 @@ export function SessionClient({
   statusByPersonId: Record<string, Status>;
   isAdmin: boolean;
   editWindowMonths: number;
+  needsDateConfirmation: boolean;
 }) {
   const router = useRouter();
   const [statuses, setStatuses] = useState<Record<string, Status>>(statusByPersonId);
@@ -181,104 +183,118 @@ export function SessionClient({
         {activityName}
       </h2>
 
-      <DatePicker selectedDate={selectedDate} recentDates={recentDates} heldDates={heldDates} onPick={goToDate} />
+      <DatePicker
+        selectedDate={selectedDate}
+        recentDates={recentDates}
+        heldDates={heldDates}
+        onPick={goToDate}
+        awaitingConfirmation={needsDateConfirmation}
+      />
 
-      {!isAdmin && !canToggleLock && (
-        <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginBottom: "var(--space-4)" }}>
-          This session is more than {editWindowMonths} months old — only an admin can make changes.
+      {needsDateConfirmation ? (
+        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+          This activity has no cadence, so there&rsquo;s no date to suggest — choose a date above to begin taking attendance.
         </p>
+      ) : (
+        <>
+          {!isAdmin && !canToggleLock && (
+            <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginBottom: "var(--space-4)" }}>
+              This session is more than {editWindowMonths} months old — only an admin can make changes.
+            </p>
+          )}
+
+          <RosterSection
+            title="Participants"
+            rows={participants}
+            statuses={statuses}
+            onToggle={toggle}
+            activityInstanceId={activityInstanceId}
+            role="participant"
+            onChanged={() => router.refresh()}
+            editMode={editMode}
+            activeByPersonId={activeByPersonId}
+            onToggleActive={toggleActive}
+            readOnly={readOnly}
+            cancelled={cancelled}
+            isAdmin={isAdmin}
+          />
+          <RosterSection
+            title="Facilitators"
+            rows={facilitators}
+            statuses={statuses}
+            onToggle={toggle}
+            activityInstanceId={activityInstanceId}
+            role="facilitator"
+            onChanged={() => router.refresh()}
+            editMode={editMode}
+            activeByPersonId={activeByPersonId}
+            onToggleActive={toggleActive}
+            readOnly={readOnly}
+            cancelled={cancelled}
+            isAdmin={isAdmin}
+          />
+
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+              <button
+                onClick={toggleLocked}
+                disabled={locked || !canToggleLock || cancelled}
+                style={{
+                  minHeight: "var(--tap-min)",
+                  padding: "0 16px",
+                  borderRadius: "var(--radius-pill)",
+                  border: "1px solid var(--green)",
+                  background: locked ? "var(--border)" : "var(--card-bg)",
+                  color: locked ? "var(--muted)" : "var(--green)",
+                  fontSize: "0.85rem",
+                  cursor: locked || !canToggleLock || cancelled ? "default" : "pointer",
+                  opacity: canToggleLock && !cancelled ? 1 : 0.6,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {locked ? "Confirmed" : "Confirm"}
+              </button>
+              {/* An admin-editable, no-checkbox state: the facilitator is
+                  saying no session happened at all, distinct from marking
+                  everyone absent. */}
+              <button
+                onClick={toggleCancelled}
+                disabled={!canToggleLock}
+                style={{
+                  minHeight: "var(--tap-min)",
+                  padding: "0 16px",
+                  borderRadius: "var(--radius-pill)",
+                  border: "1px solid var(--red)",
+                  background: cancelled ? "var(--red)" : "var(--card-bg)",
+                  color: cancelled ? "var(--cream)" : "var(--red)",
+                  fontSize: "0.85rem",
+                  cursor: !canToggleLock ? "default" : "pointer",
+                  opacity: canToggleLock ? 1 : 0.6,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {cancelled ? "Cancelled" : "Cancel Class"}
+              </button>
+            </div>
+            <button
+              onClick={() => setEditMode((v) => !v)}
+              style={{
+                minHeight: "var(--tap-min)",
+                padding: "0 16px",
+                borderRadius: "var(--radius-pill)",
+                border: "1px solid var(--border)",
+                background: editMode ? "var(--deep)" : "var(--card-bg)",
+                color: editMode ? "var(--cream)" : "var(--text)",
+                fontSize: "0.85rem",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {editMode ? "Done" : "Edit"}
+            </button>
+          </div>
+        </>
       )}
-
-      <RosterSection
-        title="Participants"
-        rows={participants}
-        statuses={statuses}
-        onToggle={toggle}
-        activityInstanceId={activityInstanceId}
-        role="participant"
-        onChanged={() => router.refresh()}
-        editMode={editMode}
-        activeByPersonId={activeByPersonId}
-        onToggleActive={toggleActive}
-        readOnly={readOnly}
-        cancelled={cancelled}
-        isAdmin={isAdmin}
-      />
-      <RosterSection
-        title="Facilitators"
-        rows={facilitators}
-        statuses={statuses}
-        onToggle={toggle}
-        activityInstanceId={activityInstanceId}
-        role="facilitator"
-        onChanged={() => router.refresh()}
-        editMode={editMode}
-        activeByPersonId={activeByPersonId}
-        onToggleActive={toggleActive}
-        readOnly={readOnly}
-        cancelled={cancelled}
-        isAdmin={isAdmin}
-      />
-
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
-          <button
-            onClick={toggleLocked}
-            disabled={locked || !canToggleLock || cancelled}
-            style={{
-              minHeight: "var(--tap-min)",
-              padding: "0 16px",
-              borderRadius: "var(--radius-pill)",
-              border: "1px solid var(--green)",
-              background: locked ? "var(--border)" : "var(--card-bg)",
-              color: locked ? "var(--muted)" : "var(--green)",
-              fontSize: "0.85rem",
-              cursor: locked || !canToggleLock || cancelled ? "default" : "pointer",
-              opacity: canToggleLock && !cancelled ? 1 : 0.6,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {locked ? "Confirmed" : "Confirm"}
-          </button>
-          {/* An admin-editable, no-checkbox state: the facilitator is saying
-              no session happened at all, distinct from marking everyone
-              absent. */}
-          <button
-            onClick={toggleCancelled}
-            disabled={!canToggleLock}
-            style={{
-              minHeight: "var(--tap-min)",
-              padding: "0 16px",
-              borderRadius: "var(--radius-pill)",
-              border: "1px solid var(--red)",
-              background: cancelled ? "var(--red)" : "var(--card-bg)",
-              color: cancelled ? "var(--cream)" : "var(--red)",
-              fontSize: "0.85rem",
-              cursor: !canToggleLock ? "default" : "pointer",
-              opacity: canToggleLock ? 1 : 0.6,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {cancelled ? "Cancelled" : "Cancel Class"}
-          </button>
-        </div>
-        <button
-          onClick={() => setEditMode((v) => !v)}
-          style={{
-            minHeight: "var(--tap-min)",
-            padding: "0 16px",
-            borderRadius: "var(--radius-pill)",
-            border: "1px solid var(--border)",
-            background: editMode ? "var(--deep)" : "var(--card-bg)",
-            color: editMode ? "var(--cream)" : "var(--text)",
-            fontSize: "0.85rem",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {editMode ? "Done" : "Edit"}
-        </button>
-      </div>
 
       {pending && <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: 12 }}>Saving…</p>}
       {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 12 }}>{error}</p>}
@@ -326,11 +342,16 @@ function DatePicker({
   recentDates,
   heldDates,
   onPick,
+  awaitingConfirmation,
 }: {
   selectedDate: string;
   recentDates: string[];
   heldDates: string[];
   onPick: (date: string) => void;
+  // Nothing's actually been chosen yet (a brand-new ad-hoc activity) —
+  // selectedDate is just a guessed default, so don't show it as a pill like
+  // it was deliberately picked.
+  awaitingConfirmation: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const pillStyle = {
@@ -346,8 +367,10 @@ function DatePicker({
   // Whatever date is actually being viewed/edited must always be visible
   // here, even when it's not one of the cadence-predicted quick picks (e.g.
   // an ad-hoc activity, which never has any) — otherwise there's no visual
-  // sign of which date attendance is about to be marked against.
-  const pillDates = recentDates.includes(selectedDate) ? recentDates : [selectedDate, ...recentDates];
+  // sign of which date attendance is about to be marked against. Skipped
+  // while awaitingConfirmation: selectedDate there is just a guess, not a
+  // real pick, so it shouldn't look chosen.
+  const pillDates = awaitingConfirmation || recentDates.includes(selectedDate) ? recentDates : [selectedDate, ...recentDates];
 
   return (
     <div style={{ marginBottom: "var(--space-7)", display: "flex", alignItems: "stretch", gap: "var(--space-2)" }}>

@@ -86,6 +86,13 @@ export default async function SessionPage({
     .orderBy(desc(attendanceEvents.sessionDate));
   const heldDates = heldEvents.map((e) => e.sessionDate);
 
+  // Ad-hoc activities have no cadence, so selectedDate above falls all the
+  // way through to "today" with nothing to signal that's just a guess, not
+  // a deliberate choice. Once any date has actually been picked (?date= is
+  // present) or a session already exists, this stops applying — it's only
+  // for the very first visit to a brand-new ad-hoc activity.
+  const needsDateConfirmation = cadenceType === "ad_hoc" && heldDates.length === 0 && !date;
+
   return (
     <SessionClient
       categoryId={categoryId}
@@ -98,6 +105,7 @@ export default async function SessionPage({
       statusByPersonId={statusByPersonId}
       isAdmin={isAdmin}
       editWindowMonths={editWindowMonths}
+      needsDateConfirmation={needsDateConfirmation}
     />
   );
 }
