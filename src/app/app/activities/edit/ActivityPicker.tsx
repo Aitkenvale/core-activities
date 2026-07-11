@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { StatusBadge } from "@/components/StatusPills";
+import type { ActivityStatus } from "../actions";
 
-type Activity = { id: string; name: string; categoryId: string };
+type Activity = { id: string; name: string; categoryId: string; status: ActivityStatus };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -54,7 +56,14 @@ export function ActivityPicker({ activities, categoryLabels }: { activities: Act
         {visible.map((a) => (
           <button key={a.id} onClick={() => router.push(`/app/activities/edit/${a.id}`)} style={rowStyle}>
             <span>{a.name}</span>
-            <span style={{ fontSize: "0.75rem", color: "var(--muted)", whiteSpace: "nowrap" }}>{a.categoryId.toUpperCase()}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              {/* Only Paused gets a badge here — this list never includes
+                  Archived (ending an activity hides it, and this query
+                  excludes hidden ones), and Active is the default assumption
+                  for everything else, so it doesn't need calling out. */}
+              {a.status === "paused" && <StatusBadge value="paused" />}
+              <span style={{ fontSize: "0.75rem", color: "var(--muted)", whiteSpace: "nowrap" }}>{a.categoryId.toUpperCase()}</span>
+            </span>
           </button>
         ))}
         {visible.length === 0 && <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>No activities found.</p>}

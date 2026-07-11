@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function EditActivityPickerPage() {
   const [rows, categories] = await Promise.all([
     db
-      .select({ id: activityInstances.id, name: activityInstances.name, categoryId: activityInstances.categoryId })
+      .select({ id: activityInstances.id, name: activityInstances.name, categoryId: activityInstances.categoryId, status: activityInstances.status })
       .from(activityInstances)
       .where(eq(activityInstances.hidden, false))
       .orderBy(asc(activityInstances.name)),

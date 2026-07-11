@@ -33,7 +33,12 @@ export function AppHeader() {
           so it doesn't push the title rightward out of alignment. */}
       <BackButton />
       <Link href="/app" style={{ display: "inline-block" }}>
-        <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.35rem", color: "var(--text)" }}>
+        {/* lineHeight:1 keeps the taller glyphs from growing the line box —
+            the header's own minHeight/padding is what other pages assume
+            is its fixed rendered height (--app-header-height), so this
+            can't grow the header even though the text itself now reads
+            bigger. */}
+        <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", lineHeight: 1, color: "var(--text)" }}>
           {title}
         </h1>
       </Link>
