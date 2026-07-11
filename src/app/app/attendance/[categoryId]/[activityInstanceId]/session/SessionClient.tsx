@@ -19,6 +19,7 @@ import {
   createContactPerson,
   saveHouseholdContact,
   updatePersonInfo,
+  createEventDate,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
 import { isPersonInfoComplete } from "@/lib/personCompleteness";
@@ -184,6 +185,7 @@ export function SessionClient({
       </h2>
 
       <DatePicker
+        activityInstanceId={activityInstanceId}
         selectedDate={selectedDate}
         recentDates={recentDates}
         heldDates={heldDates}
@@ -338,12 +340,14 @@ function LockStatusPill({
 }
 
 function DatePicker({
+  activityInstanceId,
   selectedDate,
   recentDates,
   heldDates,
   onPick,
   awaitingConfirmation,
 }: {
+  activityInstanceId: string;
   selectedDate: string;
   recentDates: string[];
   heldDates: string[];
@@ -360,6 +364,27 @@ function DatePicker({
   // (the Add button), instead of onChange itself navigating and unmounting
   // this whole popover the instant a value changes.
   const [newEventDate, setNewEventDate] = useState("");
+  const [addPending, setAddPending] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  async function handleAddEventDate() {
+    if (!newEventDate) return;
+    setAddPending(true);
+    setAddError(null);
+    try {
+      // "Add" should mean add — create the session now, not just navigate
+      // to a date that only becomes a real event once someone's first
+      // marked, otherwise reopening this picker right after wouldn't show
+      // the date it just "added" as held.
+      await createEventDate(activityInstanceId, newEventDate);
+      onPick(newEventDate);
+      setOpen(false);
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Couldn't add that date.");
+    } finally {
+      setAddPending(false);
+    }
+  }
 
   const pillStyle = {
     flexShrink: 0,
@@ -421,138 +446,155 @@ function DatePicker({
         >
           Pick Date
         </button>
-        {open && (
-          <>
-            {/* Centered fixed overlay (same pattern as the Add Info/Merge
-                Confirm modals) instead of a dropdown anchored below the
-                button — an anchored popover's position is relative to the
-                visual viewport, which the native date-picker sheet resizes
-                on mobile, so the popover would visibly detach from the
-                button and appear to vanish mid-interaction.
-                No click-to-dismiss on the backdrop itself: tapping the date
-                input below opens iOS's own native picker UI, which isn't
-                part of this page's DOM/z-index stack — dismissing it can
-                replay a click at the same screen coordinates, and if that
-                lands on this backdrop it would close the whole popover
-                before a date could ever be picked. Closing only happens via
-                the explicit Close button or actually picking a date. */}
-            <div style={{ position: "fixed", inset: 0, zIndex: 45, background: "rgba(0,0,0,0.4)" }} />
-            <div
-              style={{
-                position: "fixed",
-                left: "50%",
-                top: "50%",
-                transform: "translate(-50%, -50%)",
-                zIndex: 50,
-                width: "min(90vw, 220px)",
-                maxHeight: "70vh",
-                overflowY: "auto",
-                background: "var(--card-bg)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-md)",
-                boxShadow: "var(--shadow-elevated)",
-                padding: "var(--space-2)",
-                display: "grid",
-                gap: 2,
-              }}
-            >
-              {heldDates.length === 0 && (
-                <p style={{ fontSize: "0.75rem", color: "var(--muted)", padding: "4px 8px", margin: 0 }}>No sessions recorded recently.</p>
-              )}
-              {heldDates.map((d) => (
-                <button
-                  key={d}
-                  onClick={() => {
-                    onPick(d);
-                    setOpen(false);
-                  }}
+        {open &&
+          createPortal(
+            <>
+              {/* Portaled to document.body (same as the lock-status pill
+                  above) rather than rendered in place — this popover lives
+                  inside <main>'s scrolling container, and position:fixed
+                  nested inside a scrolling ancestor is unreliable on iOS
+                  (already the reason AppLayout locks the whole shell to the
+                  viewport instead): the backdrop was covering the page but
+                  not the sticky header above it. Portaling to <body> makes
+                  "fixed" mean the actual viewport, no ambiguity.
+                  Centered overlay (same pattern as the Add Info/Merge
+                  Confirm modals) instead of a dropdown anchored below the
+                  button — an anchored popover's position is relative to the
+                  visual viewport, which the native date-picker sheet resizes
+                  on mobile, so the popover would visibly detach from the
+                  button and appear to vanish mid-interaction.
+                  No click-to-dismiss on the backdrop itself: tapping the
+                  date input below opens iOS's own native picker UI, which
+                  isn't part of this page's DOM/z-index stack — dismissing it
+                  can replay a click at the same screen coordinates, and if
+                  that lands on this backdrop it would close the whole
+                  popover before a date could ever be picked. Closing only
+                  happens via the explicit Close button or actually picking a
+                  date. */}
+              <div style={{ position: "fixed", inset: 0, zIndex: 45, background: "rgba(0,0,0,0.4)" }} />
+              <div
+                style={{
+                  position: "fixed",
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 50,
+                  width: "min(90vw, 220px)",
+                  maxHeight: "70vh",
+                  overflowY: "auto",
+                  background: "var(--card-bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-md)",
+                  boxShadow: "var(--shadow-elevated)",
+                  padding: "var(--space-2)",
+                  display: "grid",
+                  gap: 2,
+                }}
+              >
+                {heldDates.length === 0 && (
+                  <p style={{ fontSize: "0.75rem", color: "var(--muted)", padding: "4px 8px", margin: 0 }}>No sessions recorded recently.</p>
+                )}
+                {heldDates.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => {
+                      onPick(d);
+                      setOpen(false);
+                    }}
+                    style={{
+                      textAlign: "left",
+                      padding: "6px 8px",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid var(--border)",
+                      background: d === selectedDate ? "var(--deep)" : "var(--card-bg)",
+                      color: d === selectedDate ? "var(--cream)" : "var(--text)",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {formatShort(d)}
+                  </button>
+                ))}
+                {/* Ad-hoc activities never have quick-pick pills (no cadence
+                    to suggest a date from), and this list is only ever
+                    already-held dates — this is the only way to reach a
+                    genuinely new date otherwise. */}
+                <div
                   style={{
-                    textAlign: "left",
+                    marginTop: 4,
+                    paddingTop: 6,
+                    borderTop: heldDates.length > 0 ? "1px solid var(--border)" : undefined,
+                  }}
+                >
+                  <span style={{ display: "block", fontSize: "0.7rem", color: "var(--muted)", marginBottom: 4 }}>Or add new event date</span>
+                  {/* overflow:hidden here is a hard backstop: width:100% +
+                      box-sizing:border-box + min-width:0 should already
+                      constrain the input, but a native date control's
+                      internal rendering has proven unreliable enough in this
+                      exact spot that it's worth guaranteeing it can never
+                      visually bleed past this wrapper regardless of why. */}
+                  <div style={{ overflow: "hidden", width: "100%" }}>
+                    <input
+                      type="date"
+                      value={newEventDate}
+                      onChange={(e) => setNewEventDate(e.target.value)}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        minWidth: 0,
+                        boxSizing: "border-box",
+                        // >= 16px (not the 0.8rem every other pill in this
+                        // popover uses) — smaller makes iOS Safari auto-zoom
+                        // on focus.
+                        fontSize: 16,
+                        textAlign: "left",
+                        padding: "6px 8px",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                        background: "var(--card-bg)",
+                        color: "var(--text)",
+                      }}
+                    />
+                  </div>
+                  <button
+                    onClick={handleAddEventDate}
+                    disabled={!newEventDate || addPending}
+                    style={{
+                      marginTop: 6,
+                      width: "100%",
+                      minHeight: 36,
+                      padding: "0 12px",
+                      borderRadius: "var(--radius-sm)",
+                      border: "none",
+                      background: "var(--deep)",
+                      color: "var(--cream)",
+                      fontSize: "0.8rem",
+                      cursor: newEventDate && !addPending ? "pointer" : "default",
+                      opacity: newEventDate && !addPending ? 1 : 0.6,
+                    }}
+                  >
+                    {addPending ? "Adding…" : "Add"}
+                  </button>
+                  {addError && <p style={{ color: "var(--red)", fontSize: "0.7rem", marginTop: 4 }}>{addError}</p>}
+                </div>
+                <button
+                  onClick={() => setOpen(false)}
+                  style={{
+                    marginTop: 6,
                     padding: "6px 8px",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--border)",
-                    background: d === selectedDate ? "var(--deep)" : "var(--card-bg)",
-                    color: d === selectedDate ? "var(--cream)" : "var(--text)",
+                    border: "none",
+                    background: "none",
+                    color: "var(--muted)",
                     fontSize: "0.8rem",
                     cursor: "pointer",
                   }}
                 >
-                  {formatShort(d)}
-                </button>
-              ))}
-              {/* Ad-hoc activities never have quick-pick pills (no cadence
-                  to suggest a date from), and this list is only ever
-                  already-held dates — this is the only way to reach a
-                  genuinely new date otherwise. */}
-              <div
-                style={{
-                  marginTop: 4,
-                  paddingTop: 6,
-                  borderTop: heldDates.length > 0 ? "1px solid var(--border)" : undefined,
-                }}
-              >
-                <span style={{ display: "block", fontSize: "0.7rem", color: "var(--muted)", marginBottom: 4 }}>Or add new event date</span>
-                <input
-                  type="date"
-                  value={newEventDate}
-                  onChange={(e) => setNewEventDate(e.target.value)}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    minWidth: 0,
-                    boxSizing: "border-box",
-                    // >= 16px (not the 0.8rem every other pill in this popover
-                    // uses) — smaller makes iOS Safari auto-zoom on focus.
-                    fontSize: 16,
-                    textAlign: "left",
-                    padding: "6px 8px",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-sm)",
-                    background: "var(--card-bg)",
-                    color: "var(--text)",
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    if (!newEventDate) return;
-                    onPick(newEventDate);
-                    setOpen(false);
-                  }}
-                  disabled={!newEventDate}
-                  style={{
-                    marginTop: 6,
-                    width: "100%",
-                    minHeight: 36,
-                    padding: "0 12px",
-                    borderRadius: "var(--radius-sm)",
-                    border: "none",
-                    background: "var(--deep)",
-                    color: "var(--cream)",
-                    fontSize: "0.8rem",
-                    cursor: newEventDate ? "pointer" : "default",
-                    opacity: newEventDate ? 1 : 0.6,
-                  }}
-                >
-                  Add
+                  Close
                 </button>
               </div>
-              <button
-                onClick={() => setOpen(false)}
-                style={{
-                  marginTop: 6,
-                  padding: "6px 8px",
-                  border: "none",
-                  background: "none",
-                  color: "var(--muted)",
-                  fontSize: "0.8rem",
-                  cursor: "pointer",
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </>
-        )}
+            </>,
+            document.body,
+          )}
       </div>
     </div>
   );

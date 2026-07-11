@@ -51,6 +51,16 @@ async function getOrCreateEventId(activityInstanceId: string, sessionDate: strin
   return created.id;
 }
 
+// "Add new event date" (Pick Date popover) creates the session immediately,
+// unlike just browsing to a date — otherwise the date it just "added"
+// wouldn't actually show up as held if the picker were reopened before
+// anyone's first marked, which is exactly what "Add" implies happened.
+export async function createEventDate(activityInstanceId: string, sessionDate: string) {
+  const session = await requireSession();
+  await assertWithinEditWindow(sessionDate, session.user.role);
+  await getOrCreateEventId(activityInstanceId, sessionDate, session.user.id);
+}
+
 // Lazily creates the session (attendance_events row) for this date on first
 // mark, rather than on every page view — browsing a date shouldn't create a
 // session until a real attendance decision is recorded against it.
