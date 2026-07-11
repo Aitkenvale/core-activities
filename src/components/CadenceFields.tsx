@@ -9,8 +9,10 @@ export const WEEKDAY_SHORT: Record<string, string> = {
   Sunday: "Sun", Monday: "Mon", Tuesday: "Tue", Wednesday: "Wed", Thursday: "Thu", Friday: "Fri", Saturday: "Sat",
 };
 
+// fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
+// page on focus and not reliably zoom back out on blur.
 const inputStyle: React.CSSProperties = {
-  fontSize: "0.85rem",
+  fontSize: 16,
   padding: "4px 6px",
   border: "1px solid var(--border)",
   borderRadius: 2,

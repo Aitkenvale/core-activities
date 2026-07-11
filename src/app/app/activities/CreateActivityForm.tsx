@@ -11,10 +11,12 @@ import type { CadenceType, CadenceConfig } from "@/lib/cadence";
 type Category = { id: string; label: string };
 type Neighbourhood = { id: string; name: string };
 
+// fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
+// page on focus and not reliably zoom back out on blur.
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  fontSize: "0.9rem",
+  fontSize: 16,
   minHeight: "var(--tap-min)",
   padding: "8px 10px",
   border: "1px solid var(--border)",
@@ -208,7 +210,8 @@ export function CreateActivityForm({
       {mode === "create" && (
         <section>
           <FieldLabel>Start Date (optional)</FieldLabel>
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={inputStyle} />
+          {/* Mobile Safari centers a date input's text by default, unlike every other field here — force it back to match. */}
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ ...inputStyle, textAlign: "left" }} />
         </section>
       )}
 

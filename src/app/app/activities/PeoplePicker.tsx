@@ -11,10 +11,12 @@ export type PickedPerson =
 
 type SearchResult = { id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" };
 
+// fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
+// page on focus and not reliably zoom back out on blur.
 const compactInputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  fontSize: "0.85rem",
+  fontSize: 16,
   minHeight: 36,
   padding: "6px 8px",
   border: "1px solid var(--border)",

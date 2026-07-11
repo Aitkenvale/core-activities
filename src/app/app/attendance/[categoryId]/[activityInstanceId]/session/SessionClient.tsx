@@ -346,7 +346,20 @@ function DatePicker({
 
   return (
     <div style={{ marginBottom: "var(--space-7)", display: "flex", alignItems: "stretch", gap: "var(--space-2)" }}>
-      <div style={{ display: "flex", gap: "var(--space-2)", overflowX: "auto", flex: 1 }}>
+      {/* overscrollBehaviorX + touchAction stop a horizontal swipe here from
+          chaining into the page's own vertical scroll — without them, a
+          swipe that isn't perfectly horizontal reads as a visible wobble on
+          mobile as the two scrolls fight each other. */}
+      <div
+        style={{
+          display: "flex",
+          gap: "var(--space-2)",
+          overflowX: "auto",
+          flex: 1,
+          overscrollBehaviorX: "contain",
+          touchAction: "pan-x",
+        }}
+      >
         {recentDates.map((d) => (
           <button
             key={d}
@@ -375,16 +388,29 @@ function DatePicker({
         </button>
         {open && (
           <>
-            <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 45 }} />
+            {/* Centered fixed overlay (same pattern as the Add Info/Merge
+                Confirm modals) instead of a dropdown anchored below the
+                button — an anchored popover's position is relative to the
+                visual viewport, which the native date-picker sheet resizes
+                on mobile, so the popover would visibly detach from the
+                button and appear to vanish mid-interaction. */}
             <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+              }}
+              style={{ position: "fixed", inset: 0, zIndex: 45, background: "rgba(0,0,0,0.4)" }}
+            />
+            <div
+              onClick={(e) => e.stopPropagation()}
               style={{
-                position: "absolute",
-                top: "100%",
-                right: 0,
-                marginTop: 4,
+                position: "fixed",
+                left: "50%",
+                top: "50%",
+                transform: "translate(-50%, -50%)",
                 zIndex: 50,
-                width: 180,
-                maxHeight: 240,
+                width: "min(90vw, 220px)",
+                maxHeight: "70vh",
                 overflowY: "auto",
                 background: "var(--card-bg)",
                 border: "1px solid var(--border)",
@@ -446,7 +472,10 @@ function DatePicker({
                     display: "block",
                     width: "100%",
                     marginTop: 4,
-                    fontSize: "0.8rem",
+                    // >= 16px (not the 0.8rem every other pill in this popover
+                    // uses) — smaller makes iOS Safari auto-zoom on focus.
+                    fontSize: 16,
+                    textAlign: "left",
                     padding: "6px 8px",
                     border: "1px solid var(--border)",
                     borderRadius: "var(--radius-sm)",
@@ -813,7 +842,9 @@ function AddInfoModal({
               type="date"
               value={dob}
               onChange={(e) => setDob(e.target.value)}
-              style={{ ...modalInputStyle, ...(!dob ? missingBorderStyle : {}) }}
+              // Mobile Safari centers a date input's text by default, unlike
+              // every other field here — force it back to match.
+              style={{ ...modalInputStyle, textAlign: "left", ...(!dob ? missingBorderStyle : {}) }}
             />
           </ModalField>
           <ModalField label="Household">
