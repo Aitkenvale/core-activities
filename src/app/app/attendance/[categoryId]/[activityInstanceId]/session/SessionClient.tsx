@@ -354,6 +354,21 @@ function DatePicker({
   awaitingConfirmation: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // Day/Month/Year selects instead of a native <input type="date"> — that
+  // control's own picker UI isn't part of this page's DOM at all (it's
+  // rendered by the OS), so it can't be reliably contained inside our
+  // popover: on iOS it has appeared as a stray rectangle bleeding past the
+  // popover's edge, and dismissing it can replay a click that closes our
+  // popover before a date is ever picked. Plain selects have none of that —
+  // just a standard, well-behaved native picker either way.
+  const today = new Date();
+  const [addYear, setAddYear] = useState(today.getFullYear());
+  const [addMonth, setAddMonth] = useState(today.getMonth() + 1);
+  const [addDay, setAddDay] = useState(today.getDate());
+  const daysInAddMonth = new Date(addYear, addMonth, 0).getDate();
+  const clampedAddDay = Math.min(addDay, daysInAddMonth);
+  const YEAR_OPTIONS = Array.from({ length: 4 }, (_, i) => today.getFullYear() - 2 + i);
+
   const pillStyle = {
     flexShrink: 0,
     minHeight: "var(--tap-min)",
@@ -477,42 +492,73 @@ function DatePicker({
                   to suggest a date from), and this list is only ever
                   already-held dates — this is the only way to reach a
                   genuinely new date otherwise. */}
-              <label
+              <div
                 style={{
-                  display: "block",
                   marginTop: 4,
                   paddingTop: 6,
                   borderTop: heldDates.length > 0 ? "1px solid var(--border)" : undefined,
-                  fontSize: "0.7rem",
-                  color: "var(--muted)",
                 }}
               >
-                Or add new event date
-                <input
-                  type="date"
-                  value=""
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    onPick(e.target.value);
+                <span style={{ display: "block", fontSize: "0.7rem", color: "var(--muted)", marginBottom: 4 }}>Or add new event date</span>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <select
+                    aria-label="Day"
+                    value={clampedAddDay}
+                    onChange={(e) => setAddDay(parseInt(e.target.value, 10))}
+                    style={{ ...selectStyle, flex: 1 }}
+                  >
+                    {Array.from({ length: daysInAddMonth }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Month"
+                    value={addMonth}
+                    onChange={(e) => setAddMonth(parseInt(e.target.value, 10))}
+                    style={{ ...selectStyle, flex: 1.4 }}
+                  >
+                    {MONTH_ABBR.map((label, i) => (
+                      <option key={label} value={i + 1}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Year"
+                    value={addYear}
+                    onChange={(e) => setAddYear(parseInt(e.target.value, 10))}
+                    style={{ ...selectStyle, flex: 1.2 }}
+                  >
+                    {YEAR_OPTIONS.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={() => {
+                    onPick(`${addYear}-${String(addMonth).padStart(2, "0")}-${String(clampedAddDay).padStart(2, "0")}`);
                     setOpen(false);
                   }}
                   style={{
-                    display: "block",
+                    marginTop: 6,
                     width: "100%",
-                    boxSizing: "border-box",
-                    marginTop: 4,
-                    // >= 16px (not the 0.8rem every other pill in this popover
-                    // uses) — smaller makes iOS Safari auto-zoom on focus.
-                    fontSize: 16,
-                    textAlign: "left",
-                    padding: "6px 8px",
-                    border: "1px solid var(--border)",
+                    minHeight: 36,
+                    padding: "0 12px",
                     borderRadius: "var(--radius-sm)",
-                    background: "var(--card-bg)",
-                    color: "var(--text)",
+                    border: "none",
+                    background: "var(--deep)",
+                    color: "var(--cream)",
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
                   }}
-                />
-              </label>
+                >
+                  Add
+                </button>
+              </div>
               <button
                 onClick={() => setOpen(false)}
                 style={{
@@ -736,6 +782,20 @@ const modalInputStyle: React.CSSProperties = {
 
 // Flags a field that's part of isPersonInfoComplete and still empty.
 const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)" };
+
+// minWidth:0 matters here — without it, a flex child's default min-width:auto
+// (sized to its content) can push these past the popover's edge instead of
+// actually shrinking to fit, the same class of overflow bug as elsewhere.
+const selectStyle: React.CSSProperties = {
+  minWidth: 0,
+  boxSizing: "border-box",
+  fontSize: "0.8rem",
+  padding: "6px 4px",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--card-bg)",
+  color: "var(--text)",
+};
 
 // Every person gets this pill, opening the same modal either way — only the
 // label changes, so it always reads as "here's this person's info" while
