@@ -343,6 +343,11 @@ function DatePicker({
     lineHeight: "normal",
     boxSizing: "border-box" as const,
   };
+  // Whatever date is actually being viewed/edited must always be visible
+  // here, even when it's not one of the cadence-predicted quick picks (e.g.
+  // an ad-hoc activity, which never has any) — otherwise there's no visual
+  // sign of which date attendance is about to be marked against.
+  const pillDates = recentDates.includes(selectedDate) ? recentDates : [selectedDate, ...recentDates];
 
   return (
     <div style={{ marginBottom: "var(--space-7)", display: "flex", alignItems: "stretch", gap: "var(--space-2)" }}>
@@ -360,7 +365,7 @@ function DatePicker({
           touchAction: "pan-x",
         }}
       >
-        {recentDates.map((d) => (
+        {pillDates.map((d) => (
           <button
             key={d}
             onClick={() => onPick(d)}
@@ -393,16 +398,16 @@ function DatePicker({
                 button — an anchored popover's position is relative to the
                 visual viewport, which the native date-picker sheet resizes
                 on mobile, so the popover would visibly detach from the
-                button and appear to vanish mid-interaction. */}
+                button and appear to vanish mid-interaction.
+                No click-to-dismiss on the backdrop itself: tapping the date
+                input below opens iOS's own native picker UI, which isn't
+                part of this page's DOM/z-index stack — dismissing it can
+                replay a click at the same screen coordinates, and if that
+                lands on this backdrop it would close the whole popover
+                before a date could ever be picked. Closing only happens via
+                the explicit Close button or actually picking a date. */}
+            <div style={{ position: "fixed", inset: 0, zIndex: 45, background: "rgba(0,0,0,0.4)" }} />
             <div
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(false);
-              }}
-              style={{ position: "fixed", inset: 0, zIndex: 45, background: "rgba(0,0,0,0.4)" }}
-            />
-            <div
-              onClick={(e) => e.stopPropagation()}
               style={{
                 position: "fixed",
                 left: "50%",
@@ -459,7 +464,7 @@ function DatePicker({
                   color: "var(--muted)",
                 }}
               >
-                Or choose another date
+                Or add new event date
                 <input
                   type="date"
                   value=""
@@ -471,6 +476,7 @@ function DatePicker({
                   style={{
                     display: "block",
                     width: "100%",
+                    boxSizing: "border-box",
                     marginTop: 4,
                     // >= 16px (not the 0.8rem every other pill in this popover
                     // uses) — smaller makes iOS Safari auto-zoom on focus.
@@ -484,6 +490,20 @@ function DatePicker({
                   }}
                 />
               </label>
+              <button
+                onClick={() => setOpen(false)}
+                style={{
+                  marginTop: 6,
+                  padding: "6px 8px",
+                  border: "none",
+                  background: "none",
+                  color: "var(--muted)",
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
             </div>
           </>
         )}
