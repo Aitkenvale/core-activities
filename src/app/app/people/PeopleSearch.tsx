@@ -34,8 +34,14 @@ type Result = {
   householdContactMobile: string | null;
   mobile: string | null;
   regoYear: number | null;
+  dob: string | null;
   comment: string | null;
 };
+
+// Rego is only relevant under 18 — 18+ participants don't register per-year.
+function isRegoEligible(dob: string | null): boolean {
+  return !dob || calculateAge(dob) < 18;
+}
 
 // fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
 // whole page on focus, and it doesn't reliably zoom back out on blur.
@@ -151,7 +157,7 @@ function PersonDetail({
       <DetailRow label="Real Name" value={result.name} />
       <DetailRow label="AKA" value={result.preferredName ?? "—"} />
       <DetailRow label="Mobile" value={result.mobile ?? "—"} href={result.mobile ? `tel:${result.mobile}` : undefined} />
-      <DetailRow label="Rego" value={result.regoYear ? String(result.regoYear) : "—"} />
+      {isRegoEligible(result.dob) && <DetailRow label="Rego" value={result.regoYear ? String(result.regoYear) : "—"} />}
       <DetailRow label="Household" value={result.householdName ?? "—"} />
       <DetailRow
         label="Address"
@@ -363,17 +369,19 @@ function PersonEditForm({
       <FieldInput label="Name" value={name} onChange={setName} />
       <FieldInput label="AKA" value={preferredName} onChange={setPreferredName} />
       <FieldInput label="Mobile" value={mobile} onChange={setMobile} />
-      <label style={{ display: "grid", gap: 2 }}>
-        <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Rego</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={regoYear}
-          onChange={(e) => setRegoYear(e.target.value.replace(/\D/g, ""))}
-          style={compactInputStyle}
-        />
-      </label>
+      {isRegoEligible(result.dob) && (
+        <label style={{ display: "grid", gap: 2 }}>
+          <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Rego</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={regoYear}
+            onChange={(e) => setRegoYear(e.target.value.replace(/\D/g, ""))}
+            style={compactInputStyle}
+          />
+        </label>
+      )}
       <label style={{ display: "grid", gap: 2 }}>
         <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Household</span>
         <input
