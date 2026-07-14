@@ -828,6 +828,7 @@ function AddInfoModal({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(person.name);
+  const [preferredName, setPreferredName] = useState(person.preferredName ?? "");
   const [dob, setDob] = useState(person.dob ?? "");
   const [householdId, setHouseholdId] = useState(person.householdId);
   const [householdQuery, setHouseholdQuery] = useState(person.householdName ?? "");
@@ -903,6 +904,7 @@ function AddInfoModal({
       }
       await updatePersonInfo(person.personId, {
         name,
+        preferredName: preferredName.trim() || null,
         dob: dob || null,
         householdId: finalHouseholdId,
       });
@@ -944,6 +946,9 @@ function AddInfoModal({
         <div style={{ display: "grid", gap: "var(--space-3)" }}>
           <ModalField label="Name">
             <input value={name} onChange={(e) => setName(e.target.value)} style={modalInputStyle} />
+          </ModalField>
+          <ModalField label="AKA">
+            <input value={preferredName} onChange={(e) => setPreferredName(e.target.value)} style={modalInputStyle} />
           </ModalField>
           <ModalField label="DOB">
             <input

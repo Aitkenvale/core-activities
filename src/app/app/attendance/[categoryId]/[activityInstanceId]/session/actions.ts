@@ -201,7 +201,7 @@ export async function saveHouseholdContact(householdId: string, contactPersonId:
 // alone, don't pass it as undefined.
 export async function updatePersonInfo(
   personId: string,
-  patch: Partial<{ name: string; dob: string | null; householdId: string | null; regoYear: number | null }>,
+  patch: Partial<{ name: string; preferredName: string | null; dob: string | null; householdId: string | null; regoYear: number | null }>,
 ) {
   await requireUserId();
   if (patch.name !== undefined) {

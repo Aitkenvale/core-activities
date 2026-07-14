@@ -80,6 +80,37 @@ export async function updateHouseholdAddress(householdId: string, address: strin
   await db.update(households).set({ address: address.trim() || null }).where(eq(households.id, householdId));
 }
 
+export async function searchHouseholds(query: string) {
+  await requireAdmin();
+  const q = query.trim();
+  if (!q) return db.select({ id: households.id, name: households.name }).from(households).limit(10);
+  return db.select({ id: households.id, name: households.name }).from(households).where(ilike(households.name, `%${q}%`)).limit(10);
+}
+
+export async function createHousehold(name: string) {
+  await requireAdmin();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name is required");
+  const [created] = await db.insert(households).values({ name: trimmed }).returning({ id: households.id, name: households.name });
+  return created;
+}
+
+// Reassigning someone to a different (or brand-new) household from the
+// edit form — separate from updateHouseholdAddress, which only ever
+// touches the household they're already in.
+export async function assignHousehold(personId: string, householdId: string | null) {
+  await requireAdmin();
+  await db.update(people).set({ householdId }).where(eq(people.id, personId));
+}
+
+// Only ever called right after creating a brand-new household for this same
+// person, when they confirm "yes, make me the contact" — an existing
+// household's contact is changed elsewhere (Edit Households), not from here.
+export async function setHouseholdContact(householdId: string, contactPersonId: string) {
+  await requireAdmin();
+  await db.update(households).set({ contactPersonId }).where(eq(households.id, householdId));
+}
+
 // "Add new babies etc." — a new household member (child or adult) found
 // while looking someone up, without leaving Find Person for the full
 // People grid.
