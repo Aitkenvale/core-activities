@@ -969,9 +969,14 @@ function AddInfoModal({
           padding: "var(--space-5)",
         }}
       >
-        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>
-          Add Info
-        </h3>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+          <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)" }}>Add Info</h3>
+          {isUnder15 && (
+            <span style={{ fontSize: "0.8rem", color: "var(--yellow)", whiteSpace: "nowrap" }}>
+              {person.regoYear ? `Registration: ${person.regoYear}` : "No Registration Form"}
+            </span>
+          )}
+        </div>
 
         <div style={{ display: "grid", gap: "var(--space-3)" }}>
           <ModalField label="Name">
@@ -984,7 +989,7 @@ function AddInfoModal({
               sense (see the Contact's Mobile field further down). Driven by
               the DOB field below, live as it's edited. */}
           {showPersonalMobile && (
-            <ModalField label="Mobile (personal)">
+            <ModalField label="Mobile">
               <input
                 type="tel"
                 value={personalMobile}
@@ -1006,14 +1011,7 @@ function AddInfoModal({
               style={{ ...modalInputStyle, textAlign: "left", minWidth: 0, ...(!dob ? missingBorderStyle : {}) }}
             />
           </ModalField>
-          {isUnder15 && (
-            <>
-              <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: 0, width: "100%" }} />
-              <p style={{ fontSize: "0.8rem", color: person.regoYear ? "var(--text)" : "var(--red)", margin: 0 }}>
-                {person.regoYear ? `Registration: ${person.regoYear}` : "No Registration Form"}
-              </p>
-            </>
-          )}
+          {/* Single divider — Personal info above, Household info below. */}
           <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: 0, width: "100%" }} />
           <ModalField label="Household">
             <input
