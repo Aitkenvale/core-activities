@@ -23,6 +23,15 @@ function dayBefore(iso: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Present / Absent / No data are three distinct, deliberately different
+// marks — a blank cell means nobody ever recorded this person's attendance
+// for that session at all, which reads differently from a recorded Absent.
+function markForStatus(status: string | undefined): string {
+  if (status === "present") return "X";
+  if (status === "absent") return "—";
+  return "";
+}
+
 export type TermOption = { year: number; termNumber: number; startDate: string; endDate: string };
 
 // A term's own recorded end_date isn't actually the boundary we want —
@@ -200,10 +209,15 @@ function AttendanceTable({ people: rows, eventDates, statusByPerson }: { people:
             <Text style={styles.nameCell}>{p.name}</Text>
             {eventDates.map((d) => (
               <Text key={d} style={styles.dateCell}>
-                {/* "X" not "✓" — the checkmark glyph isn't in the built-in
+                {/* Present/Absent/No data must read as three distinct
+                    states, not two — a blank cell here means no attendance
+                    was ever recorded for this person on this date (the
+                    session existed, but nobody marked them either way),
+                    which is different from a recorded Absent. "X" not "✓"
+                    for Present — the checkmark glyph isn't in the built-in
                     Helvetica encoding react-pdf uses, so it silently
                     rendered as nothing. */}
-                {byDate?.get(d) === "present" ? "X" : ""}
+                {markForStatus(byDate?.get(d))}
               </Text>
             ))}
           </View>
