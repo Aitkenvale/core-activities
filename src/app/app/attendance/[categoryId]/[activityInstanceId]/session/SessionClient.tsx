@@ -22,7 +22,7 @@ import {
   createEventDate,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
-import { isPersonInfoComplete } from "@/lib/personCompleteness";
+import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/personCompleteness";
 
 type RosterRow = {
   personId: string;
@@ -30,6 +30,7 @@ type RosterRow = {
   preferredName: string | null;
   linkStatus: "linked" | "pending";
   dob: string | null;
+  mobile: string | null;
   householdId: string | null;
   householdName: string | null;
   householdContactPersonId: string | null;
@@ -674,7 +675,14 @@ function RosterSection({
                 <PersonInfoBadge
                   person={r}
                   onSaved={onChanged}
-                  infoNeeded={r.linkStatus === "pending" || !isPersonInfoComplete(r.dob, r.householdId, r.householdContactPersonId, r.householdContactMobile)}
+                  level={getPersonCompletenessLevel({
+                    dob: r.dob,
+                    mobile: r.mobile,
+                    householdId: r.householdId,
+                    householdContactPersonId: r.householdContactPersonId,
+                    householdContactMobile: r.householdContactMobile,
+                    regoYear: r.regoYear,
+                  })}
                 />
               </div>
               {editMode ? (
@@ -772,17 +780,6 @@ function RosterSection({
 
 type SearchResult = { id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" };
 
-const badgeStyle: React.CSSProperties = {
-  flexShrink: 0,
-  fontSize: "0.65rem",
-  color: "var(--warm)",
-  border: "1px solid var(--border)",
-  borderRadius: 10,
-  padding: "1px 6px",
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-};
-
 // fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
 // whole page on focus, and it doesn't reliably zoom back out on blur (the
 // bug this was fixed for: fields, and the roster behind the modal, staying
@@ -805,16 +802,36 @@ const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)"
 // Every person gets this pill, opening the same modal either way — only the
 // label changes, so it always reads as "here's this person's info" while
 // still flagging when something required is actually missing.
-function PersonInfoBadge({ person, onSaved, infoNeeded }: { person: RosterRow; onSaved: () => void; infoNeeded: boolean }) {
+function PersonInfoBadge({ person, onSaved, level }: { person: RosterRow; onSaved: () => void; level: CompletenessLevel }) {
   const [open, setOpen] = useState(false);
 
   return (
     <span style={{ position: "relative" }}>
-      <button onClick={() => setOpen(true)} style={{ ...badgeStyle, background: "none", cursor: "pointer" }}>
-        {infoNeeded ? "Add Info" : "Info"}
+      <button
+        onClick={() => setOpen(true)}
+        title={level === "green" ? "Details complete" : level === "yellow" ? "Some details missing" : "No emergency contact on file"}
+        style={{ flexShrink: 0, display: "flex", padding: 0, border: "none", background: "none", cursor: "pointer" }}
+      >
+        <FaceIcon level={level} />
       </button>
       {open && <AddInfoModal person={person} onClose={() => setOpen(false)} onSaved={onSaved} />}
     </span>
+  );
+}
+
+// Green/yellow/red carries the actual meaning (see personCompleteness.ts for
+// what each level requires) — the mouth shape is just a redundant visual
+// cue on top of color, not the primary signal.
+function FaceIcon({ level }: { level: CompletenessLevel }) {
+  const color = level === "green" ? "var(--green)" : level === "yellow" ? "var(--yellow)" : "var(--red)";
+  const mouthPath = level === "green" ? "M8 14.5 Q12 18 16 14.5" : level === "yellow" ? "M8 15.5 L16 15.5" : "M8 17 Q12 13 16 17";
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9.5" />
+      <circle cx="8.5" cy="10" r="1.1" fill={color} stroke="none" />
+      <circle cx="15.5" cy="10" r="1.1" fill={color} stroke="none" />
+      <path d={mouthPath} />
+    </svg>
   );
 }
 

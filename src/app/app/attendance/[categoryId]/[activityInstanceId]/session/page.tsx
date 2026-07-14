@@ -38,6 +38,7 @@ export default async function SessionPage({
         preferredName: people.preferredName,
         linkStatus: people.linkStatus,
         dob: people.dob,
+        mobile: people.mobile,
         householdId: people.householdId,
         householdName: households.name,
         householdContactPersonId: households.contactPersonId,
