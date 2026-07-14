@@ -162,7 +162,7 @@ function PersonDetail({
 
   return (
     <div style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 4 }}>
-      <DetailRow label="Real Name" value={result.name} />
+      <DetailRow label="Name" value={result.name} />
       <DetailRow label="AKA" value={result.preferredName ?? "—"} />
       <DetailRow label="DOB" value={result.dob ?? "—"} />
       {isMobileEligible(result.dob) && (
