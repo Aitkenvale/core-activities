@@ -1,12 +1,14 @@
 "use server";
 
 import { headers } from "next/headers";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
 import { households } from "@/db/schema/households";
+import { activityEnrollments } from "@/db/schema/activityEnrollments";
+import { activityInstances } from "@/db/schema/activityInstances";
 import { getCategoryLabel, CONTACT_INELIGIBLE_CATEGORIES } from "@/lib/category";
 
 async function requireSession() {
@@ -28,7 +30,7 @@ export async function searchPeopleDirectory(query: string) {
   const q = query.trim();
   if (q.length < 2) return [];
   const householdContacts = alias(people, "household_contacts");
-  return db
+  const rows = await db
     .select({
       id: people.id,
       name: people.name,
@@ -55,6 +57,34 @@ export async function searchPeopleDirectory(query: string) {
       ),
     )
     .limit(20);
+
+  if (rows.length === 0) return [];
+
+  // Activities currently shown on the person's card — on an active
+  // (participant) roster, for an activity that's itself active and not
+  // hidden. Matches the "current participant" definition used in Admin People.
+  const activityRows = await db
+    .select({ personId: activityEnrollments.personId, activityName: activityInstances.name })
+    .from(activityEnrollments)
+    .innerJoin(activityInstances, eq(activityInstances.id, activityEnrollments.activityInstanceId))
+    .where(
+      and(
+        inArray(
+          activityEnrollments.personId,
+          rows.map((r) => r.id),
+        ),
+        eq(activityEnrollments.role, "participant"),
+        eq(activityEnrollments.active, true),
+        eq(activityInstances.status, "active"),
+        eq(activityInstances.hidden, false),
+      ),
+    );
+  const activitiesByPerson = new Map<string, string[]>();
+  for (const { personId, activityName } of activityRows) {
+    activitiesByPerson.set(personId, [...(activitiesByPerson.get(personId) ?? []), activityName]);
+  }
+
+  return rows.map((r) => ({ ...r, activities: activitiesByPerson.get(r.id) ?? [] }));
 }
 
 // The lightweight edit surface reachable from a search result — mobile,

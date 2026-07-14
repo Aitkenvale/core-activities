@@ -37,6 +37,7 @@ type Result = {
   regoYear: number | null;
   dob: string | null;
   comment: string | null;
+  activities: string[];
 };
 
 // Rego is only relevant under 18 — 18+ participants don't register per-year.
@@ -184,6 +185,7 @@ function PersonDetail({
         href={result.householdContactMobile ? `tel:${result.householdContactMobile}` : undefined}
       />
       {result.comment && <DetailRow label="Notes" value={result.comment} />}
+      <DetailRow label="Activities" value={result.activities.length ? result.activities.join(", ") : "—"} />
       {isAdmin && (
         <button
           onClick={() => setEditing(true)}
