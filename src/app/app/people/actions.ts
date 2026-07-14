@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
 import { households } from "@/db/schema/households";
+import { getCategoryLabel, CONTACT_INELIGIBLE_CATEGORIES } from "@/lib/category";
 
 async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -35,10 +36,12 @@ export async function searchPeopleDirectory(query: string) {
       householdId: people.householdId,
       householdName: households.name,
       householdAddress: households.address,
+      householdContactPersonId: households.contactPersonId,
       householdContactName: householdContacts.name,
       householdContactPreferredName: householdContacts.preferredName,
       householdContactMobile: householdContacts.mobile,
       mobile: people.mobile,
+      regoYear: people.regoYear,
       comment: people.comment,
     })
     .from(people)
@@ -68,6 +71,16 @@ export async function updatePersonName(id: string, name: string) {
 export async function updatePersonMobile(id: string, mobile: string) {
   await requireAdmin();
   await db.update(people).set({ mobile: mobile.trim() || null }).where(eq(people.id, id));
+}
+
+export async function updatePersonPreferredName(id: string, preferredName: string) {
+  await requireAdmin();
+  await db.update(people).set({ preferredName: preferredName.trim() || null }).where(eq(people.id, id));
+}
+
+export async function updatePersonRegoYear(id: string, regoYear: number | null) {
+  await requireAdmin();
+  await db.update(people).set({ regoYear }).where(eq(people.id, id));
 }
 
 export async function updatePersonNotes(id: string, comment: string) {
@@ -109,6 +122,46 @@ export async function assignHousehold(personId: string, householdId: string | nu
 export async function setHouseholdContact(householdId: string, contactPersonId: string) {
   await requireAdmin();
   await db.update(households).set({ contactPersonId }).where(eq(households.id, householdId));
+}
+
+// Who's eligible to be a household's contact — 15+ only (CONTACT_INELIGIBLE_CATEGORIES).
+export async function searchPeopleForContact(query: string) {
+  await requireAdmin();
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const rows = await db
+    .select({ id: people.id, name: people.name, preferredName: people.preferredName, mobile: people.mobile, dob: people.dob })
+    .from(people)
+    .where(and(eq(people.hidden, false), or(ilike(people.name, `%${q}%`), ilike(people.preferredName, `%${q}%`))))
+    .limit(10);
+  return rows
+    .filter((r) => !CONTACT_INELIGIBLE_CATEGORIES.includes(getCategoryLabel(r.dob) ?? ""))
+    .map(({ id, name, preferredName, mobile }) => ({ id, name, preferredName, mobile }));
+}
+
+// Same reasoning as addHouseholdMember — a bare person record, not enrolled
+// anywhere, just so a household can point its contact at someone who isn't
+// in People yet.
+export async function createContactPerson(name: string) {
+  await requireAdmin();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name is required");
+  const [created] = await db
+    .insert(people)
+    .values({ name: trimmed, personType: "adult", linkStatus: "pending", source: "quick_add" })
+    .returning({ id: people.id, name: people.name, preferredName: people.preferredName });
+  return created;
+}
+
+// Sets a household's contact and (if provided) that contact's own mobile
+// number in one go — the Contact field here edits both together, since
+// Contact's Mobile is really "the contact's mobile," not this person's own.
+export async function saveHouseholdContact(householdId: string, contactPersonId: string | null, contactMobile: string | null) {
+  await requireAdmin();
+  await db.update(households).set({ contactPersonId }).where(eq(households.id, householdId));
+  if (contactPersonId) {
+    await db.update(people).set({ mobile: contactMobile || null }).where(eq(people.id, contactPersonId));
+  }
 }
 
 // "Add new babies etc." — a new household member (child or adult) found

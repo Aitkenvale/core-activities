@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   searchPeopleDirectory,
   updatePersonName,
+  updatePersonPreferredName,
   updatePersonMobile,
+  updatePersonRegoYear,
   updatePersonNotes,
   updateHouseholdAddress,
   addHouseholdMember,
@@ -12,6 +14,9 @@ import {
   createHousehold,
   assignHousehold,
   setHouseholdContact,
+  searchPeopleForContact,
+  createContactPerson,
+  saveHouseholdContact,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
 import { calculateAge } from "@/lib/category";
@@ -23,10 +28,12 @@ type Result = {
   householdId: string | null;
   householdName: string | null;
   householdAddress: string | null;
+  householdContactPersonId: string | null;
   householdContactName: string | null;
   householdContactPreferredName: string | null;
   householdContactMobile: string | null;
   mobile: string | null;
+  regoYear: number | null;
   comment: string | null;
 };
 
@@ -144,6 +151,7 @@ function PersonDetail({
       <DetailRow label="Real Name" value={result.name} />
       <DetailRow label="AKA" value={result.preferredName ?? "—"} />
       <DetailRow label="Mobile" value={result.mobile ?? "—"} href={result.mobile ? `tel:${result.mobile}` : undefined} />
+      <DetailRow label="Rego" value={result.regoYear ? String(result.regoYear) : "—"} />
       <DetailRow label="Household" value={result.householdName ?? "—"} />
       <DetailRow
         label="Address"
@@ -193,7 +201,9 @@ function PersonEditForm({
   onDone: () => void;
 }) {
   const [name, setName] = useState(result.name);
+  const [preferredName, setPreferredName] = useState(result.preferredName ?? "");
   const [mobile, setMobile] = useState(result.mobile ?? "");
+  const [regoYear, setRegoYear] = useState(result.regoYear !== null ? String(result.regoYear) : "");
   const [householdId, setHouseholdId] = useState(result.householdId);
   const [householdQuery, setHouseholdQuery] = useState(result.householdName ?? "");
   const [householdResults, setHouseholdResults] = useState<{ id: string; name: string }[]>([]);
@@ -202,6 +212,10 @@ function PersonEditForm({
   // elsewhere (Edit Households), not implied by just moving someone into it.
   const [contactPrompt, setContactPrompt] = useState<{ householdId: string; householdName: string } | null>(null);
   const [address, setAddress] = useState(result.householdAddress ?? "");
+  const [contactPersonId, setContactPersonId] = useState(result.householdContactPersonId);
+  const [contactQuery, setContactQuery] = useState(result.householdContactPreferredName || result.householdContactName || "");
+  const [contactResults, setContactResults] = useState<{ id: string; name: string; preferredName: string | null; mobile: string | null }[]>([]);
+  const [contactMobile, setContactMobile] = useState(result.householdContactMobile ?? "");
   const [notes, setNotes] = useState(result.comment ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +231,12 @@ function PersonEditForm({
     setHouseholdId(h.id);
     setHouseholdQuery(h.name);
     setHouseholdResults([]);
-    setAddress(""); // a different household's address isn't known client-side
+    // A different household's address/contact aren't known client-side.
+    setAddress("");
+    setContactPersonId(null);
+    setContactQuery("");
+    setContactResults([]);
+    setContactMobile("");
   }
 
   async function handleCreateHousehold() {
@@ -229,6 +248,10 @@ function PersonEditForm({
       setHouseholdQuery(created.name);
       setHouseholdResults([]);
       setAddress("");
+      setContactPersonId(null);
+      setContactQuery("");
+      setContactResults([]);
+      setContactMobile("");
       setContactPrompt({ householdId: created.id, householdName: created.name });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't create that household.");
@@ -240,6 +263,10 @@ function PersonEditForm({
     setHouseholdQuery("");
     setHouseholdResults([]);
     setAddress("");
+    setContactPersonId(null);
+    setContactQuery("");
+    setContactResults([]);
+    setContactMobile("");
     setContactPrompt(null);
   }
 
@@ -248,11 +275,48 @@ function PersonEditForm({
     if (makeContact) {
       try {
         await setHouseholdContact(contactPrompt.householdId, result.id);
+        setContactPersonId(result.id);
+        setContactQuery(formatFullName(name, preferredName));
+        setContactMobile(mobile);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't set that contact.");
       }
     }
     setContactPrompt(null);
+  }
+
+  async function handleContactSearch(value: string) {
+    setContactQuery(value);
+    setContactPersonId(null);
+    setContactResults(await searchPeopleForContact(value));
+  }
+
+  function selectContact(p: { id: string; name: string; preferredName: string | null; mobile: string | null }) {
+    setContactPersonId(p.id);
+    setContactQuery(p.preferredName || p.name);
+    setContactResults([]);
+    setContactMobile(p.mobile ?? "");
+  }
+
+  function removeContact() {
+    setContactPersonId(null);
+    setContactQuery("");
+    setContactResults([]);
+    setContactMobile("");
+  }
+
+  async function handleCreateContact() {
+    const trimmed = contactQuery.trim();
+    if (!trimmed) return;
+    try {
+      const created = await createContactPerson(trimmed);
+      setContactPersonId(created.id);
+      setContactQuery(created.preferredName || created.name);
+      setContactResults([]);
+      setContactMobile(""); // a brand-new person has no mobile yet
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't create that contact.");
+    }
   }
 
   async function handleSave() {
@@ -261,17 +325,29 @@ function PersonEditForm({
     try {
       const tasks: Promise<unknown>[] = [];
       if (name.trim() && name !== result.name) tasks.push(updatePersonName(result.id, name));
+      if (preferredName !== (result.preferredName ?? "")) tasks.push(updatePersonPreferredName(result.id, preferredName));
       if (mobile !== (result.mobile ?? "")) tasks.push(updatePersonMobile(result.id, mobile));
+      const regoYearNum = regoYear.trim() ? parseInt(regoYear, 10) : null;
+      if (regoYearNum !== result.regoYear) tasks.push(updatePersonRegoYear(result.id, regoYearNum));
       if (householdId !== result.householdId) tasks.push(assignHousehold(result.id, householdId));
-      if (householdId) tasks.push(updateHouseholdAddress(householdId, address));
+      if (householdId) {
+        tasks.push(updateHouseholdAddress(householdId, address));
+        tasks.push(saveHouseholdContact(householdId, contactPersonId, contactMobile || null));
+      }
       if (notes !== (result.comment ?? "")) tasks.push(updatePersonNotes(result.id, notes));
       await Promise.all(tasks);
       onChange({
         name: name.trim() || result.name,
+        preferredName: preferredName.trim() || null,
         mobile: mobile.trim() || null,
+        regoYear: regoYearNum,
         householdId,
         householdName: householdId ? householdQuery : null,
         householdAddress: householdId ? address.trim() || null : null,
+        householdContactPersonId: householdId ? contactPersonId : null,
+        householdContactName: householdId && contactPersonId ? contactQuery : null,
+        householdContactPreferredName: null,
+        householdContactMobile: householdId && contactPersonId ? contactMobile.trim() || null : null,
         comment: notes.trim() || null,
       });
       onDone();
@@ -285,7 +361,19 @@ function PersonEditForm({
   return (
     <div style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 6 }}>
       <FieldInput label="Name" value={name} onChange={setName} />
+      <FieldInput label="AKA" value={preferredName} onChange={setPreferredName} />
       <FieldInput label="Mobile" value={mobile} onChange={setMobile} />
+      <label style={{ display: "grid", gap: 2 }}>
+        <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Rego</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={regoYear}
+          onChange={(e) => setRegoYear(e.target.value.replace(/\D/g, ""))}
+          style={compactInputStyle}
+        />
+      </label>
       <label style={{ display: "grid", gap: 2 }}>
         <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Household</span>
         <input
@@ -304,7 +392,7 @@ function PersonEditForm({
               border: "1px dashed var(--gold)",
               borderRadius: "var(--radius-sm)",
               background: "var(--cream2)",
-              color: "var(--warm)",
+              color: "var(--heading)",
               fontSize: "0.75rem",
               cursor: "pointer",
             }}
@@ -369,6 +457,66 @@ function PersonEditForm({
       ) : (
         <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: 0 }}>No household on file — address can&rsquo;t be set.</p>
       )}
+      {householdId && (
+        <label style={{ display: "grid", gap: 2 }}>
+          <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Contact</span>
+          <input
+            placeholder="Search person…"
+            value={contactQuery}
+            onChange={(e) => handleContactSearch(e.target.value)}
+            style={compactInputStyle}
+          />
+          {contactQuery.trim() && contactPersonId === null && (
+            <button
+              onClick={handleCreateContact}
+              style={{
+                marginTop: 2,
+                textAlign: "left",
+                padding: "6px 8px",
+                border: "1px dashed var(--gold)",
+                borderRadius: "var(--radius-sm)",
+                background: "var(--cream2)",
+                color: "var(--heading)",
+                fontSize: "0.75rem",
+                cursor: "pointer",
+              }}
+            >
+              + Create new contact: &ldquo;{contactQuery.trim()}&rdquo;
+            </button>
+          )}
+          {contactResults.length > 0 && (
+            <div style={{ display: "grid", gap: 2 }}>
+              {contactResults.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => selectContact(p)}
+                  style={{
+                    textAlign: "left",
+                    padding: "6px 8px",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                    background: "var(--card-bg)",
+                    color: "var(--text)",
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  {p.preferredName || p.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {(contactPersonId || contactQuery.trim()) && (
+            <button
+              onClick={removeContact}
+              style={{ justifySelf: "start", padding: 0, border: "none", background: "none", color: "var(--red)", fontSize: "0.7rem", cursor: "pointer" }}
+            >
+              Remove contact
+            </button>
+          )}
+        </label>
+      )}
+      {householdId && <FieldInput label="Contact's Mobile" value={contactMobile} onChange={setContactMobile} />}
       <FieldInput label="Notes" value={notes} onChange={setNotes} />
 
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -404,7 +552,7 @@ function PersonEditForm({
               border: "1px dashed var(--gold)",
               borderRadius: "var(--radius-sm)",
               background: "none",
-              color: "var(--warm)",
+              color: "var(--heading)",
               fontSize: "0.75rem",
               cursor: "pointer",
               whiteSpace: "nowrap",
