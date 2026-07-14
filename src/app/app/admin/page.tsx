@@ -8,6 +8,7 @@ const ADMIN_TILES = [
   { href: "/app/admin/households", label: "Edit Households" },
   { href: "/app/admin/activities", label: "Edit Activities" },
   { href: "/app/admin/attendance", label: "Edit Attendance" },
+  { href: "/app/admin/attendance-records", label: "Attendance Records" },
   { href: "/app/admin/settings", label: "Settings" },
 ];
 
