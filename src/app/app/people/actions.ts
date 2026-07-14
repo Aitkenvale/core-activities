@@ -84,6 +84,11 @@ export async function updatePersonRegoYear(id: string, regoYear: number | null) 
   await db.update(people).set({ regoYear }).where(eq(people.id, id));
 }
 
+export async function updatePersonDob(id: string, dob: string | null) {
+  await requireAdmin();
+  await db.update(people).set({ dob: dob || null }).where(eq(people.id, id));
+}
+
 export async function updatePersonNotes(id: string, comment: string) {
   await requireAdmin();
   await db.update(people).set({ comment: comment.trim() || null }).where(eq(people.id, id));

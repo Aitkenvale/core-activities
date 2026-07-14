@@ -7,6 +7,7 @@ import {
   updatePersonPreferredName,
   updatePersonMobile,
   updatePersonRegoYear,
+  updatePersonDob,
   updatePersonNotes,
   updateHouseholdAddress,
   addHouseholdMember,
@@ -41,6 +42,12 @@ type Result = {
 // Rego is only relevant under 18 — 18+ participants don't register per-year.
 function isRegoEligible(dob: string | null): boolean {
   return !dob || calculateAge(dob) < 18;
+}
+
+// Under-12s don't carry their own personal mobile — that field is for the
+// household contact's number instead.
+function isMobileEligible(dob: string | null): boolean {
+  return !dob || calculateAge(dob) >= 12;
 }
 
 // fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
@@ -156,7 +163,10 @@ function PersonDetail({
     <div style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 4 }}>
       <DetailRow label="Real Name" value={result.name} />
       <DetailRow label="AKA" value={result.preferredName ?? "—"} />
-      <DetailRow label="Mobile" value={result.mobile ?? "—"} href={result.mobile ? `tel:${result.mobile}` : undefined} />
+      <DetailRow label="DOB" value={result.dob ?? "—"} />
+      {isMobileEligible(result.dob) && (
+        <DetailRow label="Mobile" value={result.mobile ?? "—"} href={result.mobile ? `tel:${result.mobile}` : undefined} />
+      )}
       {isRegoEligible(result.dob) && <DetailRow label="Rego" value={result.regoYear ? String(result.regoYear) : "—"} />}
       <DetailRow label="Household" value={result.householdName ?? "—"} />
       <DetailRow
@@ -209,6 +219,7 @@ function PersonEditForm({
   const [name, setName] = useState(result.name);
   const [preferredName, setPreferredName] = useState(result.preferredName ?? "");
   const [mobile, setMobile] = useState(result.mobile ?? "");
+  const [dob, setDob] = useState(result.dob ?? "");
   const [regoYear, setRegoYear] = useState(result.regoYear !== null ? String(result.regoYear) : "");
   const [householdId, setHouseholdId] = useState(result.householdId);
   const [householdQuery, setHouseholdQuery] = useState(result.householdName ?? "");
@@ -333,6 +344,7 @@ function PersonEditForm({
       if (name.trim() && name !== result.name) tasks.push(updatePersonName(result.id, name));
       if (preferredName !== (result.preferredName ?? "")) tasks.push(updatePersonPreferredName(result.id, preferredName));
       if (mobile !== (result.mobile ?? "")) tasks.push(updatePersonMobile(result.id, mobile));
+      if (dob !== (result.dob ?? "")) tasks.push(updatePersonDob(result.id, dob || null));
       const regoYearNum = regoYear.trim() ? parseInt(regoYear, 10) : null;
       if (regoYearNum !== result.regoYear) tasks.push(updatePersonRegoYear(result.id, regoYearNum));
       if (householdId !== result.householdId) tasks.push(assignHousehold(result.id, householdId));
@@ -346,6 +358,7 @@ function PersonEditForm({
         name: name.trim() || result.name,
         preferredName: preferredName.trim() || null,
         mobile: mobile.trim() || null,
+        dob: dob || null,
         regoYear: regoYearNum,
         householdId,
         householdName: householdId ? householdQuery : null,
@@ -368,8 +381,12 @@ function PersonEditForm({
     <div style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 6 }}>
       <FieldInput label="Name" value={name} onChange={setName} />
       <FieldInput label="AKA" value={preferredName} onChange={setPreferredName} />
-      <FieldInput label="Mobile" value={mobile} onChange={setMobile} />
-      {isRegoEligible(result.dob) && (
+      <label style={{ display: "grid", gap: 2 }}>
+        <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>DOB</span>
+        <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={{ ...compactInputStyle, textAlign: "left", minWidth: 0 }} />
+      </label>
+      {isMobileEligible(dob) && <FieldInput label="Mobile" value={mobile} onChange={setMobile} />}
+      {isRegoEligible(dob) && (
         <label style={{ display: "grid", gap: 2 }}>
           <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Rego</span>
           <input
