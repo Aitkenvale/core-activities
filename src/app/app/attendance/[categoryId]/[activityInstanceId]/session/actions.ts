@@ -120,9 +120,11 @@ export async function setCancelledStatus(activityInstanceId: string, sessionDate
   await db.update(attendanceEvents).set({ cancelled }).where(eq(attendanceEvents.id, eventId));
 }
 
-// Hidden people don't show up here — "hidden" means regular users can no
-// longer find them. Admins can still see and un-hide them in the Edit All
-// People spreadsheet.
+// Hidden people ARE included here (unlike most searches elsewhere in the
+// app) — a facilitator adding someone to a roster has no way to know
+// they're hidden, and no reason to care; if the match is right, picking
+// them should just work. enrollExistingPerson below un-hides them as soon
+// as they're actually added, transparently.
 export async function searchPeople(query: string) {
   await requireUserId();
   const q = query.trim();
@@ -130,7 +132,7 @@ export async function searchPeople(query: string) {
   return db
     .select({ id: people.id, name: people.name, preferredName: people.preferredName, linkStatus: people.linkStatus })
     .from(people)
-    .where(and(ilike(people.name, `%${q}%`), eq(people.hidden, false)))
+    .where(ilike(people.name, `%${q}%`))
     .limit(8);
 }
 
@@ -221,6 +223,11 @@ export async function enrollExistingPerson(activityInstanceId: string, personId:
       target: [activityEnrollments.activityInstanceId, activityEnrollments.personId],
       set: { role, active: true },
     });
+  // If searchPeople surfaced a hidden person and the facilitator picked
+  // them anyway, being actively added to a roster is exactly the signal
+  // that they shouldn't be hidden anymore — done silently, no separate
+  // "unhide?" step.
+  await db.update(people).set({ hidden: false }).where(eq(people.id, personId));
 }
 
 // Hide = stop showing this person on the day-to-day roster without deleting
