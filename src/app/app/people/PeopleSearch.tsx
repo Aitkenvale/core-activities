@@ -30,10 +30,12 @@ type Result = {
   comment: string | null;
 };
 
+// fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
+// whole page on focus, and it doesn't reliably zoom back out on blur.
 const compactInputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  fontSize: "0.85rem",
+  fontSize: 16,
   minHeight: 36,
   padding: "6px 8px",
   border: "1px solid var(--border)",
@@ -84,7 +86,7 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
         placeholder="Search by name or household…"
         value={query}
         onChange={(e) => handleChange(e.target.value)}
-        style={{ ...compactInputStyle, fontSize: 16, minHeight: "var(--tap-min)", marginTop: "var(--space-2)" }}
+        style={{ ...compactInputStyle, minHeight: "var(--tap-min)", marginTop: "var(--space-2)" }}
       />
 
       <div style={{ marginTop: "var(--space-2)", display: "grid", gap: 6 }}>
@@ -463,7 +465,7 @@ function AddHouseholdMemberForm({ householdId, onDone }: { householdId: string; 
       <FieldInput label="Name" value={name} onChange={setName} />
       <label style={{ display: "grid", gap: 2 }}>
         <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>DOB (optional)</span>
-        <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={{ ...compactInputStyle, fontSize: "0.8rem" }} />
+        <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={{ ...compactInputStyle, textAlign: "left", minWidth: 0 }} />
       </label>
       <div style={{ display: "flex", gap: 6 }}>
         <button
