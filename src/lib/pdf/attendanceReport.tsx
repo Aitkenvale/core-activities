@@ -139,8 +139,15 @@ export async function generateAttendanceReportPdf(year: number, termNumber: numb
   if (!match) throw new Error("That term isn't available — either it doesn't exist, or the next term's start date isn't set yet.");
   const { term, rangeEnd } = match;
 
+  // Every activity, regardless of its current hidden/status — an activity
+  // that's since been ended/hidden (or paused) can still have had real
+  // sessions during this term, and a past report shouldn't silently drop
+  // them just because of what the activity looks like today. Whether it
+  // actually belongs in this report comes down to whether it has any
+  // attendance_events in range at all, which buildActivityReport already
+  // checks below (returns null — no page — if there are none).
   const [activities, categories] = await Promise.all([
-    db.select().from(activityInstances).where(eq(activityInstances.hidden, false)).orderBy(asc(activityInstances.name)),
+    db.select().from(activityInstances).orderBy(asc(activityInstances.name)),
     db.select().from(activityCategories),
   ]);
   const categoryLabel = Object.fromEntries(categories.map((c) => [c.id, c.label]));
