@@ -23,6 +23,7 @@ import {
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
 import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/personCompleteness";
+import { calculateAge } from "@/lib/category";
 
 type RosterRow = {
   personId: string;
@@ -846,7 +847,16 @@ function AddInfoModal({
 }) {
   const [name, setName] = useState(person.name);
   const [preferredName, setPreferredName] = useState(person.preferredName ?? "");
+  const [personalMobile, setPersonalMobile] = useState(person.mobile ?? "");
   const [dob, setDob] = useState(person.dob ?? "");
+  // Recomputed live off whatever DOB is currently typed, not just the
+  // person's saved one — editing DOB should immediately show/hide the
+  // personal-mobile field and the rego block rather than waiting for Save.
+  const age = dob ? calculateAge(dob) : null;
+  const showPersonalMobile = age !== null && age >= 12;
+  // Unknown DOB defaults to the stricter under-15 bracket, same reasoning
+  // as the face-icon completeness level.
+  const isUnder15 = age === null || age < 15;
   const [householdId, setHouseholdId] = useState(person.householdId);
   const [householdQuery, setHouseholdQuery] = useState(person.householdName ?? "");
   const [householdResults, setHouseholdResults] = useState<{ id: string; name: string }[]>([]);
@@ -924,6 +934,9 @@ function AddInfoModal({
         preferredName: preferredName.trim() || null,
         dob: dob || null,
         householdId: finalHouseholdId,
+        // Omitted entirely (not sent as undefined) when the personal-mobile
+        // field isn't even shown — nothing to save either way.
+        ...(showPersonalMobile ? { mobile: personalMobile.trim() || null } : {}),
       });
       if (finalHouseholdId) {
         await saveHouseholdContact(finalHouseholdId, contactPersonId, contactMobile || null);
@@ -967,6 +980,19 @@ function AddInfoModal({
           <ModalField label="AKA">
             <input value={preferredName} onChange={(e) => setPreferredName(e.target.value)} style={modalInputStyle} />
           </ModalField>
+          {/* 12+ only — below that, only a household contact's mobile makes
+              sense (see the Contact's Mobile field further down). Driven by
+              the DOB field below, live as it's edited. */}
+          {showPersonalMobile && (
+            <ModalField label="Mobile (personal)">
+              <input
+                type="tel"
+                value={personalMobile}
+                onChange={(e) => setPersonalMobile(e.target.value)}
+                style={modalInputStyle}
+              />
+            </ModalField>
+          )}
           <ModalField label="DOB">
             <input
               type="date"
@@ -980,6 +1006,15 @@ function AddInfoModal({
               style={{ ...modalInputStyle, textAlign: "left", minWidth: 0, ...(!dob ? missingBorderStyle : {}) }}
             />
           </ModalField>
+          {isUnder15 && (
+            <>
+              <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: 0, width: "100%" }} />
+              <p style={{ fontSize: "0.8rem", color: person.regoYear ? "var(--text)" : "var(--red)", margin: 0 }}>
+                {person.regoYear ? `Registration: ${person.regoYear}` : "No Registration Form"}
+              </p>
+            </>
+          )}
+          <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: 0, width: "100%" }} />
           <ModalField label="Household">
             <input
               placeholder="Search household…"
@@ -1082,7 +1117,7 @@ function AddInfoModal({
               </div>
             )}
           </ModalField>
-          <ModalField label="Mobile">
+          <ModalField label="Contact's Mobile">
             <input
               type="tel"
               value={contactMobile}
