@@ -217,6 +217,7 @@ const styles = StyleSheet.create({
   nameCell: { width: 150, flexShrink: 0, padding: "2pt 4pt", borderRight: "1pt solid #999999", borderBottom: "1pt solid #999999" },
   dateCell: { flex: 1, minWidth: 0, padding: "2pt 2pt", borderRight: "1pt solid #999999", borderBottom: "1pt solid #999999", textAlign: "center" },
   noData: { fontSize: 8, color: "#777777", marginTop: 6 },
+  footnote: { fontSize: 7, color: "#555555", marginTop: 3 },
 });
 
 function AttendanceTable({ people: rows, eventDates, statusByPerson }: { people: RosterPerson[]; eventDates: string[]; statusByPerson: Map<string, Map<string, string>> }) {
@@ -280,12 +281,13 @@ function ActivityPage({ term, rangeEnd, report }: { term: TermOption; rangeEnd: 
 
       {roleLabels.showAssistants && (
         <>
-          <Text style={styles.sectionLabel}>{roleLabels.assistant}</Text>
+          <Text style={styles.sectionLabel}>{roleLabels.assistant}*</Text>
           {report.assistants.length > 0 ? (
             <AttendanceTable people={report.assistants} eventDates={report.eventDates} statusByPerson={report.statusByPerson} />
           ) : (
             <Text style={styles.noData}>No {roleLabels.assistant.toLowerCase()} attended this term.</Text>
           )}
+          <Text style={styles.footnote}>* Not responsible in any way for under 18s. Assisting under supervision.</Text>
         </>
       )}
     </Page>
