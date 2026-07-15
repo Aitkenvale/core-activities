@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
@@ -800,6 +800,9 @@ const modalInputStyle: React.CSSProperties = {
 // Flags a field that's part of isPersonInfoComplete and still empty.
 const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)" };
 
+// How long to wait after the last change before auto-saving.
+const AUTOSAVE_DELAY_MS = 700;
+
 // Every person gets this pill, opening the same modal either way — only the
 // label changes, so it always reads as "here's this person's info" while
 // still flagging when something required is actually missing.
@@ -867,7 +870,23 @@ function AddInfoModal({
   const [contactResults, setContactResults] = useState<{ id: string; name: string; preferredName: string | null; mobile: string | null }[]>([]);
   const [contactMobile, setContactMobile] = useState(person.householdContactMobile ?? "");
   const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Frozen snapshot of every field as this modal opened — used both to diff
+  // "did this actually change" for auto-save, and by Cancel to revert.
+  const originalRef = useRef(person);
+  // A newly selected/created household's real contact isn't known
+  // client-side — this tracks the right baseline to diff the Contact
+  // fields against once the household has changed from the person's
+  // original one (see persist() below), same reasoning as Find Person's
+  // PersonEditForm.
+  const householdBaselineRef = useRef({
+    householdId: person.householdId,
+    contactPersonId: person.householdContactPersonId,
+    contactMobile: person.householdContactMobile ?? "",
+  });
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function handleHouseholdSearch(value: string) {
     setHouseholdQuery(value);
@@ -883,6 +902,7 @@ function AddInfoModal({
       setHouseholdId(created.id);
       setHouseholdQuery(created.name);
       setHouseholdResults([]);
+      householdBaselineRef.current = { householdId: created.id, contactPersonId: null, contactMobile: "" };
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't create that household.");
     }
@@ -915,7 +935,9 @@ function AddInfoModal({
     }
   }
 
-  async function handleSave() {
+  // The auto-save itself — diffs current state against the frozen original
+  // and only sends what actually changed.
+  async function persist() {
     setSaving(true);
     setError(null);
     try {
@@ -928,21 +950,31 @@ function AddInfoModal({
       if (!finalHouseholdId && contactPersonId) {
         const created = await createHouseholdForRoster(`${name.trim() || person.name} household`);
         finalHouseholdId = created.id;
+        setHouseholdId(created.id);
+        setHouseholdQuery(created.name);
+        householdBaselineRef.current = { householdId: created.id, contactPersonId: null, contactMobile: "" };
       }
-      await updatePersonInfo(person.personId, {
-        name,
-        preferredName: preferredName.trim() || null,
-        dob: dob || null,
-        householdId: finalHouseholdId,
-        // Omitted entirely (not sent as undefined) when the personal-mobile
-        // field isn't even shown — nothing to save either way.
-        ...(showPersonalMobile ? { mobile: personalMobile.trim() || null } : {}),
-      });
-      if (finalHouseholdId) {
-        await saveHouseholdContact(finalHouseholdId, contactPersonId, contactMobile || null);
+
+      const patch: Partial<{ name: string; preferredName: string | null; mobile: string | null; dob: string | null; householdId: string | null }> = {};
+      if (name.trim() && name !== originalRef.current.name) patch.name = name;
+      if (preferredName !== (originalRef.current.preferredName ?? "")) patch.preferredName = preferredName.trim() || null;
+      if (dob !== (originalRef.current.dob ?? "")) patch.dob = dob || null;
+      if (finalHouseholdId !== originalRef.current.householdId) patch.householdId = finalHouseholdId;
+      // Only ever sent when the field's actually shown — nothing to save
+      // for a field the admin never had a chance to see or edit.
+      if (showPersonalMobile && personalMobile !== (originalRef.current.mobile ?? "")) patch.mobile = personalMobile.trim() || null;
+
+      const tasks: Promise<unknown>[] = [];
+      if (Object.keys(patch).length > 0) tasks.push(updatePersonInfo(person.personId, patch));
+
+      const onOriginalHousehold = finalHouseholdId === originalRef.current.householdId;
+      const contactIdBaseline = onOriginalHousehold ? originalRef.current.householdContactPersonId : householdBaselineRef.current.contactPersonId;
+      const contactMobileBaseline = onOriginalHousehold ? (originalRef.current.householdContactMobile ?? "") : householdBaselineRef.current.contactMobile;
+      if (finalHouseholdId && (contactPersonId !== contactIdBaseline || contactMobile !== contactMobileBaseline)) {
+        tasks.push(saveHouseholdContact(finalHouseholdId, contactPersonId, contactMobile || null));
       }
-      onSaved();
-      onClose();
+      if (tasks.length === 0) return;
+      await Promise.all(tasks);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save that change.");
     } finally {
@@ -950,9 +982,58 @@ function AddInfoModal({
     }
   }
 
+  useEffect(() => {
+    saveTimer.current = setTimeout(() => {
+      persist();
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, preferredName, personalMobile, dob, householdId, contactPersonId, contactMobile]);
+
+  // The relabeled former Save button — auto-save already did the work, this
+  // just flushes anything still mid-debounce, refreshes the roster, and closes.
+  async function handleFinish() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    await persist();
+    onSaved();
+    onClose();
+  }
+
+  // Undoes whatever auto-save already persisted for this person and their
+  // *original* household this session, then closes. A household auto-
+  // created along the way (see persist() above) is left in place rather
+  // than deleted — same reasoning as Find Person's PersonEditForm: it's a
+  // real, independent household record, not something scoped to undo.
+  async function handleCancel() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setCancelling(true);
+    try {
+      await updatePersonInfo(person.personId, {
+        name: originalRef.current.name,
+        preferredName: originalRef.current.preferredName ?? null,
+        mobile: originalRef.current.mobile ?? null,
+        dob: originalRef.current.dob,
+        householdId: originalRef.current.householdId,
+      });
+      if (originalRef.current.householdId) {
+        await saveHouseholdContact(originalRef.current.householdId, originalRef.current.householdContactPersonId, originalRef.current.householdContactMobile ?? null);
+      }
+      onSaved();
+    } catch {
+      // Best-effort revert — still close either way.
+    } finally {
+      setCancelling(false);
+    }
+    onClose();
+  }
+
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.4)" }} />
+      {/* Tapping outside closes without discarding — auto-save already ran,
+          so this behaves like the "Auto-Save" button, not Cancel. */}
+      <div onClick={handleFinish} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.4)" }} />
       <div
         style={{
           position: "fixed",
@@ -1129,17 +1210,18 @@ function AddInfoModal({
 
         <div style={{ display: "flex", gap: 8, marginTop: "var(--space-4)" }}>
           <button
-            onClick={handleSave}
-            disabled={saving}
+            onClick={handleFinish}
+            disabled={saving || cancelling}
             style={{ minHeight: 36, padding: "0 20px", borderRadius: "var(--radius-pill)", border: "none", background: "var(--deep)", color: "var(--cream)", fontSize: "0.85rem", cursor: "pointer" }}
           >
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : "Auto-Save"}
           </button>
           <button
-            onClick={onClose}
+            onClick={handleCancel}
+            disabled={saving || cancelling}
             style={{ minHeight: 36, padding: "0 20px", border: "none", background: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer" }}
           >
-            Cancel
+            {cancelling ? "Undoing…" : "Cancel"}
           </button>
         </div>
         {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 8 }}>{error}</p>}
