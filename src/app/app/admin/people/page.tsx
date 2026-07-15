@@ -32,6 +32,7 @@ export default async function AdminPeoplePage({
         mobile: people.mobile,
         email: people.email,
         regoYear: people.regoYear,
+        regoFormUrl: people.regoFormUrl,
         hidden: people.hidden,
         linkStatus: people.linkStatus,
         comment: people.comment,

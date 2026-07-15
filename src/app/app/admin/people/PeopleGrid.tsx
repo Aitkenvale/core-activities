@@ -27,6 +27,7 @@ type Row = {
   mobile: string | null;
   email: string | null;
   regoYear: number | null;
+  regoFormUrl: string | null;
   hidden: boolean;
   linkStatus: "linked" | "pending";
   comment: string | null;
@@ -58,6 +59,7 @@ const COLUMNS: { key: SortKey; label: string; width: number | undefined }[] = [
   { key: "category", label: "Category", width: 140 },
   { key: "regoYear", label: "Rego Year", width: 90 },
   { key: "mobile", label: "Mobile", width: 130 },
+  { key: "regoFormUrl", label: "Rego", width: 80 },
   { key: "hidden", label: "Hide", width: 70 },
   { key: "comment", label: "Comment", width: undefined },
 ];
@@ -322,6 +324,16 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                   onEdit={() => setEditing({ id: r.id, field: "mobile" })}
                   onDone={() => setEditing(null)}
                 />
+                <RegoFormCell
+                  value={r.regoFormUrl}
+                  onSave={(v) => {
+                    patchLocal(r.id, { regoFormUrl: v.trim() || null });
+                    save(r.id, { regoFormUrl: v.trim() || null });
+                  }}
+                  editing={editing?.id === r.id && editing.field === "regoFormUrl"}
+                  onEdit={() => setEditing({ id: r.id, field: "regoFormUrl" })}
+                  onDone={() => setEditing(null)}
+                />
                 <td style={{ ...cellStyle, textAlign: "center" }}>
                   <input
                     type="checkbox"
@@ -551,6 +563,70 @@ function TextCell({
         style={type === "date" ? { ...inputStyle, fontSize: "0.75rem" } : inputStyle}
       />
     </td>
+  );
+}
+
+// "Link" (paste a URL to the person's scanned registration form) when
+// nothing's set, "View" (opens it in a new tab) once it is — a plain URL
+// field rather than a real upload for now, so a form hosted anywhere
+// (Vercel Blob, a shared drive, wherever) can be linked the same way.
+function RegoFormCell({ value, onSave, editing, onEdit, onDone }: { value: string | null; onSave: (v: string) => void; editing: boolean; onEdit: () => void; onDone: () => void }) {
+  const [draft, setDraft] = useState(value || "");
+
+  if (editing) {
+    function commit() {
+      onSave(draft);
+      onDone();
+    }
+    return (
+      <td style={cellStyle}>
+        <input
+          autoFocus
+          type="url"
+          placeholder="Paste form URL…"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") onDone();
+          }}
+          style={inputStyle}
+        />
+      </td>
+    );
+  }
+
+  return (
+    <td style={{ ...cellStyle, textAlign: "center" }}>
+      {value ? (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <a href={value} target="_blank" rel="noopener noreferrer" style={{ color: "var(--heading)", textDecoration: "underline" }}>
+            View
+          </a>
+          <button
+            onClick={onEdit}
+            title="Change link"
+            style={{ ...iconButtonStyle, color: "var(--muted)" }}
+          >
+            <PencilIcon />
+          </button>
+        </span>
+      ) : (
+        <button onClick={onEdit} style={{ background: "none", border: "none", padding: 0, color: "var(--heading)", textDecoration: "underline", fontSize: "0.85rem", cursor: "pointer" }}>
+          Link
+        </button>
+      )}
+    </td>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
   );
 }
 

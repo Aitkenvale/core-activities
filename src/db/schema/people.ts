@@ -30,6 +30,9 @@ export const people = pgTable("people", {
   // can't consent themselves). A new year gets recorded when they
   // transition between multi-year programs (e.g. PSEC -> JYSEP).
   regoYear: integer("rego_year"),
+  // Link to the person's scanned/uploaded registration form document
+  // (Vercel Blob URL). Null until an admin links one via the People grid.
+  regoFormUrl: text("rego_form_url"),
   healthNotes: text("health_notes"),
   hidden: boolean("hidden").notNull().default(false),
   // "pending" = quick-added by a facilitator, incomplete, awaiting reconciliation.

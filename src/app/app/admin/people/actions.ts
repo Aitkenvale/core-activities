@@ -20,6 +20,7 @@ export type PersonPatch = Partial<{
   mobile: string | null;
   email: string | null;
   regoYear: number | null;
+  regoFormUrl: string | null;
   comment: string | null;
   hidden: boolean;
   linkStatus: "linked" | "pending";
