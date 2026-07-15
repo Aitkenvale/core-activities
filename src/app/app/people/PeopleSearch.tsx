@@ -51,6 +51,9 @@ function isMobileEligible(dob: string | null): boolean {
   return !dob || calculateAge(dob) >= 12;
 }
 
+// How long to wait after the last change before auto-saving.
+const AUTOSAVE_DELAY_MS = 700;
+
 // fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
 // whole page on focus, and it doesn't reliably zoom back out on blur.
 const compactInputStyle: React.CSSProperties = {
@@ -237,8 +240,29 @@ function PersonEditForm({
   const [contactMobile, setContactMobile] = useState(result.householdContactMobile ?? "");
   const [notes, setNotes] = useState(result.comment ?? "");
   const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addingMember, setAddingMember] = useState(false);
+
+  // Frozen snapshot of every field as this form opened — used both to diff
+  // "did this actually change" for auto-save, and by Cancel to revert.
+  // Deliberately NOT the live `result` prop, since onChange (called after
+  // every auto-save) patches the parent's copy of it — comparing against a
+  // moving target would make both the diff and the revert wrong.
+  const originalRef = useRef(result);
+  // A newly selected/created household's real address and contact aren't
+  // known client-side (selectHousehold/handleCreateHousehold reset those
+  // fields to blank) — diffing them against the person's *original*
+  // household would immediately auto-save blanks over that other
+  // household's real, already-populated data. This tracks the right
+  // baseline to diff against once the household itself has changed.
+  const householdBaselineRef = useRef({
+    householdId: result.householdId,
+    address: result.householdAddress ?? "",
+    contactPersonId: result.householdContactPersonId,
+    contactMobile: result.householdContactMobile ?? "",
+  });
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function handleHouseholdSearch(value: string) {
     setHouseholdQuery(value);
@@ -256,6 +280,7 @@ function PersonEditForm({
     setContactQuery("");
     setContactResults([]);
     setContactMobile("");
+    householdBaselineRef.current = { householdId: h.id, address: "", contactPersonId: null, contactMobile: "" };
   }
 
   async function handleCreateHousehold() {
@@ -272,6 +297,7 @@ function PersonEditForm({
       setContactResults([]);
       setContactMobile("");
       setContactPrompt({ householdId: created.id, householdName: created.name });
+      householdBaselineRef.current = { householdId: created.id, address: "", contactPersonId: null, contactMobile: "" };
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't create that household.");
     }
@@ -287,6 +313,7 @@ function PersonEditForm({
     setContactResults([]);
     setContactMobile("");
     setContactPrompt(null);
+    householdBaselineRef.current = { householdId: null, address: "", contactPersonId: null, contactMobile: "" };
   }
 
   async function answerContactPrompt(makeContact: boolean) {
@@ -297,6 +324,7 @@ function PersonEditForm({
         setContactPersonId(result.id);
         setContactQuery(formatFullName(name, preferredName));
         setContactMobile(mobile);
+        householdBaselineRef.current = { ...householdBaselineRef.current, contactPersonId: result.id, contactMobile: mobile };
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't set that contact.");
       }
@@ -338,26 +366,36 @@ function PersonEditForm({
     }
   }
 
-  async function handleSave() {
+  // The auto-save itself — diffs current state against the frozen original
+  // (or, for address/contact on a freshly switched household, against that
+  // household's own blank baseline — see householdBaselineRef above) and
+  // only sends what actually changed.
+  async function persist() {
+    const tasks: Promise<unknown>[] = [];
+    if (name.trim() && name !== originalRef.current.name) tasks.push(updatePersonName(result.id, name));
+    if (preferredName !== (originalRef.current.preferredName ?? "")) tasks.push(updatePersonPreferredName(result.id, preferredName));
+    if (mobile !== (originalRef.current.mobile ?? "")) tasks.push(updatePersonMobile(result.id, mobile));
+    if (dob !== (originalRef.current.dob ?? "")) tasks.push(updatePersonDob(result.id, dob || null));
+    const regoYearNum = regoYear.trim() ? parseInt(regoYear, 10) : null;
+    if (regoYearNum !== originalRef.current.regoYear) tasks.push(updatePersonRegoYear(result.id, regoYearNum));
+    if (householdId !== originalRef.current.householdId) tasks.push(assignHousehold(result.id, householdId));
+    const onOriginalHousehold = householdId === originalRef.current.householdId;
+    const addressBaseline = onOriginalHousehold ? (originalRef.current.householdAddress ?? "") : householdBaselineRef.current.address;
+    if (householdId && address !== addressBaseline) tasks.push(updateHouseholdAddress(householdId, address));
+    const contactIdBaseline = onOriginalHousehold ? originalRef.current.householdContactPersonId : householdBaselineRef.current.contactPersonId;
+    const contactMobileBaseline = onOriginalHousehold ? (originalRef.current.householdContactMobile ?? "") : householdBaselineRef.current.contactMobile;
+    if (householdId && (contactPersonId !== contactIdBaseline || contactMobile !== contactMobileBaseline)) {
+      tasks.push(saveHouseholdContact(householdId, contactPersonId, contactMobile || null));
+    }
+    if (notes !== (originalRef.current.comment ?? "")) tasks.push(updatePersonNotes(result.id, notes));
+    if (tasks.length === 0) return;
+
     setSaving(true);
     setError(null);
     try {
-      const tasks: Promise<unknown>[] = [];
-      if (name.trim() && name !== result.name) tasks.push(updatePersonName(result.id, name));
-      if (preferredName !== (result.preferredName ?? "")) tasks.push(updatePersonPreferredName(result.id, preferredName));
-      if (mobile !== (result.mobile ?? "")) tasks.push(updatePersonMobile(result.id, mobile));
-      if (dob !== (result.dob ?? "")) tasks.push(updatePersonDob(result.id, dob || null));
-      const regoYearNum = regoYear.trim() ? parseInt(regoYear, 10) : null;
-      if (regoYearNum !== result.regoYear) tasks.push(updatePersonRegoYear(result.id, regoYearNum));
-      if (householdId !== result.householdId) tasks.push(assignHousehold(result.id, householdId));
-      if (householdId) {
-        tasks.push(updateHouseholdAddress(householdId, address));
-        tasks.push(saveHouseholdContact(householdId, contactPersonId, contactMobile || null));
-      }
-      if (notes !== (result.comment ?? "")) tasks.push(updatePersonNotes(result.id, notes));
       await Promise.all(tasks);
       onChange({
-        name: name.trim() || result.name,
+        name: name.trim() || originalRef.current.name,
         preferredName: preferredName.trim() || null,
         mobile: mobile.trim() || null,
         dob: dob || null,
@@ -371,12 +409,67 @@ function PersonEditForm({
         householdContactMobile: householdId && contactPersonId ? contactMobile.trim() || null : null,
         comment: notes.trim() || null,
       });
-      onDone();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save that change.");
     } finally {
       setSaving(false);
     }
+  }
+
+  useEffect(() => {
+    saveTimer.current = setTimeout(() => {
+      persist();
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, preferredName, mobile, dob, regoYear, householdId, address, contactPersonId, contactMobile, notes]);
+
+  // The relabeled former Save button — auto-save already did the work, this
+  // just flushes anything still mid-debounce and closes.
+  async function handleFinish() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    await persist();
+    onDone();
+  }
+
+  // Undoes whatever auto-save already persisted for this person and their
+  // *original* household this session, then closes. If the admin also
+  // browsed into a different household and edited its address/contact
+  // before cancelling, that other household's data isn't reverted here —
+  // it's a real, independent record, not something scoped to this session.
+  async function handleCancel() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setCancelling(true);
+    try {
+      const tasks: Promise<unknown>[] = [
+        updatePersonName(result.id, originalRef.current.name),
+        updatePersonPreferredName(result.id, originalRef.current.preferredName ?? ""),
+        updatePersonMobile(result.id, originalRef.current.mobile ?? ""),
+        updatePersonDob(result.id, originalRef.current.dob),
+        updatePersonRegoYear(result.id, originalRef.current.regoYear),
+        assignHousehold(result.id, originalRef.current.householdId),
+        updatePersonNotes(result.id, originalRef.current.comment ?? ""),
+      ];
+      if (originalRef.current.householdId) {
+        tasks.push(updateHouseholdAddress(originalRef.current.householdId, originalRef.current.householdAddress ?? ""));
+        tasks.push(
+          saveHouseholdContact(
+            originalRef.current.householdId,
+            originalRef.current.householdContactPersonId,
+            originalRef.current.householdContactMobile ?? null,
+          ),
+        );
+      }
+      await Promise.all(tasks);
+      onChange(originalRef.current);
+    } catch {
+      // Best-effort revert — still close either way.
+    } finally {
+      setCancelling(false);
+    }
+    onDone();
   }
 
   return (
@@ -548,8 +641,8 @@ function PersonEditForm({
 
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <button
-          onClick={handleSave}
-          disabled={saving}
+          onClick={handleFinish}
+          disabled={saving || cancelling}
           style={{
             minHeight: 32,
             padding: "0 14px",
@@ -561,13 +654,14 @@ function PersonEditForm({
             cursor: "pointer",
           }}
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? "Saving…" : "Auto-Save"}
         </button>
         <button
-          onClick={onDone}
+          onClick={handleCancel}
+          disabled={saving || cancelling}
           style={{ minHeight: 32, padding: "0 14px", border: "none", background: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer" }}
         >
-          Cancel
+          {cancelling ? "Undoing…" : "Cancel"}
         </button>
         {result.householdId && !addingMember && (
           <button
