@@ -135,7 +135,12 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
                 {formatFullName(r.name, r.preferredName)}
               </button>
               {expanded && (
-                <PersonDetail result={r} isAdmin={isAdmin} onChange={(patch) => patchResult(r.id, patch)} />
+                <PersonDetail
+                  result={r}
+                  isAdmin={isAdmin}
+                  onChange={(patch) => patchResult(r.id, patch)}
+                  onCollapse={() => setExpandedId(null)}
+                />
               )}
             </div>
           );
@@ -152,19 +157,34 @@ function PersonDetail({
   result,
   isAdmin,
   onChange,
+  onCollapse,
 }: {
   result: Result;
   isAdmin: boolean;
   onChange: (patch: Partial<Result>) => void;
+  onCollapse: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const detailRef = useRef<HTMLDivElement>(null);
+
+  // Tapping anywhere outside this expanded card collapses it back — same
+  // "clicking away closes it" behaviour as the Attendance Add Info popup,
+  // just without a backdrop since this is an inline accordion, not a modal.
+  useEffect(() => {
+    if (editing) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (detailRef.current && !detailRef.current.contains(e.target as Node)) onCollapse();
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [editing, onCollapse]);
 
   if (editing) {
     return <PersonEditForm result={result} onChange={onChange} onDone={() => setEditing(false)} />;
   }
 
   return (
-    <div style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 4 }}>
+    <div ref={detailRef} style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 4 }}>
       <DetailRow label="Name" value={result.name} />
       <DetailRow label="AKA" value={result.preferredName ?? "—"} />
       <DetailRow label="DOB" value={result.dob ?? "—"} />
@@ -472,8 +492,22 @@ function PersonEditForm({
     onDone();
   }
 
+  const formRef = useRef<HTMLDivElement>(null);
+  // Tapping outside this form closes it the same way the "Auto-Save" button
+  // does — flush anything still mid-debounce, keep the changes — not the
+  // same as Cancel. No dependency array: handleFinish closes over every
+  // field's latest value, so this re-subscribes each render rather than
+  // risk calling a stale closure from the first render.
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      if (formRef.current && !formRef.current.contains(e.target as Node)) handleFinish();
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  });
+
   return (
-    <div style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 6 }}>
+    <div ref={formRef} style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 6 }}>
       <FieldInput label="Name" value={name} onChange={setName} />
       <FieldInput label="AKA" value={preferredName} onChange={setPreferredName} />
       <label style={{ display: "grid", gap: 2 }}>
