@@ -17,6 +17,15 @@ function getAttendanceTabHref(pathname: string): string {
   return "/app/attendance";
 }
 
+// Tapping "Home" from deep inside a specific admin function (People,
+// Households, ...) goes to Admin home first, not straight past it to the
+// hub — pressing Home again from there falls through to the plain "/app"
+// entry below, since /app/admin itself renders the regular tab bar (see
+// the startsWith check below), not this admin one.
+function getHomeTabHref(pathname: string): string {
+  return pathname.startsWith("/app/admin/") ? "/app/admin" : "/app";
+}
+
 const MAIN_TABS = [
   { href: "/app", label: "Home", icon: HomeIcon, match: (p: string) => p === "/app" },
   { href: "/app/activities", label: "Activities", icon: ActivityIcon, match: (p: string) => p.startsWith("/app/activities") },
@@ -64,7 +73,7 @@ export function BottomTabBar() {
       {tabs.map((tab) => {
         const active = tab.match(pathname);
         const Icon = tab.icon;
-        const href = tab.href === "/app/attendance" ? getAttendanceTabHref(pathname) : tab.href;
+        const href = tab.href === "/app/attendance" ? getAttendanceTabHref(pathname) : tab.href === "/app" ? getHomeTabHref(pathname) : tab.href;
         return (
           <Link
             key={tab.href}
