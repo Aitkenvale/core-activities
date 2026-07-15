@@ -214,7 +214,7 @@ export async function updatePersonInfo(
   await db.update(people).set(patch).where(eq(people.id, personId));
 }
 
-export async function enrollExistingPerson(activityInstanceId: string, personId: string, role: "participant" | "facilitator") {
+export async function enrollExistingPerson(activityInstanceId: string, personId: string, role: "participant" | "facilitator" | "assistant") {
   await requireUserId();
   await db
     .insert(activityEnrollments)
@@ -240,19 +240,31 @@ export async function setEnrollmentActive(activityInstanceId: string, personId: 
     .where(and(eq(activityEnrollments.activityInstanceId, activityInstanceId), eq(activityEnrollments.personId, personId)));
 }
 
-export async function quickAddPerson(activityInstanceId: string, name: string, role: "participant" | "facilitator") {
+export async function quickAddPerson(activityInstanceId: string, name: string, role: "participant" | "facilitator" | "assistant") {
   await requireUserId();
   const [created] = await db
     .insert(people)
     .values({
       name: name.trim(),
-      personType: role === "facilitator" ? "adult" : "child",
+      personType: role === "participant" ? "child" : "adult",
       linkStatus: "pending",
       source: "quick_add",
     })
     .returning();
   await db.insert(activityEnrollments).values({ activityInstanceId, personId: created.id, role });
   return created;
+}
+
+// Reclassifying an existing Facilitator/Assistant — attendance history is
+// keyed by personId + attendanceEventId only (never by role or enrollment
+// id), so changing this role column can't affect or orphan any past
+// attendance record, present or absent, already on file for them.
+export async function changeEnrollmentRole(activityInstanceId: string, personId: string, role: "facilitator" | "assistant") {
+  await requireUserId();
+  await db
+    .update(activityEnrollments)
+    .set({ role })
+    .where(and(eq(activityEnrollments.activityInstanceId, activityInstanceId), eq(activityEnrollments.personId, personId)));
 }
 
 // Folds a "Not Linked" (quick-added, pending) person's enrollments and

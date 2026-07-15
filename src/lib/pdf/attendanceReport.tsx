@@ -8,6 +8,7 @@ import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { people } from "@/db/schema/people";
 import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
+import { getRoleLabels } from "@/lib/activityRoleLabels";
 
 // toLocaleDateString's "short" month can render the full month name on some
 // runtimes — spelled out ourselves so "12 Jul" is guaranteed, matching the
@@ -73,10 +74,12 @@ type RosterPerson = { personId: string; name: string };
 
 type ActivityReport = {
   activityName: string;
+  categoryId: string;
   categoryLabel: string;
   eventDates: string[];
   participants: RosterPerson[];
   facilitators: RosterPerson[];
+  assistants: RosterPerson[];
   // personId -> sessionDate -> "present" | "absent"
   statusByPerson: Map<string, Map<string, string>>;
 };
@@ -84,6 +87,7 @@ type ActivityReport = {
 async function buildActivityReport(
   activityId: string,
   activityName: string,
+  categoryId: string,
   categoryLabel: string,
   startDate: string,
   rangeEnd: string,
@@ -128,9 +132,19 @@ async function buildActivityReport(
   const byName = (a: RosterPerson, b: RosterPerson) => a.name.localeCompare(b.name);
   const participants = roster.filter((r) => r.role === "participant" && attendedAtLeastOnce(r.personId)).sort(byName);
   const facilitators = roster.filter((r) => r.role === "facilitator" && attendedAtLeastOnce(r.personId)).sort(byName);
-  if (participants.length === 0 && facilitators.length === 0) return null;
+  const assistants = roster.filter((r) => r.role === "assistant" && attendedAtLeastOnce(r.personId)).sort(byName);
+  if (participants.length === 0 && facilitators.length === 0 && assistants.length === 0) return null;
 
-  return { activityName, categoryLabel, eventDates: events.map((e) => e.sessionDate), participants, facilitators, statusByPerson };
+  return {
+    activityName,
+    categoryId,
+    categoryLabel,
+    eventDates: events.map((e) => e.sessionDate),
+    participants,
+    facilitators,
+    assistants,
+    statusByPerson,
+  };
 }
 
 export async function generateAttendanceReportPdf(year: number, termNumber: number): Promise<Buffer> {
@@ -154,7 +168,14 @@ export async function generateAttendanceReportPdf(year: number, termNumber: numb
 
   const reports: ActivityReport[] = [];
   for (const activity of activities) {
-    const report = await buildActivityReport(activity.id, activity.name, categoryLabel[activity.categoryId] ?? activity.categoryId, term.startDate, rangeEnd);
+    const report = await buildActivityReport(
+      activity.id,
+      activity.name,
+      activity.categoryId,
+      categoryLabel[activity.categoryId] ?? activity.categoryId,
+      term.startDate,
+      rangeEnd,
+    );
     if (report) reports.push(report);
   }
 
@@ -235,6 +256,7 @@ function AttendanceTable({ people: rows, eventDates, statusByPerson }: { people:
 }
 
 function ActivityPage({ term, rangeEnd, report }: { term: TermOption; rangeEnd: string; report: ActivityReport }) {
+  const roleLabels = getRoleLabels(report.categoryId);
   return (
     <Page size="A4" style={styles.page}>
       <Text style={styles.title}>{report.activityName}</Text>
@@ -249,11 +271,22 @@ function ActivityPage({ term, rangeEnd, report }: { term: TermOption; rangeEnd: 
         <Text style={styles.noData}>No participants attended this term.</Text>
       )}
 
-      <Text style={styles.sectionLabel}>Facilitators</Text>
+      <Text style={styles.sectionLabel}>{roleLabels.facilitator}</Text>
       {report.facilitators.length > 0 ? (
         <AttendanceTable people={report.facilitators} eventDates={report.eventDates} statusByPerson={report.statusByPerson} />
       ) : (
-        <Text style={styles.noData}>No facilitators attended this term.</Text>
+        <Text style={styles.noData}>No {roleLabels.facilitator.toLowerCase()} attended this term.</Text>
+      )}
+
+      {roleLabels.showAssistants && (
+        <>
+          <Text style={styles.sectionLabel}>{roleLabels.assistant}</Text>
+          {report.assistants.length > 0 ? (
+            <AttendanceTable people={report.assistants} eventDates={report.eventDates} statusByPerson={report.statusByPerson} />
+          ) : (
+            <Text style={styles.noData}>No {roleLabels.assistant.toLowerCase()} attended this term.</Text>
+          )}
+        </>
       )}
     </Page>
   );

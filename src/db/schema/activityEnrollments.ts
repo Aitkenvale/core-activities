@@ -2,7 +2,11 @@ import { pgTable, uuid, boolean, timestamp, unique, pgEnum } from "drizzle-orm/p
 import { activityInstances } from "./activityInstances";
 import { people } from "./people";
 
-export const enrollmentRoleEnum = pgEnum("enrollment_role", ["participant", "facilitator"]);
+// "assistant" split off "facilitator" later — Facilitators require regular
+// child protection training, Assistants don't. Postgres enums can only ever
+// grow, never reorder/remove, hence "assistant" trailing at the end instead
+// of sitting next to "facilitator".
+export const enrollmentRoleEnum = pgEnum("enrollment_role", ["participant", "facilitator", "assistant"]);
 
 // Who's expected on an activity's roster — distinct from attendance history,
 // so a newly quick-added or newly enrolled person shows up before they've

@@ -20,10 +20,12 @@ import {
   saveHouseholdContact,
   updatePersonInfo,
   createEventDate,
+  changeEnrollmentRole,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
 import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/personCompleteness";
 import { calculateAge } from "@/lib/category";
+import { getRoleLabels } from "@/lib/activityRoleLabels";
 
 type RosterRow = {
   personId: string;
@@ -39,7 +41,7 @@ type RosterRow = {
   householdContactPreferredName: string | null;
   householdContactMobile: string | null;
   regoYear: number | null;
-  role: "participant" | "facilitator";
+  role: "participant" | "facilitator" | "assistant";
   active: boolean;
 };
 
@@ -147,6 +149,17 @@ export function SessionClient({
     startTransition(() => setEnrollmentActive(activityInstanceId, personId, next));
   }
 
+  // Reclassifying a Facilitator/Assistant — a plain role column update, so
+  // nothing about their attendance history moves or changes (see
+  // changeEnrollmentRole in actions.ts). Refetches the roster afterwards
+  // since Facilitators/Assistants are two separate derived lists below,
+  // not something a single optimistic local update can move between.
+  function moveRole(personId: string, role: "facilitator" | "assistant") {
+    startTransition(() => {
+      changeEnrollmentRole(activityInstanceId, personId, role).then(() => router.refresh());
+    });
+  }
+
   function toggleLocked() {
     if (!canToggleLock) return;
     setError(null);
@@ -177,6 +190,11 @@ export function SessionClient({
   const byDisplayName = (a: RosterRow, b: RosterRow) => (a.preferredName || a.name).localeCompare(b.preferredName || b.name);
   const participants = roster.filter((r) => r.role === "participant" && visible(r)).sort(byDisplayName);
   const facilitators = roster.filter((r) => r.role === "facilitator" && visible(r)).sort(byDisplayName);
+  const assistants = roster.filter((r) => r.role === "assistant" && visible(r)).sort(byDisplayName);
+  // PSEC calls these Teachers/Co-Teachers, JYSEP calls them Animators/
+  // Co-Animators, and Study Circles don't split the role at all — see
+  // activityRoleLabels.ts.
+  const roleLabels = getRoleLabels(categoryId);
 
   return (
     <>
@@ -223,7 +241,7 @@ export function SessionClient({
             isAdmin={isAdmin}
           />
           <RosterSection
-            title="Facilitators"
+            title={roleLabels.facilitator}
             rows={facilitators}
             statuses={statuses}
             onToggle={toggle}
@@ -236,7 +254,28 @@ export function SessionClient({
             readOnly={readOnly}
             cancelled={cancelled}
             isAdmin={isAdmin}
+            moveTo={roleLabels.showAssistants ? { role: "assistant", label: roleLabels.assistant } : undefined}
+            onMove={moveRole}
           />
+          {roleLabels.showAssistants && (
+            <RosterSection
+              title={roleLabels.assistant}
+              rows={assistants}
+              statuses={statuses}
+              onToggle={toggle}
+              activityInstanceId={activityInstanceId}
+              role="assistant"
+              onChanged={() => router.refresh()}
+              editMode={editMode}
+              activeByPersonId={activeByPersonId}
+              onToggleActive={toggleActive}
+              readOnly={readOnly}
+              cancelled={cancelled}
+              isAdmin={isAdmin}
+              moveTo={{ role: "facilitator", label: roleLabels.facilitator }}
+              onMove={moveRole}
+            />
+          )}
 
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
@@ -626,13 +665,15 @@ function RosterSection({
   readOnly,
   cancelled,
   isAdmin,
+  moveTo,
+  onMove,
 }: {
   title: string;
   rows: RosterRow[];
   statuses: Record<string, Status>;
   onToggle: (personId: string, status: Status) => void;
   activityInstanceId: string;
-  role: "participant" | "facilitator";
+  role: "participant" | "facilitator" | "assistant";
   onChanged: () => void;
   editMode: boolean;
   activeByPersonId: Record<string, boolean>;
@@ -640,8 +681,18 @@ function RosterSection({
   readOnly: boolean;
   cancelled: boolean;
   isAdmin: boolean;
+  // Facilitator/Assistant sections only, and only for categories that split
+  // the role at all (see activityRoleLabels.ts's showAssistants) — lets an
+  // admin reclassify someone in editMode without losing their attendance
+  // history (a plain role-column update, see changeEnrollmentRole).
+  moveTo?: { role: "facilitator" | "assistant"; label: string };
+  onMove?: (personId: string, role: "facilitator" | "assistant") => void;
 }) {
   const [adding, setAdding] = useState(false);
+  // These vocabularies are all regular plurals ("Teachers", "Co-Teachers",
+  // "Participants", ...) — stripping a trailing "s" reliably singularizes
+  // every label this app actually uses for "+ Add New ___".
+  const singularTitle = title.replace(/s$/, "");
 
   return (
     <section style={{ marginBottom: 32 }}>
@@ -687,21 +738,42 @@ function RosterSection({
                 />
               </div>
               {editMode ? (
-                <button
-                  onClick={() => onToggleActive(r.personId)}
-                  style={{
-                    minHeight: 36,
-                    padding: "0 var(--space-4)",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--border)",
-                    background: activeByPersonId[r.personId] ? "var(--card-bg)" : "var(--muted)",
-                    color: activeByPersonId[r.personId] ? "var(--text)" : "var(--cream)",
-                    fontSize: "0.75rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  {activeByPersonId[r.personId] ? "Hide" : "Show"}
-                </button>
+                <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                  {moveTo && onMove && (
+                    <button
+                      onClick={() => onMove(r.personId, moveTo.role)}
+                      title={`Move to ${moveTo.label}`}
+                      style={{
+                        minHeight: 36,
+                        padding: "0 var(--space-3)",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px dashed var(--gold)",
+                        background: "var(--cream2)",
+                        color: "var(--heading)",
+                        fontSize: "0.72rem",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      → {moveTo.label}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onToggleActive(r.personId)}
+                    style={{
+                      minHeight: 36,
+                      padding: "0 var(--space-4)",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid var(--border)",
+                      background: activeByPersonId[r.personId] ? "var(--card-bg)" : "var(--muted)",
+                      color: activeByPersonId[r.personId] ? "var(--text)" : "var(--cream)",
+                      fontSize: "0.75rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {activeByPersonId[r.personId] ? "Hide" : "Show"}
+                  </button>
+                </div>
               ) : (
                 <div style={{ display: "flex", gap: "var(--space-2)" }}>
                   <button
@@ -772,7 +844,7 @@ function RosterSection({
               cursor: "pointer",
             }}
           >
-            + Add New {role === "participant" ? "Participant" : "Facilitator"}
+            + Add New {singularTitle}
           </button>
         ))}
     </section>
@@ -1246,7 +1318,7 @@ function AddPersonForm({
   onCancel,
 }: {
   activityInstanceId: string;
-  role: "participant" | "facilitator";
+  role: "participant" | "facilitator" | "assistant";
   onDone: () => void;
   onCancel: () => void;
 }) {
