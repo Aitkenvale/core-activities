@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   updatePerson,
@@ -201,6 +202,20 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
           </Pill>
           <CategoryDropdown label="Category" options={CATEGORY_LABELS} selected={categoryFilter} onToggle={toggleCategory} />
           <CategoryDropdown label="Participants" options={PARTICIPANT_CATEGORY_LABELS} selected={participantFilter} onToggle={toggleParticipant} />
+          <Link
+            href="/app/admin/people/rego-forms"
+            style={{
+              marginLeft: "auto",
+              padding: "6px 12px",
+              borderRadius: "var(--radius-pill)",
+              border: "1px dashed var(--gold)",
+              color: "var(--heading)",
+              fontSize: "0.78rem",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Link Registration Forms
+          </Link>
         </div>
       </div>
 
@@ -601,7 +616,15 @@ function RegoFormCell({ value, onSave, editing, onEdit, onDone }: { value: strin
     <td style={{ ...cellStyle, textAlign: "center" }}>
       {value ? (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <a href={value} target="_blank" rel="noopener noreferrer" style={{ color: "var(--heading)", textDecoration: "underline" }}>
+          {/* Routed through our own proxy, not the raw blob URL — the store
+              is private (requires a token to read), so the API route below
+              streams the file back after checking for an admin session. */}
+          <a
+            href={`/api/admin/rego-form?url=${encodeURIComponent(value)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--heading)", textDecoration: "underline" }}
+          >
             View
           </a>
           <button
