@@ -1,10 +1,12 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { put } from "@vercel/blob";
 import { db } from "@/db/client";
 import { households } from "@/db/schema/households";
 import { people } from "@/db/schema/people";
 import { registrationSubmissions } from "@/db/schema/registrationSubmissions";
+import { generateRegistrationFormPdf } from "@/lib/pdf/registrationForm";
 
 export type RegistrationChild = { name: string; dob: string; hasHealth: boolean; health: string };
 export type RegistrationParent = { name: string; address: string; mobile: string; email: string };
@@ -91,6 +93,7 @@ export async function submitRegistration(input: {
   // for the person's current program stage" (people.ts) — this submission
   // is exactly that, for every child on it.
   const thisYear = new Date().getFullYear();
+  const createdChildIds: string[] = [];
   for (const c of children) {
     const [created] = await db
       .insert(people)
@@ -99,13 +102,17 @@ export async function submitRegistration(input: {
         name: c.name.trim(),
         personType: "child",
         dob: c.dob,
-        healthNotes: c.hasHealth ? c.health?.trim() || "Yes" : null,
+        // healthNotes isn't surfaced anywhere in the admin UI today — comment
+        // ("Notes") is what actually shows up in the People grid and Find
+        // Person, so that's where allergy/health info needs to land to be seen.
+        comment: c.hasHealth ? `Health: ${c.health?.trim() || "Yes"}` : null,
         regoYear: thisYear,
         linkStatus: "pending",
         source: "registration_form",
       })
       .returning({ id: people.id });
     createdPersonIds.push(created.id);
+    createdChildIds.push(created.id);
   }
 
   // First parent listed becomes the household's contact, matching how
@@ -114,14 +121,46 @@ export async function submitRegistration(input: {
     await db.update(households).set({ contactPersonId: firstParentId }).where(eq(households.id, household.id));
   }
 
-  await db.insert(registrationSubmissions).values({
-    language: input.language,
-    rawData: { children, parents },
-    consentGiven: input.consentGiven,
-    guardianConfirmed: input.guardianConfirmed,
-    householdId: household.id,
-    createdPersonIds,
-  });
+  const [submission] = await db
+    .insert(registrationSubmissions)
+    .values({
+      language: input.language,
+      rawData: { children, parents },
+      consentGiven: input.consentGiven,
+      guardianConfirmed: input.guardianConfirmed,
+      householdId: household.id,
+      createdPersonIds,
+    })
+    .returning({ id: registrationSubmissions.id, submittedAt: registrationSubmissions.submittedAt });
+
+  // Generate a "similar to paper" confirmation PDF from this exact
+  // submission and link it to every child it created — the digital
+  // equivalent of scanning a signed paper form and attaching it, minus the
+  // matching-ambiguity problem the Forms/ paper backlog had (we already
+  // know exactly which children this belongs to, since we just created
+  // them). Kept non-fatal: a PDF/upload hiccup shouldn't lose a real
+  // registration whose People/Household rows and consent log already
+  // succeeded — a missing Rego link is a visible, fixable gap, not silent
+  // data loss.
+  try {
+    const pdfBuffer = await generateRegistrationFormPdf({
+      language: input.language,
+      submittedAt: submission.submittedAt,
+      children,
+      parents,
+    });
+    const blob = await put(`registrations/${submission.id}.pdf`, pdfBuffer, {
+      access: "private",
+      addRandomSuffix: false,
+      contentType: "application/pdf",
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+    for (const childId of createdChildIds) {
+      await db.update(people).set({ regoFormUrl: blob.url }).where(eq(people.id, childId));
+    }
+  } catch (e) {
+    console.error("Failed to generate/link registration form PDF for submission", submission.id, e);
+  }
 
   return { householdId: household.id };
 }
