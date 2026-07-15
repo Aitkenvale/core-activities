@@ -411,7 +411,7 @@ function MergeConfirmModal({
 
   return (
     <>
-      <div onClick={onCancel} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.4)" }} />
+      <div onClick={onCancel} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.65)" }} />
       <div
         style={{
           position: "fixed",
@@ -730,7 +730,7 @@ function HouseholdContactModal({
           e.stopPropagation();
           handleFinish();
         }}
-        style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.4)" }}
+        style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.65)" }}
       />
       <div
         style={{

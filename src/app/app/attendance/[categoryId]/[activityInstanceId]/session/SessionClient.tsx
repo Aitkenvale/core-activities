@@ -182,7 +182,7 @@ export function SessionClient({
     <>
       {pillSlot && createPortal(<LockStatusPill locked={locked} cancelled={cancelled} onToggle={toggleLocked} disabled={!canToggleLock} />, pillSlot)}
 
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 4px" }}>
+      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-4)" }}>
         {activityName}
       </h2>
 
@@ -407,7 +407,7 @@ function DatePicker({
   const pillDates = awaitingConfirmation || recentDates.includes(selectedDate) ? recentDates : [selectedDate, ...recentDates];
 
   return (
-    <div style={{ marginBottom: "var(--space-7)", display: "flex", alignItems: "stretch", gap: "var(--space-2)" }}>
+    <div style={{ marginBottom: "var(--space-4)", display: "flex", alignItems: "stretch", gap: "var(--space-2)" }}>
       {/* overscrollBehaviorX + touchAction stop a horizontal swipe here from
           chaining into the page's own vertical scroll — without them, a
           swipe that isn't perfectly horizontal reads as a visible wobble on
@@ -473,7 +473,7 @@ function DatePicker({
                   popover before a date could ever be picked. Closing only
                   happens via the explicit Close button or actually picking a
                   date. */}
-              <div style={{ position: "fixed", inset: 0, zIndex: 45, background: "rgba(0,0,0,0.4)" }} />
+              <div style={{ position: "fixed", inset: 0, zIndex: 45, background: "rgba(0,0,0,0.65)" }} />
               <div
                 style={{
                   position: "fixed",
@@ -1033,7 +1033,7 @@ function AddInfoModal({
     <>
       {/* Tapping outside closes without discarding — auto-save already ran,
           so this behaves like the "Auto-Save" button, not Cancel. */}
-      <div onClick={handleFinish} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.4)" }} />
+      <div onClick={handleFinish} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.65)" }} />
       <div
         style={{
           position: "fixed",

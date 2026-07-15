@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 // One level up the menu hierarchy (not browser history) — same logic the
 // old swipe-back gesture used before it was removed in favour of the
 // bottom tab bar, now surfaced as an explicit tap target instead.
-function getParentPath(pathname: string): string | null {
+export function getParentPath(pathname: string): string | null {
   if (pathname === "/app") return null; // already top level
 
   const sessionMatch = pathname.match(/^\/app\/attendance\/[^/]+\/[^/]+\/session$/);

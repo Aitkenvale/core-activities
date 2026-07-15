@@ -3,6 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
+import { getParentPath } from "./BackButton";
+
+// Tapping "Attendance" from outside the Attendance section (Menu, Activities,
+// People, ...) opens the activity-type chooser, same as any other tab. But
+// tapping it while already somewhere inside the section (the activity list,
+// or a session mid-attendance) acts like the header's back button instead —
+// one level up, not a jump straight back to the chooser — so it can't skip
+// past the activity list on the way out of a session.
+function getAttendanceTabHref(pathname: string): string {
+  if (pathname === "/app/attendance") return "/app/attendance";
+  if (pathname.startsWith("/app/attendance/")) return getParentPath(pathname) ?? "/app/attendance";
+  return "/app/attendance";
+}
 
 const MAIN_TABS = [
   { href: "/app", label: "Home", icon: HomeIcon, match: (p: string) => p === "/app" },
@@ -51,10 +64,11 @@ export function BottomTabBar() {
       {tabs.map((tab) => {
         const active = tab.match(pathname);
         const Icon = tab.icon;
+        const href = tab.href === "/app/attendance" ? getAttendanceTabHref(pathname) : tab.href;
         return (
           <Link
             key={tab.href}
-            href={tab.href}
+            href={href}
             style={{
               flex: 1,
               display: "flex",
