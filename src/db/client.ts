@@ -15,6 +15,7 @@ import * as attendanceEvents from "./schema/attendanceEvents";
 import * as attendanceRecords from "./schema/attendanceRecords";
 import * as appSettings from "./schema/appSettings";
 import * as allowedSignups from "./schema/allowedSignups";
+import * as registrationSubmissions from "./schema/registrationSubmissions";
 
 const schema = {
   ...authSchema,
@@ -32,6 +33,7 @@ const schema = {
   ...attendanceRecords,
   ...appSettings,
   ...allowedSignups,
+  ...registrationSubmissions,
 };
 
 const sql = neon(process.env.DATABASE_URL!);

@@ -23,21 +23,29 @@ export default async function AppHome() {
   return (
     <>
       <div style={{ display: "grid", gap: "var(--space-3)" }}>
-        {userTiles.map((tile) => (
-          <Link key={tile.href} href={tile.href} style={tileStyle}>
-            {/* The QR tile is one link for now (text + icon) — each half
-                gets its own destination once the registration form and
-                QR share flow are actually built. */}
-            {tile.href === "/app/qr" ? (
-              <>
-                <span style={{ flex: 1 }}>{tile.label}</span>
+        {userTiles.map((tile) =>
+          tile.href === "/app/qr" ? (
+            // Two destinations sharing one card: the label starts the
+            // registration process directly on this device, the QR icon
+            // shows a code for a *different* phone to scan instead.
+            <div key={tile.href} style={{ ...tileStyle, padding: 0 }}>
+              <Link href="/register" style={{ flex: 1, minHeight: "var(--tap-min)", display: "flex", alignItems: "center", padding: "0 var(--space-5)", color: "var(--text)" }}>
+                {tile.label}
+              </Link>
+              <Link
+                href="/app/qr"
+                aria-label="Show QR code to scan"
+                style={{ display: "flex", alignItems: "center", minHeight: "var(--tap-min)", padding: "0 var(--space-5)", color: "var(--text)", borderLeft: "1px solid var(--border)" }}
+              >
                 <QrIcon />
-              </>
-            ) : (
-              tile.label
-            )}
-          </Link>
-        ))}
+              </Link>
+            </div>
+          ) : (
+            <Link key={tile.href} href={tile.href} style={tileStyle}>
+              {tile.label}
+            </Link>
+          ),
+        )}
       </div>
 
       {isAdmin && (
