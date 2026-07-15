@@ -58,7 +58,11 @@ export async function searchPeopleForPicker(query: string, categories: string[],
 
 type PersonInput =
   | { kind: "existing"; id: string }
-  | { kind: "new"; name: string };
+  // tempId (PickedPerson's client-side id) round-trips back in the response
+  // so a caller that re-sends this same roster on a later autosave can
+  // upgrade this entry to "existing" locally — otherwise every repeated
+  // save of an unresolved "new" entry would insert another duplicate person.
+  | { kind: "new"; name: string; tempId?: string };
 
 export async function createActivityWithRoster(input: {
   name: string;
@@ -88,22 +92,27 @@ export async function createActivityWithRoster(input: {
     })
     .returning();
 
+  const createdPeople: { tempId: string; id: string }[] = [];
+
   async function enroll(entries: PersonInput[], role: "participant" | "facilitator") {
     for (const entry of entries) {
-      const personId =
-        entry.kind === "existing"
-          ? entry.id
-          : (
-              await db
-                .insert(people)
-                .values({
-                  name: entry.name.trim(),
-                  personType: role === "facilitator" ? "adult" : "child",
-                  linkStatus: "pending",
-                  source: "quick_add",
-                })
-                .returning()
-            )[0].id;
+      let personId: string;
+      if (entry.kind === "existing") {
+        personId = entry.id;
+      } else {
+        personId = (
+          await db
+            .insert(people)
+            .values({
+              name: entry.name.trim(),
+              personType: role === "facilitator" ? "adult" : "child",
+              linkStatus: "pending",
+              source: "quick_add",
+            })
+            .returning()
+        )[0].id;
+        if (entry.tempId) createdPeople.push({ tempId: entry.tempId, id: personId });
+      }
       await db.insert(activityEnrollments).values({ activityInstanceId: activity.id, personId, role });
     }
   }
@@ -111,7 +120,7 @@ export async function createActivityWithRoster(input: {
   await enroll(input.facilitators, "facilitator");
   await enroll(input.participants, "participant");
 
-  return activity;
+  return { ...activity, createdPeople };
 }
 
 // Not admin-gated, same reasoning as searchPeopleForPicker above — any
@@ -241,6 +250,8 @@ export async function updateActivityWithRoster(
     })
     .where(eq(activityInstances.id, activityInstanceId));
 
+  const createdPeople: { tempId: string; id: string }[] = [];
+
   async function reconcile(entries: PersonInput[], role: "participant" | "facilitator") {
     const currentlyActive = await db
       .select({ personId: activityEnrollments.personId })
@@ -274,10 +285,25 @@ export async function updateActivityWithRoster(
           .values({ name: entry.name.trim(), personType: role === "facilitator" ? "adult" : "child", linkStatus: "pending", source: "quick_add" })
           .returning();
         await db.insert(activityEnrollments).values({ activityInstanceId, personId: created.id, role });
+        if (entry.tempId) createdPeople.push({ tempId: entry.tempId, id: created.id });
       }
     }
   }
 
   await reconcile(input.facilitators, "facilitator");
   await reconcile(input.participants, "participant");
+
+  return { createdPeople };
+}
+
+// Only ever called by Create Activity's Cancel button, to undo an activity
+// that auto-save already created while the form was still open — a real
+// hard delete (not the usual hidden+endDate soft-delete) since the row
+// genuinely never should have existed. Cascades to its enrollments via the
+// FK on activity_enrollments; doesn't touch any people it enrolled, quick-
+// added or otherwise, since those are real person records independent of
+// this one activity.
+export async function deleteActivity(activityInstanceId: string) {
+  await requireUserId();
+  await db.delete(activityInstances).where(eq(activityInstances.id, activityInstanceId));
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createActivityWithRoster, updateActivityWithRoster, type ActivityForEdit, type ActivityStatus } from "./actions";
+import { createActivityWithRoster, updateActivityWithRoster, deleteActivity, type ActivityForEdit, type ActivityStatus } from "./actions";
 import { CadenceFields } from "@/components/CadenceFields";
 import { StatusPills } from "@/components/StatusPills";
 import { PeoplePicker, type PickedPerson } from "./PeoplePicker";
@@ -42,8 +42,11 @@ function computeUnlinkedNote(facilitators: PickedPerson[]): string {
 }
 
 function toPersonInput(p: PickedPerson) {
-  return p.kind === "existing" ? { kind: "existing" as const, id: p.id } : { kind: "new" as const, name: p.name };
+  return p.kind === "existing" ? { kind: "existing" as const, id: p.id } : { kind: "new" as const, name: p.name, tempId: p.tempId };
 }
+
+// How long to wait after the last change before auto-saving.
+const AUTOSAVE_DELAY_MS = 700;
 
 export type SavedActivitySummary = {
   id: string;
@@ -95,8 +98,29 @@ export function CreateActivityForm({
   // already be custom wording, so the unlinked-facilitator auto-note below
   // shouldn't stomp on them the moment the form mounts.
   const [notesTouched, setNotesTouched] = useState(mode === "edit");
-  const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Create mode only — the id of the activity auto-save has created so far,
+  // or null until the first successful save. Edit mode already has initial.id.
+  const createdIdRef = useRef<string | null>(null);
+  // Last status value actually persisted — lets the ending-confirmation
+  // gate below tell "did this change" apart from "still whatever was saved".
+  const committedStatusRef = useRef<ActivityStatus>(initial?.status ?? "active");
+  // Snapshot of every field as this form opened, for Cancel to revert to.
+  const originalRef = useRef({
+    name: initial?.name ?? "",
+    categoryId: initial?.categoryId ?? categories[0]?.id ?? "",
+    neighbourhoodId: initial?.neighbourhoodId ?? neighbourhoods[0]?.id ?? "",
+    cadenceType: initial?.cadenceType ?? ("ad_hoc" as CadenceType),
+    cadenceConfig: initial?.cadenceConfig ?? ({} as CadenceConfig),
+    notes: initial?.notes ?? "",
+    status: initial?.status ?? ("active" as ActivityStatus),
+    facilitators: initial?.facilitators ?? [],
+    participants: initial?.participants ?? [],
+  });
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keeps recomputing the note from facilitators until the creator edits
   // it themselves — after that, their wording wins.
@@ -105,16 +129,31 @@ export function CreateActivityForm({
     setNotes(computeUnlinkedNote(facilitators));
   }, [facilitators, notesTouched]);
 
-  async function handleSubmit() {
-    if (!name.trim()) {
-      setError("Name is required.");
-      return;
-    }
-    if (!categoryId || !neighbourhoodId) {
-      setError("Category and neighbourhood are required.");
-      return;
-    }
-    setSubmitting(true);
+  // A "new" (quick-added, not-yet-real) facilitator/participant only exists
+  // locally until a save actually creates their person record. Once it
+  // does, swap the local entry over to "existing" — otherwise the next
+  // auto-save would see the same "new" entry again and create a duplicate
+  // person every time.
+  function resolveCreatedPeople(createdPeople: { tempId: string; id: string }[]) {
+    if (createdPeople.length === 0) return;
+    const map = new Map(createdPeople.map((c) => [c.tempId, c.id]));
+    const upgrade = (list: PickedPerson[]) =>
+      list.map((p) =>
+        p.kind === "new" && map.has(p.tempId)
+          ? { kind: "existing" as const, id: map.get(p.tempId)!, name: p.name, preferredName: null, linkStatus: "pending" as const }
+          : p,
+      );
+    setFacilitators(upgrade);
+    setParticipants(upgrade);
+  }
+
+  // The actual auto-save — called from the debounce below, and flushed
+  // immediately by the "Auto-Save"/Cancel buttons. Silently does nothing
+  // if the form isn't filled in enough to save yet (e.g. right after
+  // opening a blank Create Activity form) rather than erroring mid-type.
+  async function persist(): Promise<boolean> {
+    if (!name.trim() || !categoryId || !neighbourhoodId) return false;
+    setSaving(true);
     setError(null);
     try {
       if (mode === "edit") {
@@ -129,8 +168,19 @@ export function CreateActivityForm({
           facilitators: facilitators.map(toPersonInput),
           participants: participants.map(toPersonInput),
         });
-        if (onSaved) onSaved({ id: initial!.id, name, startDate: initial!.startDate, cadenceType, hidden: status === "archived" });
-        else router.push("/app/activities");
+      } else if (createdIdRef.current) {
+        const result = await updateActivityWithRoster(createdIdRef.current, {
+          name,
+          categoryId,
+          neighbourhoodId,
+          cadenceType,
+          cadenceConfig,
+          notes,
+          status,
+          facilitators: facilitators.map(toPersonInput),
+          participants: participants.map(toPersonInput),
+        });
+        resolveCreatedPeople(result.createdPeople);
       } else {
         const created = await createActivityWithRoster({
           name,
@@ -143,28 +193,107 @@ export function CreateActivityForm({
           facilitators: facilitators.map(toPersonInput),
           participants: participants.map(toPersonInput),
         });
-        if (onSaved) onSaved({ id: created.id, name, startDate: created.startDate, cadenceType, hidden: false });
-        else router.push("/app/activities");
+        createdIdRef.current = created.id;
+        resolveCreatedPeople(created.createdPeople);
       }
+      committedStatusRef.current = status;
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : `Couldn't ${mode === "edit" ? "save" : "create"} that activity.`);
+      return false;
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   }
 
-  // Ending an activity is one-way for a regular user — a plain "Save" click
-  // shouldn't be the thing that quietly locks it forever, so this catches
-  // the transition and makes sure it's a deliberate choice via a real modal
-  // (not window.confirm — this needs to carry the "only an admin can
-  // reverse this" context, not just a yes/no). An admin has nothing
-  // permanent to confirm here, so this only ever applies to a regular user.
-  function handleSaveClick() {
-    if (!isAdmin && mode === "edit" && status === "archived" && initial?.status !== "archived") {
+  // Auto-saves ~700ms after the last change to anything below. Ending an
+  // activity is the one exception — a regular user flipping the status pill
+  // to Closed shouldn't silently lock it forever in the background; that
+  // specific transition skips the debounce and opens the confirm modal
+  // instead (see handleConfirmEnd/handleDeclineEnd), and clears any timer
+  // already pending so an unrelated field's autosave can't sneak the
+  // unconfirmed status through underneath it.
+  useEffect(() => {
+    if (mode === "edit" && !isAdmin && status === "archived" && committedStatusRef.current !== "archived") {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
       setShowEndConfirm(true);
       return;
     }
-    handleSubmit();
+    saveTimer.current = setTimeout(() => {
+      persist();
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, categoryId, neighbourhoodId, cadenceType, cadenceConfig, notes, facilitators, participants, startDate, status]);
+
+  function handleDeclineEnd() {
+    setShowEndConfirm(false);
+    setStatus(committedStatusRef.current);
+  }
+
+  function handleConfirmEnd() {
+    setShowEndConfirm(false);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    persist();
+  }
+
+  // The relabeled former Save button — auto-save already did the work, this
+  // just flushes anything still mid-debounce and then leaves.
+  async function handleFinish() {
+    if (!name.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    if (!categoryId || !neighbourhoodId) {
+      setError("Category and neighbourhood are required.");
+      return;
+    }
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    const ok = await persist();
+    if (!ok) return;
+    if (mode === "edit") {
+      if (onSaved) onSaved({ id: initial!.id, name, startDate: initial!.startDate, cadenceType, hidden: status === "archived" });
+      else router.push("/app/activities");
+    } else if (createdIdRef.current) {
+      if (onSaved) onSaved({ id: createdIdRef.current, name, startDate: startDate || null, cadenceType, hidden: false });
+      else router.push("/app/activities");
+    }
+  }
+
+  // Cancel undoes whatever auto-save already persisted during this editing
+  // session — in edit mode that means writing the original snapshot back;
+  // in create mode, since nothing existed before, it means deleting the
+  // activity auto-save just created (a real delete, not the usual hidden
+  // soft-delete, since the row genuinely never should have existed).
+  async function handleCancel() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setCancelling(true);
+    try {
+      if (mode === "edit") {
+        await updateActivityWithRoster(initial!.id, {
+          name: originalRef.current.name,
+          categoryId: originalRef.current.categoryId,
+          neighbourhoodId: originalRef.current.neighbourhoodId,
+          cadenceType: originalRef.current.cadenceType,
+          cadenceConfig: originalRef.current.cadenceConfig,
+          notes: originalRef.current.notes,
+          status: originalRef.current.status,
+          facilitators: originalRef.current.facilitators.map(toPersonInput),
+          participants: originalRef.current.participants.map(toPersonInput),
+        });
+      } else if (createdIdRef.current) {
+        await deleteActivity(createdIdRef.current);
+      }
+    } catch {
+      // Best-effort revert — still leave either way rather than trapping
+      // the user in the form over a failed cleanup call.
+    } finally {
+      setCancelling(false);
+    }
+    if (onCancel) onCancel();
+    else router.push("/app/activities");
   }
 
   return (
@@ -265,8 +394,8 @@ export function CreateActivityForm({
 
       <div style={{ display: "flex", gap: "var(--space-3)" }}>
         <button
-          onClick={onCancel ?? (() => router.push("/app/activities"))}
-          disabled={submitting}
+          onClick={handleCancel}
+          disabled={cancelling || saving}
           style={{
             minHeight: "var(--tap-min)",
             padding: "0 24px",
@@ -278,11 +407,11 @@ export function CreateActivityForm({
             cursor: "pointer",
           }}
         >
-          Cancel
+          {cancelling ? "Undoing…" : "Cancel"}
         </button>
         <button
-          onClick={handleSaveClick}
-          disabled={submitting}
+          onClick={handleFinish}
+          disabled={cancelling || saving}
           style={{
             minHeight: "var(--tap-min)",
             padding: "0 24px",
@@ -294,14 +423,14 @@ export function CreateActivityForm({
             cursor: "pointer",
           }}
         >
-          {mode === "edit" ? (submitting ? "Saving…" : "Save Activity") : submitting ? "Creating…" : "Create Activity"}
+          {saving ? "Saving…" : "Auto-Save"}
         </button>
       </div>
 
       {showEndConfirm && (
         <div
           style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}
-          onClick={() => setShowEndConfirm(false)}
+          onClick={handleDeclineEnd}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -321,16 +450,13 @@ export function CreateActivityForm({
             </p>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button
-                onClick={() => setShowEndConfirm(false)}
+                onClick={handleDeclineEnd}
                 style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer", padding: "8px 12px" }}
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setShowEndConfirm(false);
-                  handleSubmit();
-                }}
+                onClick={handleConfirmEnd}
                 style={{ background: "var(--deep)", color: "var(--cream)", border: "none", borderRadius: 2, padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer" }}
               >
                 End Activity

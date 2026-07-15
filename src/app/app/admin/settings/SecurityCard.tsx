@@ -1,34 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { updateEditWindowMonths } from "./actions";
 import { cardStyle, cardTitleStyle } from "./styles";
+
+// How long to wait after the last keystroke before auto-saving — long
+// enough that typing "12" doesn't fire a save after just the "1".
+const AUTOSAVE_DELAY_MS = 700;
 
 export function SecurityCard({ initialMonths }: { initialMonths: number }) {
   const [months, setMonths] = useState(initialMonths);
   const [draft, setDraft] = useState(String(initialMonths));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function handleSave() {
+  useEffect(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
     const n = parseInt(draft, 10);
-    if (!Number.isFinite(n) || n < 1) {
-      setError("Enter a whole number of at least 1.");
+    if (!Number.isFinite(n) || n < 1 || n === months) {
+      setError(draft.trim() && (!Number.isFinite(n) || n < 1) ? "Enter a whole number of at least 1." : null);
       return;
     }
-    setSaving(true);
     setError(null);
-    try {
-      await updateEditWindowMonths(n);
-      setMonths(n);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't save that change.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const dirty = draft !== String(months);
+    saveTimer.current = setTimeout(async () => {
+      setSaving(true);
+      try {
+        await updateEditWindowMonths(n);
+        setMonths(n);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't save that change.");
+      } finally {
+        setSaving(false);
+      }
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
 
   return (
     <div style={cardStyle}>
@@ -58,20 +68,19 @@ export function SecurityCard({ initialMonths }: { initialMonths: number }) {
           }}
         />
         <button
-          onClick={handleSave}
-          disabled={saving || !dirty}
+          disabled
           style={{
             minHeight: "var(--tap-min)",
             padding: "0 20px",
             borderRadius: "var(--radius-pill)",
             border: "none",
-            background: dirty ? "var(--deep)" : "var(--border)",
-            color: dirty ? "var(--cream)" : "var(--muted)",
+            background: "var(--border)",
+            color: "var(--muted)",
             fontSize: "0.85rem",
-            cursor: dirty && !saving ? "pointer" : "default",
+            cursor: "default",
           }}
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? "Saving…" : "Auto-Save"}
         </button>
       </div>
       {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 8 }}>{error}</p>}
