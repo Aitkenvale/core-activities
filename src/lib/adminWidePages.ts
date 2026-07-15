@@ -3,7 +3,7 @@
 // even though it's cards rather than a spreadsheet, since it's still an
 // admin function edited on a computer. Only the bare "/app/admin" L2 tile
 // menu is left out, since that's a normal mobile tile menu.
-const ADMIN_WIDE_PREFIXES = ["/app/admin/people", "/app/admin/households", "/app/admin/activities", "/app/admin/settings", "/app/admin/attendance"];
+const ADMIN_WIDE_PREFIXES = ["/app/admin/people", "/app/admin/households", "/app/admin/activities", "/app/admin/settings", "/app/admin/attendance", "/app/admin/roles"];
 
 export function isAdminWidePage(pathname: string): boolean {
   return ADMIN_WIDE_PREFIXES.some((prefix) => pathname.startsWith(prefix));

@@ -8,6 +8,7 @@ import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
 import { households } from "@/db/schema/households";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
+import { activityEnrollmentRoleHistory } from "@/db/schema/activityEnrollmentRoleHistory";
 import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { getEditWindowMonths } from "@/lib/settings";
@@ -260,11 +261,23 @@ export async function quickAddPerson(activityInstanceId: string, name: string, r
 // id), so changing this role column can't affect or orphan any past
 // attendance record, present or absent, already on file for them.
 export async function changeEnrollmentRole(activityInstanceId: string, personId: string, role: "facilitator" | "assistant") {
-  await requireUserId();
-  await db
+  const userId = await requireUserId();
+  const [updated] = await db
     .update(activityEnrollments)
     .set({ role })
-    .where(and(eq(activityEnrollments.activityInstanceId, activityInstanceId), eq(activityEnrollments.personId, personId)));
+    .where(and(eq(activityEnrollments.activityInstanceId, activityInstanceId), eq(activityEnrollments.personId, personId)))
+    .returning({ id: activityEnrollments.id });
+  if (!updated) return;
+  // A dated log entry, not just the live column above — the Attendance
+  // Records PDF needs to know which role was in effect on each session
+  // date, so a report generated after a later promotion doesn't
+  // retroactively rewrite an earlier term's history.
+  await db.insert(activityEnrollmentRoleHistory).values({
+    enrollmentId: updated.id,
+    role,
+    effectiveFrom: new Date().toISOString().slice(0, 10),
+    recordedByUserId: userId,
+  });
 }
 
 // Folds a "Not Linked" (quick-added, pending) person's enrollments and

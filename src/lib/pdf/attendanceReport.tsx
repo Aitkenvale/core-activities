@@ -5,6 +5,7 @@ import { termDates } from "@/db/schema/termDates";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { activityCategories } from "@/db/schema/activityCategories";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
+import { activityEnrollmentRoleHistory } from "@/db/schema/activityEnrollmentRoleHistory";
 import { people } from "@/db/schema/people";
 import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
@@ -70,7 +71,23 @@ export async function getAvailableTerms(): Promise<TermOption[]> {
   return available;
 }
 
-type RosterPerson = { personId: string; name: string };
+// roleDates is only set for Facilitator/Assistant rows — the subset of
+// eventDates this person actually held *this* role on, per their role
+// history. undefined (Participants) means "every date applies", same as
+// before role history existed.
+type RosterPerson = { personId: string; name: string; roleDates?: Set<string> };
+
+// Which role (if any) was in effect on a given date, from a person's role
+// history — the entry with the latest effectiveFrom that's still <= date.
+// No entry at all for that date (e.g. before they were ever a Facilitator/
+// Assistant) returns null, so it counts toward neither table.
+function roleOnDate(history: { role: string; effectiveFrom: string }[], date: string): string | null {
+  let best: { role: string; effectiveFrom: string } | null = null;
+  for (const h of history) {
+    if (h.effectiveFrom <= date && (!best || h.effectiveFrom > best.effectiveFrom)) best = h;
+  }
+  return best?.role ?? null;
+}
 
 type ActivityReport = {
   activityName: string;
@@ -103,7 +120,7 @@ async function buildActivityReport(
   const eventDateById = new Map(events.map((e) => [e.id, e.sessionDate]));
 
   const roster = await db
-    .select({ personId: people.id, name: people.name, role: activityEnrollments.role })
+    .select({ enrollmentId: activityEnrollments.id, personId: people.id, name: people.name, role: activityEnrollments.role })
     .from(activityEnrollments)
     .innerJoin(people, eq(people.id, activityEnrollments.personId))
     .where(eq(activityEnrollments.activityInstanceId, activityId));
@@ -122,17 +139,63 @@ async function buildActivityReport(
   }
 
   // "Remove names if they did not attend for that quarter" — enrolled but
-  // never actually marked present this term doesn't get a row.
-  function attendedAtLeastOnce(personId: string): boolean {
+  // never actually marked present this term doesn't get a row. Optionally
+  // scoped to a subset of dates, for a Facilitator/Assistant row that
+  // should only count sessions where they actually held that role.
+  function attendedAtLeastOnce(personId: string, dates?: Set<string>): boolean {
     const byDate = statusByPerson.get(personId);
     if (!byDate) return false;
-    return [...byDate.values()].some((s) => s === "present");
+    for (const [date, status] of byDate) {
+      if (status === "present" && (!dates || dates.has(date))) return true;
+    }
+    return false;
   }
 
   const byName = (a: RosterPerson, b: RosterPerson) => a.name.localeCompare(b.name);
   const participants = roster.filter((r) => r.role === "participant" && attendedAtLeastOnce(r.personId)).sort(byName);
-  const facilitators = roster.filter((r) => r.role === "facilitator" && attendedAtLeastOnce(r.personId)).sort(byName);
-  const assistants = roster.filter((r) => r.role === "assistant" && attendedAtLeastOnce(r.personId)).sort(byName);
+
+  // Facilitator/Assistant is a point-in-time classification (see
+  // activity_enrollment_role_history) — a person promoted or demoted
+  // mid-term needs to show up as a row in *both* tables, each one only
+  // marked for the sessions where that role actually applied, so a report
+  // pulled after a later change doesn't retroactively rewrite this term.
+  const roleEnrollmentIds = roster.filter((r) => r.role === "facilitator" || r.role === "assistant").map((r) => r.enrollmentId);
+  const historyRows = roleEnrollmentIds.length
+    ? await db
+        .select({ enrollmentId: activityEnrollmentRoleHistory.enrollmentId, role: activityEnrollmentRoleHistory.role, effectiveFrom: activityEnrollmentRoleHistory.effectiveFrom })
+        .from(activityEnrollmentRoleHistory)
+        .where(inArray(activityEnrollmentRoleHistory.enrollmentId, roleEnrollmentIds))
+    : [];
+  const historyByEnrollment = new Map<string, { role: string; effectiveFrom: string }[]>();
+  for (const h of historyRows) {
+    if (!historyByEnrollment.has(h.enrollmentId)) historyByEnrollment.set(h.enrollmentId, []);
+    historyByEnrollment.get(h.enrollmentId)!.push({ role: h.role, effectiveFrom: h.effectiveFrom });
+  }
+
+  const facilitators: RosterPerson[] = [];
+  const assistants: RosterPerson[] = [];
+  for (const r of roster) {
+    if (r.role !== "facilitator" && r.role !== "assistant") continue;
+    const history = historyByEnrollment.get(r.enrollmentId) ?? [];
+    const facilitatorDates = new Set<string>();
+    const assistantDates = new Set<string>();
+    for (const date of events.map((e) => e.sessionDate)) {
+      // No history row at all (shouldn't happen post-backfill, but don't
+      // silently drop someone over it) falls back to their current role
+      // for every date, same as before role history existed.
+      const role = history.length > 0 ? roleOnDate(history, date) : r.role;
+      if (role === "facilitator") facilitatorDates.add(date);
+      else if (role === "assistant") assistantDates.add(date);
+    }
+    if (facilitatorDates.size > 0 && attendedAtLeastOnce(r.personId, facilitatorDates)) {
+      facilitators.push({ personId: r.personId, name: r.name, roleDates: facilitatorDates });
+    }
+    if (assistantDates.size > 0 && attendedAtLeastOnce(r.personId, assistantDates)) {
+      assistants.push({ personId: r.personId, name: r.name, roleDates: assistantDates });
+    }
+  }
+  facilitators.sort(byName);
+  assistants.sort(byName);
   if (participants.length === 0 && facilitators.length === 0 && assistants.length === 0) return null;
 
   return {
@@ -245,8 +308,11 @@ function AttendanceTable({ people: rows, eventDates, statusByPerson }: { people:
                     which is different from a recorded Absent. "X" not "✓"
                     for Present — the checkmark glyph isn't in the built-in
                     Helvetica encoding react-pdf uses, so it silently
-                    rendered as nothing. */}
-                {markForStatus(byDate?.get(d))}
+                    rendered as nothing. A Facilitator/Assistant row also
+                    blanks any date outside their roleDates — a session
+                    where they held the *other* role that term, not a
+                    missed mark. */}
+                {p.roleDates && !p.roleDates.has(d) ? "" : markForStatus(byDate?.get(d))}
               </Text>
             ))}
           </View>
