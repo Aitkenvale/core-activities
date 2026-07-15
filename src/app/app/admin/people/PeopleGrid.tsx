@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   updatePerson,
@@ -623,6 +623,9 @@ const modalInputStyle: React.CSSProperties = {
 // Flags a field that's essential to this person's completeness and still empty.
 const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)" };
 
+// How long to wait after the last change before auto-saving.
+const AUTOSAVE_DELAY_MS = 700;
+
 function ModalField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label style={{ display: "grid", gap: 2 }}>
@@ -657,7 +660,22 @@ function PersonHouseholdModal({
   const [contactResults, setContactResults] = useState<{ id: string; name: string; preferredName: string | null; mobile: string | null }[]>([]);
   const [contactMobile, setContactMobile] = useState(row.householdContactMobile ?? "");
   const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Frozen snapshot of every field as this modal opened — used both to diff
+  // "did this actually change" for auto-save, and by Cancel to revert.
+  const originalRef = useRef(row);
+  // A newly selected/created household's real contact isn't known
+  // client-side — this tracks the right baseline to diff the Contact
+  // fields against once the household has changed from the person's
+  // original one (see persist() below).
+  const householdBaselineRef = useRef({
+    householdId: row.householdId,
+    contactPersonId: row.householdContactPersonId,
+    contactMobile: row.householdContactMobile ?? "",
+  });
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function handleHouseholdSearch(value: string) {
     setHouseholdQuery(value);
@@ -673,6 +691,7 @@ function PersonHouseholdModal({
       setHouseholdId(created.id);
       setHouseholdQuery(created.name);
       setHouseholdResults([]);
+      householdBaselineRef.current = { householdId: created.id, contactPersonId: null, contactMobile: "" };
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't create that household.");
     }
@@ -686,6 +705,7 @@ function PersonHouseholdModal({
     setContactQuery("");
     setContactResults([]);
     setContactMobile("");
+    householdBaselineRef.current = { householdId: null, contactPersonId: null, contactMobile: "" };
   }
 
   async function handleContactSearch(value: string) {
@@ -722,7 +742,9 @@ function PersonHouseholdModal({
     }
   }
 
-  async function handleSave() {
+  // The auto-save itself — diffs current state against the frozen original
+  // and only sends what actually changed.
+  async function persist() {
     setSaving(true);
     setError(null);
     try {
@@ -734,11 +756,22 @@ function PersonHouseholdModal({
       if (!finalHouseholdId && contactPersonId) {
         const created = await createHousehold(`${row.name} household`);
         finalHouseholdId = created.id;
+        setHouseholdId(created.id);
+        setHouseholdQuery(created.name);
+        householdBaselineRef.current = { householdId: created.id, contactPersonId: null, contactMobile: "" };
       }
-      await updatePerson(row.id, { householdId: finalHouseholdId });
-      if (finalHouseholdId) {
-        await saveHouseholdContact(finalHouseholdId, contactPersonId, contactMobile || null);
+
+      const tasks: Promise<unknown>[] = [];
+      if (finalHouseholdId !== originalRef.current.householdId) tasks.push(updatePerson(row.id, { householdId: finalHouseholdId }));
+
+      const onOriginalHousehold = finalHouseholdId === originalRef.current.householdId;
+      const contactIdBaseline = onOriginalHousehold ? originalRef.current.householdContactPersonId : householdBaselineRef.current.contactPersonId;
+      const contactMobileBaseline = onOriginalHousehold ? (originalRef.current.householdContactMobile ?? "") : householdBaselineRef.current.contactMobile;
+      if (finalHouseholdId && (contactPersonId !== contactIdBaseline || contactMobile !== contactMobileBaseline)) {
+        tasks.push(saveHouseholdContact(finalHouseholdId, contactPersonId, contactMobile || null));
       }
+      if (tasks.length === 0) return;
+      await Promise.all(tasks);
       onSaved(
         finalHouseholdId,
         finalHouseholdId ? householdQuery : null,
@@ -749,16 +782,66 @@ function PersonHouseholdModal({
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save that change.");
+    } finally {
       setSaving(false);
     }
   }
 
+  useEffect(() => {
+    saveTimer.current = setTimeout(() => {
+      persist();
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [householdId, contactPersonId, contactMobile]);
+
+  // The relabeled former Save button — auto-save already did the work, this
+  // just flushes anything still mid-debounce and closes.
+  async function handleFinish() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    await persist();
+    onClose();
+  }
+
+  // Undoes whatever auto-save already persisted for this person and their
+  // *original* household's contact this session, then closes. A household
+  // auto-created along the way (see persist() above) is left in place
+  // rather than deleted — it's a real, independent household record, not
+  // something scoped to undo.
+  async function handleCancel() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setCancelling(true);
+    try {
+      await updatePerson(row.id, { householdId: originalRef.current.householdId });
+      if (originalRef.current.householdId) {
+        await saveHouseholdContact(originalRef.current.householdId, originalRef.current.householdContactPersonId, originalRef.current.householdContactMobile ?? null);
+      }
+      onSaved(
+        originalRef.current.householdId,
+        originalRef.current.householdName,
+        originalRef.current.householdContactPersonId,
+        originalRef.current.householdContactName,
+        originalRef.current.householdContactPreferredName,
+        originalRef.current.householdContactMobile,
+      );
+    } catch {
+      // Best-effort revert — still close either way.
+    } finally {
+      setCancelling(false);
+    }
+    onClose();
+  }
+
   return (
     <>
+      {/* Tapping outside closes without discarding — auto-save already ran,
+          so this behaves like the "Auto-Save" button, not Cancel. */}
       <div
         onClick={(e) => {
           e.stopPropagation();
-          onClose();
+          handleFinish();
         }}
         style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.4)" }}
       />
@@ -916,17 +999,18 @@ function PersonHouseholdModal({
 
         <div style={{ display: "flex", gap: 8, marginTop: "var(--space-4)" }}>
           <button
-            onClick={handleSave}
-            disabled={saving}
+            onClick={handleFinish}
+            disabled={saving || cancelling}
             style={{ minHeight: 36, padding: "0 20px", borderRadius: "var(--radius-pill)", border: "none", background: "var(--deep)", color: "var(--cream)", fontSize: "0.85rem", cursor: "pointer" }}
           >
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : "Auto-Save"}
           </button>
           <button
-            onClick={onClose}
+            onClick={handleCancel}
+            disabled={saving || cancelling}
             style={{ minHeight: 36, padding: "0 20px", border: "none", background: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer" }}
           >
-            Cancel
+            {cancelling ? "Undoing…" : "Cancel"}
           </button>
         </div>
         {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 8 }}>{error}</p>}
