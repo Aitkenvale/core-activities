@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   updateHousehold,
@@ -600,6 +600,9 @@ const modalInputStyle: React.CSSProperties = {
 // Flags a field that's essential to household completeness and still empty.
 const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)" };
 
+// How long to wait after the last change before auto-saving.
+const AUTOSAVE_DELAY_MS = 700;
+
 function ModalField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label style={{ display: "grid", gap: 2 }}>
@@ -625,7 +628,14 @@ function HouseholdContactModal({
   const [contactResults, setContactResults] = useState<{ id: string; name: string; preferredName: string | null; mobile: string | null }[]>([]);
   const [contactMobile, setContactMobile] = useState(row.contactMobile ?? "");
   const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Frozen snapshot of the household's contact as this modal opened — used
+  // both to diff "did this actually change" for auto-save, and by Cancel
+  // to revert.
+  const originalRef = useRef({ contactPersonId: row.contactPersonId, contactMobile: row.contactMobile ?? "" });
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function handleContactSearch(value: string) {
     setContactQuery(value);
@@ -661,7 +671,10 @@ function HouseholdContactModal({
     }
   }
 
-  async function handleSave() {
+  // The auto-save itself — only sends anything if the contact actually
+  // changed since this modal opened.
+  async function persist() {
+    if (contactPersonId === originalRef.current.contactPersonId && contactMobile === originalRef.current.contactMobile) return;
     setSaving(true);
     setError(null);
     try {
@@ -669,16 +682,53 @@ function HouseholdContactModal({
       onSaved(contactPersonId, contactPersonId ? contactQuery : null, null, contactPersonId ? contactMobile || null : null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save that change.");
+    } finally {
       setSaving(false);
     }
   }
 
+  useEffect(() => {
+    saveTimer.current = setTimeout(() => {
+      persist();
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactPersonId, contactMobile]);
+
+  // The relabeled former Save button — auto-save already did the work, this
+  // just flushes anything still mid-debounce and closes.
+  async function handleFinish() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    await persist();
+    onClose();
+  }
+
+  // Undoes whatever auto-save already persisted for this household's
+  // contact this session, then closes.
+  async function handleCancel() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setCancelling(true);
+    try {
+      await saveHouseholdContact(row.id, originalRef.current.contactPersonId, originalRef.current.contactMobile || null);
+      onSaved(originalRef.current.contactPersonId, row.contactName, row.contactPreferredName, originalRef.current.contactMobile || null);
+    } catch {
+      // Best-effort revert — still close either way.
+    } finally {
+      setCancelling(false);
+    }
+    onClose();
+  }
+
   return (
     <>
+      {/* Tapping outside closes without discarding — auto-save already ran,
+          so this behaves like the "Auto-Save" button, not Cancel. */}
       <div
         onClick={(e) => {
           e.stopPropagation();
-          onClose();
+          handleFinish();
         }}
         style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.4)" }}
       />
@@ -775,17 +825,18 @@ function HouseholdContactModal({
 
         <div style={{ display: "flex", gap: 8, marginTop: "var(--space-4)" }}>
           <button
-            onClick={handleSave}
-            disabled={saving}
+            onClick={handleFinish}
+            disabled={saving || cancelling}
             style={{ minHeight: 36, padding: "0 20px", borderRadius: "var(--radius-pill)", border: "none", background: "var(--deep)", color: "var(--cream)", fontSize: "0.85rem", cursor: "pointer" }}
           >
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : "Auto-Save"}
           </button>
           <button
-            onClick={onClose}
+            onClick={handleCancel}
+            disabled={saving || cancelling}
             style={{ minHeight: 36, padding: "0 20px", border: "none", background: "none", color: "var(--muted)", fontSize: "0.85rem", cursor: "pointer" }}
           >
-            Cancel
+            {cancelling ? "Undoing…" : "Cancel"}
           </button>
         </div>
         {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 8 }}>{error}</p>}
