@@ -44,6 +44,7 @@ export async function searchPeopleDirectory(query: string) {
       householdContactMobile: householdContacts.mobile,
       mobile: people.mobile,
       regoYear: people.regoYear,
+      regoFormUrl: people.regoFormUrl,
       dob: people.dob,
       comment: people.comment,
     })

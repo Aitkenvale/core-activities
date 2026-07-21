@@ -729,6 +729,7 @@ function RosterSection({
                 <PersonInfoBadge
                   person={r}
                   onSaved={onChanged}
+                  isAdmin={isAdmin}
                   level={getPersonCompletenessLevel({
                     dob: r.dob,
                     mobile: r.mobile,
@@ -736,6 +737,7 @@ function RosterSection({
                     householdContactPersonId: r.householdContactPersonId,
                     householdContactMobile: r.householdContactMobile,
                     regoYear: r.regoYear,
+                    regoFormUrl: r.regoFormUrl,
                   })}
                 />
               </div>
@@ -880,7 +882,7 @@ const AUTOSAVE_DELAY_MS = 700;
 // Every person gets this pill, opening the same modal either way — only the
 // label changes, so it always reads as "here's this person's info" while
 // still flagging when something required is actually missing.
-function PersonInfoBadge({ person, onSaved, level }: { person: RosterRow; onSaved: () => void; level: CompletenessLevel }) {
+function PersonInfoBadge({ person, onSaved, level, isAdmin }: { person: RosterRow; onSaved: () => void; level: CompletenessLevel; isAdmin: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -892,7 +894,7 @@ function PersonInfoBadge({ person, onSaved, level }: { person: RosterRow; onSave
       >
         <FaceIcon level={level} />
       </button>
-      {open && <AddInfoModal person={person} onClose={() => setOpen(false)} onSaved={onSaved} />}
+      {open && <AddInfoModal person={person} onClose={() => setOpen(false)} onSaved={onSaved} isAdmin={isAdmin} />}
     </span>
   );
 }
@@ -917,10 +919,12 @@ function AddInfoModal({
   person,
   onClose,
   onSaved,
+  isAdmin,
 }: {
   person: RosterRow;
   onClose: () => void;
   onSaved: () => void;
+  isAdmin: boolean;
 }) {
   const [name, setName] = useState(person.name);
   const [preferredName, setPreferredName] = useState(person.preferredName ?? "");
@@ -1132,11 +1136,28 @@ function AddInfoModal({
           <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", flexShrink: 0 }}>Add Info</h3>
           {isUnder15 && (
             <span style={{ flex: 1, textAlign: "center", fontSize: "0.8rem", color: "var(--yellow)", whiteSpace: "nowrap" }}>
-              {/* regoYear and regoFormUrl are tracked independently (see
-                  people.ts) — a linked form doesn't imply a recorded year,
-                  and vice versa, so both need checking rather than assuming
-                  no year means no form on file at all. */}
-              {person.regoYear ? `Registration: ${person.regoYear}` : person.regoFormUrl ? "Form on file (no year recorded)" : "No Registration Form"}
+              {/* The linked form is the real signal now that forms actually
+                  get scanned/linked — a recorded rego year is only shown as
+                  a fallback when no form is linked yet, not the other way
+                  around (see personCompleteness.ts). */}
+              {person.regoFormUrl ? (
+                isAdmin ? (
+                  <a
+                    href={`/api/admin/rego-form?url=${encodeURIComponent(person.regoFormUrl)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "var(--yellow)", textDecoration: "underline" }}
+                  >
+                    Registration Form on File
+                  </a>
+                ) : (
+                  "Registration Form on File"
+                )
+              ) : person.regoYear ? (
+                `Registration: ${person.regoYear}`
+              ) : (
+                "No Registration Form"
+              )}
             </span>
           )}
         </div>

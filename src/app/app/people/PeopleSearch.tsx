@@ -35,6 +35,7 @@ type Result = {
   householdContactMobile: string | null;
   mobile: string | null;
   regoYear: number | null;
+  regoFormUrl: string | null;
   dob: string | null;
   comment: string | null;
   activities: string[];
@@ -191,7 +192,24 @@ function PersonDetail({
       {isMobileEligible(result.dob) && (
         <DetailRow label="Mobile" value={result.mobile ?? "—"} href={result.mobile ? `tel:${result.mobile}` : undefined} />
       )}
-      {isRegoEligible(result.dob) && <DetailRow label="Rego" value={result.regoYear ? String(result.regoYear) : "—"} />}
+      {isRegoEligible(result.dob) && (
+        <DetailRow
+          label="Rego"
+          value={result.regoFormUrl ? "Form on file" : result.regoYear ? String(result.regoYear) : "—"}
+          action={
+            result.regoFormUrl && isAdmin ? (
+              <a
+                href={`/api/admin/rego-form?url=${encodeURIComponent(result.regoFormUrl)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: "0.78rem", color: "var(--heading)", textDecoration: "underline" }}
+              >
+                View
+              </a>
+            ) : undefined
+          }
+        />
+      )}
       <DetailRow label="Household" value={result.householdName ?? "—"} />
       <DetailRow
         label="Address"

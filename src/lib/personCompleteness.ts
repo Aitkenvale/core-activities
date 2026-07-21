@@ -16,6 +16,7 @@ export function getPersonCompletenessLevel(params: {
   householdContactPersonId: string | null;
   householdContactMobile: string | null;
   regoYear: number | null;
+  regoFormUrl: string | null;
 }): CompletenessLevel {
   // DOB missing entirely means age can't be computed — default to the
   // stricter under-15 bracket rather than assume they're old enough to
@@ -34,8 +35,12 @@ export function getPersonCompletenessLevel(params: {
   const hasContactAndMobile = Boolean(params.householdContactPersonId) && Boolean(params.householdContactMobile);
   if (!hasContactAndMobile) return "red";
 
-  // Priority 2: the formal Registration form (regoYear) plus DOB and
-  // household — everything else needed on top of a reachable contact.
-  const hasFullRego = Boolean(params.regoYear) && Boolean(params.dob) && Boolean(params.householdId);
+  // Priority 2: the formal Registration form plus DOB and household —
+  // everything else needed on top of a reachable contact. A linked form is
+  // the real signal now that forms actually get scanned/linked; a recorded
+  // rego year with no linked form still counts as a backup (an admin noted
+  // it before the form itself was ever uploaded), just not the preferred one.
+  const hasRego = Boolean(params.regoFormUrl) || Boolean(params.regoYear);
+  const hasFullRego = hasRego && Boolean(params.dob) && Boolean(params.householdId);
   return hasFullRego ? "green" : "yellow";
 }

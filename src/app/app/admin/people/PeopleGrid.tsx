@@ -197,7 +197,10 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
     const q = filterText.trim().toLowerCase();
     let filtered = showHidden ? rows : rows.filter((r) => !r.hidden);
     if (noRegoOnly) {
-      filtered = filtered.filter((r) => r.regoYear === null);
+      // A linked form is the real signal — a recorded rego year with no
+      // form yet still counts as "on file" (a backup), so this only flags
+      // people with neither.
+      filtered = filtered.filter((r) => r.regoFormUrl === null && r.regoYear === null);
     }
     if (categoryFilter.size > 0) {
       filtered = filtered.filter((r) => categoryFilter.has(getCategoryLabel(r.dob) ?? ""));
