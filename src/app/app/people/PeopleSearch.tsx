@@ -127,7 +127,7 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
                   padding: "8px var(--space-3)",
                   background: "none",
                   border: "none",
-                  fontSize: "0.9rem",
+                  fontSize: "1.05rem",
                   color: "var(--text)",
                   cursor: "pointer",
                 }}
@@ -146,7 +146,7 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
           );
         })}
         {query.trim().length >= 2 && results.length === 0 && (
-          <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>No matches.</p>
+          <p style={{ color: "var(--muted)", fontSize: "0.95rem" }}>No matches.</p>
         )}
       </div>
     </>
@@ -810,7 +810,7 @@ function FieldInput({ label, value, onChange }: { label: string; value: string; 
 function DetailRow({ label, value, href, action }: { label: string; value: string; href?: string; action?: React.ReactNode }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-      <p style={{ fontSize: "0.85rem", color: "var(--text)", margin: 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <p style={{ fontSize: "0.95rem", color: "var(--text)", margin: 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         <span style={{ color: "var(--muted)" }}>{label}: </span>
         {href ? (
           <a href={href} style={{ color: "var(--text)" }}>

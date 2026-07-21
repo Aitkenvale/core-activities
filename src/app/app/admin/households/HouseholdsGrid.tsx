@@ -11,6 +11,7 @@ import {
   mergeHouseholds,
   type HouseholdPatch,
 } from "./actions";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 type Row = {
   id: string;
@@ -426,7 +427,8 @@ function MergeConfirmModal({
           padding: "var(--space-5)",
         }}
       >
-        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-3)" }}>
+        <ModalCloseButton onClick={onCancel} />
+        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-3)", paddingRight: 28 }}>
           Merge Households
         </h3>
         <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "var(--space-4)" }}>
@@ -749,7 +751,8 @@ function HouseholdContactModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>
+        <ModalCloseButton onClick={handleFinish} />
+        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-4)", paddingRight: 28 }}>
           Household Contact
         </h3>
 

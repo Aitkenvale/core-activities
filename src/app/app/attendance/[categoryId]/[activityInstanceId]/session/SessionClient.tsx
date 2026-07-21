@@ -26,6 +26,7 @@ import { formatFullName } from "@/lib/formatName";
 import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/personCompleteness";
 import { calculateAge } from "@/lib/category";
 import { getRoleLabels } from "@/lib/activityRoleLabels";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 type RosterRow = {
   personId: string;
@@ -1122,10 +1123,14 @@ function AddInfoModal({
           padding: "var(--space-5)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
-          <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)" }}>Add Info</h3>
+        <ModalCloseButton onClick={handleFinish} />
+        {/* A centered badge, not flush right next to the title, now that the
+            X close button occupies the card's actual top-right corner —
+            title stays left-aligned, badge centers in the remaining width. */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", marginBottom: "var(--space-4)", paddingRight: 28 }}>
+          <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", flexShrink: 0 }}>Add Info</h3>
           {isUnder15 && (
-            <span style={{ fontSize: "0.8rem", color: "var(--yellow)", whiteSpace: "nowrap" }}>
+            <span style={{ flex: 1, textAlign: "center", fontSize: "0.8rem", color: "var(--yellow)", whiteSpace: "nowrap" }}>
               {person.regoYear ? `Registration: ${person.regoYear}` : "No Registration Form"}
             </span>
           )}

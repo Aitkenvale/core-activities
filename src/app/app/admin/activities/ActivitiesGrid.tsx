@@ -6,6 +6,7 @@ import { getActivityForEdit, type ActivityForEdit, type ActivityStatus } from "@
 import { CreateActivityForm } from "@/app/app/activities/CreateActivityForm";
 import { EnrolAttendeesModal } from "@/components/EnrolAttendeesModal";
 import { StatusBadge } from "@/components/StatusPills";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 type Category = { id: string; label: string };
 type Neighbourhood = { id: string; name: string };
@@ -498,6 +499,7 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
+          position: "relative",
           background: "var(--card-bg)",
           borderRadius: "var(--radius-lg)",
           boxShadow: "var(--shadow-elevated)",
@@ -507,7 +509,8 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
           overflowY: "auto",
         }}
       >
-        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.2rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>{title}</h3>
+        <ModalCloseButton onClick={onClose} />
+        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.2rem", color: "var(--heading)", marginBottom: "var(--space-4)", paddingRight: 28 }}>{title}</h3>
         {children}
       </div>
     </div>

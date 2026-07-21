@@ -32,6 +32,20 @@ export async function updatePerson(personId: string, patch: PersonPatch) {
   await db.update(people).set(patch).where(eq(people.id, personId));
 }
 
+// A bare new person row — no household/DOB required up front, matching the
+// same "just a name to start" pattern as the Households grid's own inline
+// Add. personType defaults to "child" (same default PeopleSearch's
+// AddHouseholdMemberForm uses absent a DOB) — the rest of this grid's
+// fields (DOB, household, etc.) are filled in afterwards via the normal
+// inline editing already on every row.
+export async function createPerson(name: string) {
+  await requireAdmin();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name is required");
+  const [created] = await db.insert(people).values({ name: trimmed, personType: "child" }).returning({ id: people.id });
+  return created;
+}
+
 export async function searchHouseholds(query: string) {
   await requireAdmin();
   const q = query.trim();

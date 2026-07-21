@@ -9,9 +9,11 @@ import {
   searchPeopleForContact,
   createContactPerson,
   saveHouseholdContact,
+  createPerson,
   type PersonPatch,
 } from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS, formatCategoryLabel } from "@/lib/category";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 // Infants can't be enrolled in anything — the Participants filter only ever
 // needs Young Child through Adult.
@@ -110,6 +112,8 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
   const [showHidden, setShowHidden] = useState(false);
   const [noRegoOnly, setNoRegoOnly] = useState(false);
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   function toggleCategory(label: string) {
     setCategoryFilter((prev) => {
@@ -135,6 +139,44 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
 
   function save(id: string, patch: PersonPatch) {
     updatePerson(id, patch).catch((e) => console.error("Save failed:", e));
+  }
+
+  async function handleCreate() {
+    const name = newName.trim();
+    if (!name) return;
+    setCreating(true);
+    try {
+      const created = await createPerson(name);
+      setRows((rs) => [
+        ...rs,
+        {
+          id: created.id,
+          name,
+          preferredName: null,
+          householdId: null,
+          householdName: null,
+          dob: null,
+          mobile: null,
+          email: null,
+          regoYear: null,
+          regoFormUrl: null,
+          hidden: false,
+          linkStatus: "linked",
+          comment: null,
+          isHouseholdContact: false,
+          isCurrentParticipant: false,
+          householdContactPersonId: null,
+          householdContactName: null,
+          householdContactPreferredName: null,
+          householdContactMobile: null,
+        },
+      ]);
+      setNewName("");
+    } catch (e) {
+      console.error("Create failed:", e);
+    } finally {
+      setCreating(false);
+    }
   }
 
   function toggleSort(key: SortKey) {
@@ -201,6 +243,32 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
           </Pill>
           <CategoryDropdown label="Category" options={CATEGORY_LABELS} selected={categoryFilter} onToggle={toggleCategory} />
           <CategoryDropdown label="Participants" options={PARTICIPANT_CATEGORY_LABELS} selected={participantFilter} onToggle={toggleParticipant} />
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+            <input
+              placeholder="New person name…"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreate();
+              }}
+              style={{ ...inputStyle, width: 200, border: "1px solid var(--border)" }}
+            />
+            <button
+              onClick={handleCreate}
+              disabled={creating || !newName.trim()}
+              style={{
+                padding: "4px 14px",
+                fontSize: "0.85rem",
+                border: "1px solid var(--deep)",
+                background: "var(--deep)",
+                color: "var(--cream)",
+                borderRadius: 2,
+                cursor: "pointer",
+              }}
+            >
+              Add
+            </button>
+          </div>
         </div>
       </div>
 
@@ -946,7 +1014,8 @@ function PersonHouseholdModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>
+        <ModalCloseButton onClick={handleFinish} />
+        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-4)", paddingRight: 28 }}>
           Household
         </h3>
 

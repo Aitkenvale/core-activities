@@ -7,6 +7,7 @@ import { CadenceFields } from "@/components/CadenceFields";
 import { StatusPills } from "@/components/StatusPills";
 import { PeoplePicker, type PickedPerson } from "./PeoplePicker";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 type Category = { id: string; label: string };
 type Neighbourhood = { id: string; name: string };
@@ -435,6 +436,7 @@ export function CreateActivityForm({
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
+              position: "relative",
               background: "var(--card-bg)",
               borderRadius: "var(--radius-lg)",
               boxShadow: "var(--shadow-elevated)",
@@ -442,7 +444,8 @@ export function CreateActivityForm({
               width: "min(90vw, 400px)",
             }}
           >
-            <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.2rem", color: "var(--heading)", marginBottom: "var(--space-3)" }}>
+            <ModalCloseButton onClick={handleDeclineEnd} />
+            <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.2rem", color: "var(--heading)", marginBottom: "var(--space-3)", paddingRight: 28 }}>
               End this activity?
             </h3>
             <p style={{ fontSize: "0.85rem", color: "var(--text)", margin: "0 0 var(--space-5)" }}>

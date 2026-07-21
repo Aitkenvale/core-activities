@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { enrollExistingPerson, quickAddPerson } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/actions";
 import { PeoplePicker, type PickedPerson } from "@/app/app/activities/PeoplePicker";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 export type Attendee = { personId: string; name: string; preferredName: string | null };
 
@@ -65,6 +66,7 @@ export function EnrolAttendeesModal({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
+          position: "relative",
           background: "var(--card-bg)",
           borderRadius: "var(--radius-lg)",
           boxShadow: "var(--shadow-elevated)",
@@ -74,7 +76,8 @@ export function EnrolAttendeesModal({
           overflowY: "auto",
         }}
       >
-        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.2rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>
+        <ModalCloseButton onClick={onClose} />
+        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.2rem", color: "var(--heading)", marginBottom: "var(--space-4)", paddingRight: 28 }}>
           Enrol Attendees — {activityName}
         </h3>
         <div style={{ display: "grid", gap: "var(--space-4)" }}>
