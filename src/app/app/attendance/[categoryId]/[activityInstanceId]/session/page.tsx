@@ -46,6 +46,7 @@ export default async function SessionPage({
         householdContactPreferredName: householdContacts.preferredName,
         householdContactMobile: householdContacts.mobile,
         regoYear: people.regoYear,
+        regoFormUrl: people.regoFormUrl,
         role: activityEnrollments.role,
         active: activityEnrollments.active,
       })

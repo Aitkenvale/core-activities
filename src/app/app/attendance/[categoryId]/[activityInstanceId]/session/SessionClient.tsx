@@ -42,6 +42,7 @@ type RosterRow = {
   householdContactPreferredName: string | null;
   householdContactMobile: string | null;
   regoYear: number | null;
+  regoFormUrl: string | null;
   role: "participant" | "facilitator" | "assistant";
   active: boolean;
 };
@@ -1131,7 +1132,11 @@ function AddInfoModal({
           <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", flexShrink: 0 }}>Add Info</h3>
           {isUnder15 && (
             <span style={{ flex: 1, textAlign: "center", fontSize: "0.8rem", color: "var(--yellow)", whiteSpace: "nowrap" }}>
-              {person.regoYear ? `Registration: ${person.regoYear}` : "No Registration Form"}
+              {/* regoYear and regoFormUrl are tracked independently (see
+                  people.ts) — a linked form doesn't imply a recorded year,
+                  and vice versa, so both need checking rather than assuming
+                  no year means no form on file at all. */}
+              {person.regoYear ? `Registration: ${person.regoYear}` : person.regoFormUrl ? "Form on file (no year recorded)" : "No Registration Form"}
             </span>
           )}
         </div>
