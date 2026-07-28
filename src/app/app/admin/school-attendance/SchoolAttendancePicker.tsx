@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
-import type { SchoolActivityOption } from "@/lib/pdf/schoolAttendanceReport";
+import type { SchoolActivityOption } from "@/lib/reports/schoolAttendanceReport";
 
 // A dedicated route (matching every other admin report/tool) styled and
 // behaving like the initial dialog it's meant to be — pick which PSEC/JYSEP
@@ -65,8 +65,8 @@ export function SchoolAttendancePicker({ options }: { options: SchoolActivityOpt
         School Attendance
       </h2>
       <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "var(--space-5)" }}>
-        Select which PSEC/JYSEP activities to include — one PDF page per activity, listing each active participant and
-        their household contact, for informing schools who&rsquo;s attending.
+        Select which PSEC/JYSEP activities to include — generates an Excel file with one row per active participant
+        (Participant, Household Contact, Class Name), for informing schools who&rsquo;s attending.
       </p>
 
       {groups.length === 0 ? (

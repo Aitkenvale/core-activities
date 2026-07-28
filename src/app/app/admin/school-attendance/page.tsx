@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { getSchoolActivityOptions } from "@/lib/pdf/schoolAttendanceReport";
+import { getSchoolActivityOptions } from "@/lib/reports/schoolAttendanceReport";
 import { SchoolAttendancePicker } from "./SchoolAttendancePicker";
 
 export const metadata: Metadata = { title: "School Attendance" };

@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { generateSchoolAttendanceReportPdf } from "@/lib/pdf/schoolAttendanceReport";
+import { generateSchoolAttendanceReportXlsx } from "@/lib/reports/schoolAttendanceReport";
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -11,11 +11,11 @@ export async function GET(request: Request) {
   if (activityIds.length === 0) return new Response("Select at least one activity", { status: 400 });
 
   try {
-    const buffer = await generateSchoolAttendanceReportPdf(activityIds);
+    const buffer = await generateSchoolAttendanceReportXlsx(activityIds);
     return new Response(new Uint8Array(buffer), {
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="School Attendance.pdf"`,
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="School Attendance.xlsx"`,
       },
     });
   } catch (e) {
