@@ -18,6 +18,7 @@ import {
   searchContactForRoster,
   createContactPerson,
   saveHouseholdContact,
+  updateHouseholdAddress,
   updatePersonInfo,
   createEventDate,
   changeEnrollmentRole,
@@ -27,6 +28,8 @@ import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/person
 import { calculateAge } from "@/lib/category";
 import { getRoleLabels } from "@/lib/activityRoleLabels";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { MapsLinkButton } from "@/components/MapsLinkButton";
+import { PhoneLinkButton } from "@/components/PhoneLinkButton";
 
 type RosterRow = {
   personId: string;
@@ -37,6 +40,7 @@ type RosterRow = {
   mobile: string | null;
   householdId: string | null;
   householdName: string | null;
+  householdAddress: string | null;
   householdContactPersonId: string | null;
   householdContactName: string | null;
   householdContactPreferredName: string | null;
@@ -940,7 +944,11 @@ function AddInfoModal({
   const isUnder15 = age === null || age < 15;
   const [householdId, setHouseholdId] = useState(person.householdId);
   const [householdQuery, setHouseholdQuery] = useState(person.householdName ?? "");
-  const [householdResults, setHouseholdResults] = useState<{ id: string; name: string }[]>([]);
+  const [householdResults, setHouseholdResults] = useState<
+    { id: string; name: string; address: string | null; contactPersonId: string | null; contactName: string | null; contactPreferredName: string | null; contactMobile: string | null }[]
+  >([]);
+  // Address belongs to the household, same as Contact/Mobile below.
+  const [address, setAddress] = useState(person.householdAddress ?? "");
   // Contact/Mobile belong to the household, not this person — prefilled from
   // whatever contact the person's current household already has, if any.
   const [contactPersonId, setContactPersonId] = useState(person.householdContactPersonId);
@@ -954,13 +962,16 @@ function AddInfoModal({
   // Frozen snapshot of every field as this modal opened — used both to diff
   // "did this actually change" for auto-save, and by Cancel to revert.
   const originalRef = useRef(person);
-  // A newly selected/created household's real contact isn't known
-  // client-side — this tracks the right baseline to diff the Contact
-  // fields against once the household has changed from the person's
-  // original one (see persist() below), same reasoning as Find Person's
-  // PersonEditForm.
+  // A newly selected/created household's real address/contact isn't known
+  // client-side until it's either looked up (selectHousehold, from the
+  // search results which already carry it) or freshly created blank
+  // (handleCreateHousehold) — this tracks the right baseline to diff the
+  // Address/Contact fields against once the household has changed from the
+  // person's original one (see persist() below), same reasoning as Find
+  // Person's PersonEditForm.
   const householdBaselineRef = useRef({
     householdId: person.householdId,
+    address: person.householdAddress ?? "",
     contactPersonId: person.householdContactPersonId,
     contactMobile: person.householdContactMobile ?? "",
   });
@@ -972,6 +983,22 @@ function AddInfoModal({
     setHouseholdResults(await searchHouseholdsForRoster(value));
   }
 
+  // Picking an existing household from the search results — unlike creating
+  // a brand-new one, this one already has real address/contact data, so it
+  // gets pulled in straight away instead of leaving the admin to re-type
+  // what's already on file.
+  function selectHousehold(h: { id: string; name: string; address: string | null; contactPersonId: string | null; contactName: string | null; contactPreferredName: string | null; contactMobile: string | null }) {
+    setHouseholdId(h.id);
+    setHouseholdQuery(h.name);
+    setHouseholdResults([]);
+    setAddress(h.address ?? "");
+    setContactPersonId(h.contactPersonId);
+    setContactQuery(h.contactPreferredName || h.contactName || "");
+    setContactResults([]);
+    setContactMobile(h.contactMobile ?? "");
+    householdBaselineRef.current = { householdId: h.id, address: h.address ?? "", contactPersonId: h.contactPersonId, contactMobile: h.contactMobile ?? "" };
+  }
+
   async function handleCreateHousehold() {
     const trimmed = householdQuery.trim();
     if (!trimmed) return;
@@ -980,7 +1007,12 @@ function AddInfoModal({
       setHouseholdId(created.id);
       setHouseholdQuery(created.name);
       setHouseholdResults([]);
-      householdBaselineRef.current = { householdId: created.id, contactPersonId: null, contactMobile: "" };
+      setAddress("");
+      setContactPersonId(null);
+      setContactQuery("");
+      setContactResults([]);
+      setContactMobile("");
+      householdBaselineRef.current = { householdId: created.id, address: "", contactPersonId: null, contactMobile: "" };
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't create that household.");
     }
@@ -1030,7 +1062,7 @@ function AddInfoModal({
         finalHouseholdId = created.id;
         setHouseholdId(created.id);
         setHouseholdQuery(created.name);
-        householdBaselineRef.current = { householdId: created.id, contactPersonId: null, contactMobile: "" };
+        householdBaselineRef.current = { householdId: created.id, address: "", contactPersonId: null, contactMobile: "" };
       }
 
       const patch: Partial<{ name: string; preferredName: string | null; mobile: string | null; dob: string | null; householdId: string | null }> = {};
@@ -1046,6 +1078,8 @@ function AddInfoModal({
       if (Object.keys(patch).length > 0) tasks.push(updatePersonInfo(person.personId, patch));
 
       const onOriginalHousehold = finalHouseholdId === originalRef.current.householdId;
+      const addressBaseline = onOriginalHousehold ? (originalRef.current.householdAddress ?? "") : householdBaselineRef.current.address;
+      if (finalHouseholdId && address !== addressBaseline) tasks.push(updateHouseholdAddress(finalHouseholdId, address));
       const contactIdBaseline = onOriginalHousehold ? originalRef.current.householdContactPersonId : householdBaselineRef.current.contactPersonId;
       const contactMobileBaseline = onOriginalHousehold ? (originalRef.current.householdContactMobile ?? "") : householdBaselineRef.current.contactMobile;
       if (finalHouseholdId && (contactPersonId !== contactIdBaseline || contactMobile !== contactMobileBaseline)) {
@@ -1068,7 +1102,7 @@ function AddInfoModal({
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, preferredName, personalMobile, dob, householdId, contactPersonId, contactMobile]);
+  }, [name, preferredName, personalMobile, dob, householdId, address, contactPersonId, contactMobile]);
 
   // The relabeled former Save button — auto-save already did the work, this
   // just flushes anything still mid-debounce, refreshes the roster, and closes.
@@ -1096,6 +1130,7 @@ function AddInfoModal({
         householdId: originalRef.current.householdId,
       });
       if (originalRef.current.householdId) {
+        await updateHouseholdAddress(originalRef.current.householdId, originalRef.current.householdAddress ?? "");
         await saveHouseholdContact(originalRef.current.householdId, originalRef.current.householdContactPersonId, originalRef.current.householdContactMobile ?? null);
       }
       onSaved();
@@ -1174,12 +1209,15 @@ function AddInfoModal({
               the DOB field below, live as it's edited. */}
           {showPersonalMobile && (
             <ModalField label="Mobile">
-              <input
-                type="tel"
-                value={personalMobile}
-                onChange={(e) => setPersonalMobile(e.target.value)}
-                style={modalInputStyle}
-              />
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <input
+                  type="tel"
+                  value={personalMobile}
+                  onChange={(e) => setPersonalMobile(e.target.value)}
+                  style={{ ...modalInputStyle, flex: 1, minWidth: 0 }}
+                />
+                {personalMobile.trim() && <PhoneLinkButton mobile={personalMobile.trim()} />}
+              </div>
             </ModalField>
           )}
           <ModalField label="DOB">
@@ -1228,11 +1266,7 @@ function AddInfoModal({
                 {householdResults.map((h) => (
                   <button
                     key={h.id}
-                    onClick={() => {
-                      setHouseholdId(h.id);
-                      setHouseholdQuery(h.name);
-                      setHouseholdResults([]);
-                    }}
+                    onClick={() => selectHousehold(h)}
                     style={{
                       textAlign: "left",
                       padding: "4px 8px",
@@ -1249,6 +1283,18 @@ function AddInfoModal({
                 ))}
               </div>
             )}
+          </ModalField>
+          <ModalField label="Address">
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                disabled={!householdId}
+                placeholder={householdId ? undefined : "Pick a household first"}
+                style={{ ...modalInputStyle, flex: 1, minWidth: 0, opacity: householdId ? 1 : 0.6 }}
+              />
+              {address.trim() && <MapsLinkButton address={address.trim()} />}
+            </div>
           </ModalField>
           <ModalField label="Contact">
             <input
@@ -1300,14 +1346,17 @@ function AddInfoModal({
             )}
           </ModalField>
           <ModalField label="Contact's Mobile">
-            <input
-              type="tel"
-              value={contactMobile}
-              onChange={(e) => setContactMobile(e.target.value)}
-              disabled={!contactPersonId}
-              placeholder={contactPersonId ? undefined : "Pick a contact first"}
-              style={{ ...modalInputStyle, opacity: contactPersonId ? 1 : 0.6, ...(!contactMobile ? missingBorderStyle : {}) }}
-            />
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                type="tel"
+                value={contactMobile}
+                onChange={(e) => setContactMobile(e.target.value)}
+                disabled={!contactPersonId}
+                placeholder={contactPersonId ? undefined : "Pick a contact first"}
+                style={{ ...modalInputStyle, flex: 1, minWidth: 0, opacity: contactPersonId ? 1 : 0.6, ...(!contactMobile ? missingBorderStyle : {}) }}
+              />
+              {contactMobile.trim() && <PhoneLinkButton mobile={contactMobile.trim()} />}
+            </div>
           </ModalField>
         </div>
 

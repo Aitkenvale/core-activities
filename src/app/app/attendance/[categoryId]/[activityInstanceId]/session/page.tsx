@@ -41,6 +41,7 @@ export default async function SessionPage({
         mobile: people.mobile,
         householdId: people.householdId,
         householdName: households.name,
+        householdAddress: households.address,
         householdContactPersonId: households.contactPersonId,
         householdContactName: householdContacts.name,
         householdContactPreferredName: householdContacts.preferredName,

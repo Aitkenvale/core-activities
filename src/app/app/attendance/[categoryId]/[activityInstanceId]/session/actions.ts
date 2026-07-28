@@ -137,11 +137,37 @@ export async function searchPeople(query: string) {
     .limit(8);
 }
 
+// Address and contact are included here (not just id/name) so picking an
+// existing household from these results can auto-fill the rest of its
+// details straight away — a brand-new household (see
+// createHouseholdForRoster below) has none of this yet, so it stays blank
+// there instead.
 export async function searchHouseholdsForRoster(query: string) {
   await requireUserId();
+  const householdContacts = alias(people, "household_contacts");
   const q = query.trim();
-  if (!q) return db.select({ id: households.id, name: households.name }).from(households).limit(10);
-  return db.select({ id: households.id, name: households.name }).from(households).where(ilike(households.name, `%${q}%`)).limit(10);
+  const selection = {
+    id: households.id,
+    name: households.name,
+    address: households.address,
+    contactPersonId: households.contactPersonId,
+    contactName: householdContacts.name,
+    contactPreferredName: householdContacts.preferredName,
+    contactMobile: householdContacts.mobile,
+  };
+  if (!q) {
+    return db
+      .select(selection)
+      .from(households)
+      .leftJoin(householdContacts, eq(householdContacts.id, households.contactPersonId))
+      .limit(10);
+  }
+  return db
+    .select(selection)
+    .from(households)
+    .leftJoin(householdContacts, eq(householdContacts.id, households.contactPersonId))
+    .where(ilike(households.name, `%${q}%`))
+    .limit(10);
 }
 
 // Same reasoning as updatePersonInfo below — filling in a new participant's
@@ -193,6 +219,14 @@ export async function saveHouseholdContact(householdId: string, contactPersonId:
   if (contactPersonId) {
     await db.update(people).set({ mobile: contactMobile || null }).where(eq(people.id, contactPersonId));
   }
+}
+
+// Same reasoning as saveHouseholdContact — the Add Info modal's Address
+// field belongs to the household, not this person, but filling it in is
+// still part of the same facilitator-level flow as everything else here.
+export async function updateHouseholdAddress(householdId: string, address: string) {
+  await requireUserId();
+  await db.update(households).set({ address: address.trim() || null }).where(eq(households.id, householdId));
 }
 
 // "Add Info" — filling in what's actually missing on a quick-added person
