@@ -1,6 +1,5 @@
 import ExcelJS from "exceljs";
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { activityCategories } from "@/db/schema/activityCategories";
@@ -26,17 +25,14 @@ export async function getSchoolActivityOptions(): Promise<SchoolActivityOption[]
   return rows.map((r) => ({ ...r, categoryLabel: categoryLabel[r.categoryId] ?? r.categoryId.toUpperCase() }));
 }
 
-type RosterRow = { participantName: string; contactName: string | null; className: string };
+type RosterRow = { participantName: string; householdName: string | null; className: string };
 
 async function getActivityRoster(activityId: string, className: string): Promise<RosterRow[]> {
-  const householdContacts = alias(people, "household_contacts");
-
   const roster = await db
-    .select({ participantName: people.name, contactName: householdContacts.name })
+    .select({ name: people.name, preferredName: people.preferredName, householdName: households.name })
     .from(activityEnrollments)
     .innerJoin(people, eq(people.id, activityEnrollments.personId))
     .leftJoin(households, eq(households.id, people.householdId))
-    .leftJoin(householdContacts, eq(householdContacts.id, households.contactPersonId))
     .where(
       and(
         eq(activityEnrollments.activityInstanceId, activityId),
@@ -47,7 +43,10 @@ async function getActivityRoster(activityId: string, className: string): Promise
     )
     .orderBy(asc(people.name));
 
-  return roster.map((r) => ({ ...r, className }));
+  // AKA/preferred name, falling back to their formal name when they don't
+  // have one — a school report should read the way the child is actually
+  // known day to day, not their full legal name.
+  return roster.map((r) => ({ participantName: r.preferredName || r.name, householdName: r.householdName, className }));
 }
 
 // A flat spreadsheet, not a page-per-class PDF — every active participant
@@ -68,13 +67,13 @@ export async function generateSchoolAttendanceReportXlsx(activityIds: string[]):
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("School Attendance");
   sheet.columns = [
-    { header: "Participant Full Name", key: "participantName", width: 28 },
-    { header: "Household Contact Full Name", key: "contactName", width: 30 },
+    { header: "Participant Name", key: "participantName", width: 28 },
+    { header: "Household Name", key: "householdName", width: 28 },
     { header: "Class Name", key: "className", width: 28 },
   ];
   sheet.getRow(1).font = { bold: true };
   for (const r of rows) {
-    sheet.addRow({ participantName: r.participantName, contactName: r.contactName ?? "", className: r.className });
+    sheet.addRow({ participantName: r.participantName, householdName: r.householdName ?? "", className: r.className });
   }
 
   const buffer = await workbook.xlsx.writeBuffer();
