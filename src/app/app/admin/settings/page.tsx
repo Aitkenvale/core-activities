@@ -8,10 +8,11 @@ import { termDates } from "@/db/schema/termDates";
 import { neighbourhoods } from "@/db/schema/neighbourhoods";
 import { user } from "@/db/schema/auth";
 import { allowedSignups } from "@/db/schema/allowedSignups";
-import { getEditWindowMonths } from "@/lib/settings";
+import { getEditWindowMonths, getEnforceDarkMode } from "@/lib/settings";
 import { TermDatesEditor } from "@/app/app/admin/activities/TermDatesEditor";
 import { NeighbourhoodsEditor } from "@/app/app/admin/activities/NeighbourhoodsEditor";
 import { SecurityCard } from "./SecurityCard";
+import { AppearanceCard } from "./AppearanceCard";
 import { UsersCard } from "./UsersCard";
 import { cardStyle, cardTitleStyle } from "./styles";
 
@@ -21,8 +22,9 @@ export default async function AdminSettingsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.role !== "admin") redirect("/app");
 
-  const [editWindowMonths, terms, neighbourhoodRows, users, pendingSignups] = await Promise.all([
+  const [editWindowMonths, enforceDarkMode, terms, neighbourhoodRows, users, pendingSignups] = await Promise.all([
     getEditWindowMonths(),
+    getEnforceDarkMode(),
     db.select().from(termDates).orderBy(asc(termDates.year), asc(termDates.termNumber)),
     db.select().from(neighbourhoods).orderBy(asc(neighbourhoods.name)),
     db.select({ id: user.id, name: user.name, email: user.email, role: user.role }).from(user).orderBy(asc(user.name)),
@@ -41,6 +43,8 @@ export default async function AdminSettingsPage() {
         </h2>
 
         <SecurityCard initialMonths={editWindowMonths} />
+
+        <AppearanceCard initialEnforceDarkMode={enforceDarkMode} />
 
         <UsersCard initialUsers={users} initialPending={pendingSignups} currentUserId={session.user.id} />
 

@@ -66,7 +66,8 @@ export function SchoolAttendancePicker({ options }: { options: SchoolActivityOpt
       </h2>
       <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "var(--space-5)" }}>
         Select which PSEC/JYSEP activities to include — generates an Excel file with one row per active participant
-        (Participant Name, Household Name, Class Name), for informing schools who&rsquo;s attending.
+        (Participant Name, Household Name, Household Contact Full Name, Class Name), for informing schools
+        who&rsquo;s attending.
       </p>
 
       {groups.length === 0 ? (

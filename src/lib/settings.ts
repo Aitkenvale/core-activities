@@ -16,3 +16,11 @@ export async function getEditWindowMonths(): Promise<number> {
   const n = parseInt(value, 10);
   return Number.isFinite(n) && n > 0 ? n : 3;
 }
+
+// Instance-wide override — when on, every visitor gets dark mode
+// regardless of their own device's light/dark setting (see the root
+// layout, which reads this and stamps data-theme="dark" on <html>).
+export async function getEnforceDarkMode(): Promise<boolean> {
+  const value = await getSetting("enforce_dark_mode", "false");
+  return value === "true";
+}

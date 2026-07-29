@@ -26,6 +26,17 @@ export async function updateEditWindowMonths(months: number) {
     });
 }
 
+export async function updateEnforceDarkMode(enabled: boolean) {
+  await requireAdmin();
+  await db
+    .insert(appSettings)
+    .values({ key: "enforce_dark_mode", value: String(enabled) })
+    .onConflictDoUpdate({
+      target: appSettings.key,
+      set: { value: String(enabled), updatedAt: new Date() },
+    });
+}
+
 export async function updateUserRole(userId: string, role: "admin" | "facilitator") {
   const session = await requireAdmin();
   if (userId === session.user.id && role !== "admin") {

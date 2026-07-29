@@ -71,6 +71,29 @@
   }
 }
 
+/* Settings > Appearance > "Enforce dark mode" — the root layout stamps
+   data-theme="dark" on <html> when that's on, so every visitor gets dark
+   mode regardless of their own device's light/dark setting. Same values as
+   the media query above, kept as a separate block (rather than merging the
+   selectors) since one is conditioned on the OS and this one on an explicit
+   attribute — duplicating this fixed, short list of tokens is simpler than
+   trying to share it across the two without a preprocessor. */
+:root[data-theme="dark"] {
+  --page-bg: #221F1A;
+  --card-bg: #2E2B24;
+  --heading: #EDCB8E;
+  --border: #5C5443;
+  --text: #F2ECDD;
+  --muted: #C8B79A;
+  --green: #7BBE8E;
+  --red: #E08A72;
+  --blue: #7EA8E0;
+  --yellow: #EDD152;
+  --table-header-bg: #383327;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-elevated: 0 2px 10px rgba(0, 0, 0, 0.4), 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
 html {
   height: 100%;
 }
