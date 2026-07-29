@@ -19,6 +19,7 @@ import {
   createContactPerson,
   saveHouseholdContact,
   updateHouseholdAddress,
+  renameHousehold,
   updatePersonInfo,
   createEventDate,
   changeEnrollmentRole,
@@ -976,9 +977,22 @@ function AddInfoModal({
     contactMobile: person.householdContactMobile ?? "",
   });
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Typing into Household/Contact immediately clears the confirmed id below
+  // (so search results/Create New show up), which would otherwise make an
+  // abandoned edit — typed something, then never picked a result or clicked
+  // Create New — look identical to "remove this household/contact" once
+  // auto-save runs. These remember which household/contact was assigned
+  // right before the edit started, so persist() can fall back to renaming
+  // it in place instead of silently detaching it. Cleared whenever an
+  // explicit choice is made (select / create new).
+  const pendingRenameHouseholdIdRef = useRef<string | null>(null);
+  const pendingRenameContactIdRef = useRef<string | null>(null);
 
   async function handleHouseholdSearch(value: string) {
     setHouseholdQuery(value);
+    if (householdId && pendingRenameHouseholdIdRef.current === null) {
+      pendingRenameHouseholdIdRef.current = householdId;
+    }
     setHouseholdId(null);
     setHouseholdResults(await searchHouseholdsForRoster(value));
   }
@@ -988,6 +1002,8 @@ function AddInfoModal({
   // gets pulled in straight away instead of leaving the admin to re-type
   // what's already on file.
   function selectHousehold(h: { id: string; name: string; address: string | null; contactPersonId: string | null; contactName: string | null; contactPreferredName: string | null; contactMobile: string | null }) {
+    pendingRenameHouseholdIdRef.current = null;
+    pendingRenameContactIdRef.current = null;
     setHouseholdId(h.id);
     setHouseholdQuery(h.name);
     setHouseholdResults([]);
@@ -1004,6 +1020,8 @@ function AddInfoModal({
     if (!trimmed) return;
     try {
       const created = await createHouseholdForRoster(trimmed);
+      pendingRenameHouseholdIdRef.current = null;
+      pendingRenameContactIdRef.current = null;
       setHouseholdId(created.id);
       setHouseholdQuery(created.name);
       setHouseholdResults([]);
@@ -1020,11 +1038,15 @@ function AddInfoModal({
 
   async function handleContactSearch(value: string) {
     setContactQuery(value);
+    if (contactPersonId && pendingRenameContactIdRef.current === null) {
+      pendingRenameContactIdRef.current = contactPersonId;
+    }
     setContactPersonId(null);
     setContactResults(await searchContactForRoster(value));
   }
 
   function selectContact(p: { id: string; name: string; preferredName: string | null; mobile: string | null }) {
+    pendingRenameContactIdRef.current = null;
     setContactPersonId(p.id);
     setContactQuery(p.preferredName || p.name);
     setContactResults([]);
@@ -1036,6 +1058,7 @@ function AddInfoModal({
     if (!trimmed) return;
     try {
       const created = await createContactPerson(trimmed);
+      pendingRenameContactIdRef.current = null;
       setContactPersonId(created.id);
       setContactQuery(created.preferredName || created.name);
       setContactResults([]);
@@ -1052,12 +1075,34 @@ function AddInfoModal({
     setError(null);
     try {
       let finalHouseholdId = householdId;
-      // No household yet, but a contact was picked anyway — a contact
-      // doesn't require a household to already exist, so create a bare one
-      // now (named after this person) purely so the contact has somewhere
-      // to attach to. Can be renamed/merged properly later in Edit
-      // Households.
-      if (!finalHouseholdId && contactPersonId) {
+      let finalContactPersonId = contactPersonId;
+
+      // Contact field was edited but never (re)selected or created — treat
+      // it as a typo fix on the contact that was already assigned, not as
+      // detaching them.
+      if (!finalContactPersonId && pendingRenameContactIdRef.current && contactQuery.trim()) {
+        const renameId = pendingRenameContactIdRef.current;
+        await updatePersonInfo(renameId, { name: contactQuery.trim() });
+        finalContactPersonId = renameId;
+        setContactPersonId(renameId);
+        pendingRenameContactIdRef.current = null;
+      }
+
+      // Same reasoning for Household.
+      if (!finalHouseholdId && pendingRenameHouseholdIdRef.current && householdQuery.trim()) {
+        const renameId = pendingRenameHouseholdIdRef.current;
+        await renameHousehold(renameId, householdQuery.trim());
+        finalHouseholdId = renameId;
+        setHouseholdId(renameId);
+        pendingRenameHouseholdIdRef.current = null;
+      }
+
+      // No household yet, but a contact was picked/renamed anyway — a
+      // contact doesn't require a household to already exist, so create a
+      // bare one now (named after this person) purely so the contact has
+      // somewhere to attach to. Can be renamed/merged properly later in
+      // Edit Households.
+      if (!finalHouseholdId && finalContactPersonId) {
         const created = await createHouseholdForRoster(`${name.trim() || person.name} household`);
         finalHouseholdId = created.id;
         setHouseholdId(created.id);
@@ -1082,8 +1127,8 @@ function AddInfoModal({
       if (finalHouseholdId && address !== addressBaseline) tasks.push(updateHouseholdAddress(finalHouseholdId, address));
       const contactIdBaseline = onOriginalHousehold ? originalRef.current.householdContactPersonId : householdBaselineRef.current.contactPersonId;
       const contactMobileBaseline = onOriginalHousehold ? (originalRef.current.householdContactMobile ?? "") : householdBaselineRef.current.contactMobile;
-      if (finalHouseholdId && (contactPersonId !== contactIdBaseline || contactMobile !== contactMobileBaseline)) {
-        tasks.push(saveHouseholdContact(finalHouseholdId, contactPersonId, contactMobile || null));
+      if (finalHouseholdId && (finalContactPersonId !== contactIdBaseline || contactMobile !== contactMobileBaseline)) {
+        tasks.push(saveHouseholdContact(finalHouseholdId, finalContactPersonId, contactMobile || null));
       }
       if (tasks.length === 0) return;
       await Promise.all(tasks);

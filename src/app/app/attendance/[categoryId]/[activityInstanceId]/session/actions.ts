@@ -229,6 +229,19 @@ export async function updateHouseholdAddress(householdId: string, address: strin
   await db.update(households).set({ address: address.trim() || null }).where(eq(households.id, householdId));
 }
 
+// Renaming the household that's already assigned — distinct from picking a
+// *different* household (selectHousehold client-side) or creating a brand
+// new one (createHouseholdForRoster above). The Add Info modal calls this
+// when the admin types a correction into the Household field but never
+// (re)selects or creates anything, so a typo fix doesn't get mistaken for
+// unassigning the household.
+export async function renameHousehold(householdId: string, name: string) {
+  await requireUserId();
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name is required");
+  await db.update(households).set({ name: trimmed }).where(eq(households.id, householdId));
+}
+
 // "Add Info" — filling in what's actually missing on a quick-added person
 // (DOB, household, rego year), not admin-only: this is a natural extension
 // of quick-adding them in the first place, which is already a facilitator
