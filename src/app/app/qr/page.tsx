@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 
 export default async function QrPage() {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (session?.user?.role !== "admin") redirect("/app");
+  if (!session?.user) redirect("/sign-in");
 
   const host = (await headers()).get("host") ?? "aitkenvale-core-activities.vercel.app";
   const protocol = host.startsWith("localhost") ? "http" : "https";
