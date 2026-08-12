@@ -2,19 +2,10 @@
 
 import { useState } from "react";
 import { createHousehold, searchHouseholds, addHouseholdMember, saveHouseholdContact } from "./actions";
-import { getCategoryLabel, CONTACT_INELIGIBLE_CATEGORIES } from "@/lib/category";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { compactInputStyle, FieldInput, inferPersonType } from "./PeopleSearch";
 
 type HouseholdOption = { id: string; name: string };
-
-// Same rule as searchPeopleForContact (people/actions.ts) — Youth (15+)
-// and Adult only. No DOB yet means we don't actually know, so it defaults
-// to not-eligible rather than assuming old enough.
-function isContactEligible(dob: string): boolean {
-  const label = getCategoryLabel(dob || null);
-  return label !== null && !CONTACT_INELIGIBLE_CATEGORIES.includes(label);
-}
 
 // Two ways in — start a brand-new household, or find one that already
 // exists — that both land on the same "keep adding people" loop, since
@@ -134,7 +125,6 @@ function AddPersonForm({ householdId, onAdded }: { householdId: string; onAdded:
   const [mobile, setMobile] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const contactEligible = isContactEligible(dob);
 
   async function handleAdd() {
     const trimmed = name.trim();
@@ -143,7 +133,7 @@ function AddPersonForm({ householdId, onAdded }: { householdId: string; onAdded:
     setError(null);
     try {
       const created = await addHouseholdMember(householdId, trimmed, inferPersonType(dob), dob || null);
-      if (makeContact && contactEligible) {
+      if (makeContact) {
         await saveHouseholdContact(householdId, created.id, mobile.trim() || null);
       }
       onAdded(trimmed);
@@ -165,15 +155,11 @@ function AddPersonForm({ householdId, onAdded }: { householdId: string; onAdded:
         <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>DOB (optional)</span>
         <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={{ ...compactInputStyle, textAlign: "left", minWidth: 0 }} />
       </label>
-      {contactEligible && (
-        <>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", color: "var(--text)", cursor: "pointer" }}>
-            <input type="checkbox" checked={makeContact} onChange={(e) => setMakeContact(e.target.checked)} />
-            Make this person the household contact
-          </label>
-          {makeContact && <FieldInput label="Mobile" value={mobile} onChange={setMobile} />}
-        </>
-      )}
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", color: "var(--text)", cursor: "pointer" }}>
+        <input type="checkbox" checked={makeContact} onChange={(e) => setMakeContact(e.target.checked)} />
+        Make this person the household contact
+      </label>
+      {makeContact && <FieldInput label="Mobile" value={mobile} onChange={setMobile} />}
       <button onClick={handleAdd} disabled={busy || !name.trim()} style={primaryButtonStyle}>
         {busy ? "Adding…" : "+ Add Person"}
       </button>
