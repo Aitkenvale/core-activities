@@ -14,6 +14,7 @@ import {
 } from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS, formatCategoryLabel } from "@/lib/category";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { PersonMergeDialog } from "./PersonMergeDialog";
 
 // Infants can't be enrolled in anything — the Participants filter only ever
 // needs Young Child through Adult.
@@ -66,6 +67,8 @@ const COLUMNS: { key: SortKey; label: string; width: number | undefined }[] = [
   { key: "comment", label: "Comment", width: undefined },
 ];
 const COMMENT_MIN_WIDTH = 180;
+const CHECKBOX_COL_WIDTH = 36;
+const MAX_MERGE_SELECTION = 3;
 
 // Fixed row height so a cell never grows taller when it switches from
 // display text to an input/select/date-input. `height` on a table cell is
@@ -114,6 +117,20 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [selectedForMerge, setSelectedForMerge] = useState<Set<string>>(new Set());
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+
+  // Only ever up to MAX_MERGE_SELECTION at a time — a further tap is
+  // ignored rather than replacing an existing pick, so clearing one first
+  // is a deliberate choice, not something that happens by accident.
+  function toggleMergeSelect(id: string) {
+    setSelectedForMerge((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else if (next.size < MAX_MERGE_SELECTION) next.add(id);
+      return next;
+    });
+  }
 
   function toggleCategory(label: string) {
     setCategoryFilter((prev) => {
@@ -246,6 +263,24 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
           </Pill>
           <CategoryDropdown label="Category" options={CATEGORY_LABELS} selected={categoryFilter} onToggle={toggleCategory} />
           <CategoryDropdown label="Participants" options={PARTICIPANT_CATEGORY_LABELS} selected={participantFilter} onToggle={toggleParticipant} />
+          <button
+            onClick={() => setShowMergeDialog(true)}
+            disabled={selectedForMerge.size < 2}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 20,
+              border: "1px solid var(--border)",
+              background: "var(--card-bg)",
+              color: selectedForMerge.size >= 2 ? "var(--text)" : "var(--border)",
+              fontSize: "0.75rem",
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              cursor: selectedForMerge.size >= 2 ? "pointer" : "default",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Merge{selectedForMerge.size > 0 ? ` (${selectedForMerge.size}/${MAX_MERGE_SELECTION})` : ""}
+          </button>
           <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
             <input
               placeholder="New person name…"
@@ -287,12 +322,13 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
             borderCollapse: "collapse",
             tableLayout: "fixed",
             width: "100%",
-            minWidth: COLUMNS.reduce((sum, c) => sum + (c.width ?? COMMENT_MIN_WIDTH), 0),
+            minWidth: CHECKBOX_COL_WIDTH + COLUMNS.reduce((sum, c) => sum + (c.width ?? COMMENT_MIN_WIDTH), 0),
             background: "var(--card-bg)",
           }}
         >
           <thead>
             <tr>
+              <th style={{ ...cellStyle, width: CHECKBOX_COL_WIDTH, background: "var(--table-header-bg)" }} />
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
@@ -316,6 +352,14 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
           <tbody>
             {visibleRows.map((r) => (
               <tr key={r.id}>
+                <td style={{ ...cellStyle, textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedForMerge.has(r.id)}
+                    onChange={() => toggleMergeSelect(r.id)}
+                    disabled={!selectedForMerge.has(r.id) && selectedForMerge.size >= MAX_MERGE_SELECTION}
+                  />
+                </td>
                 <TextCell
                   value={r.name}
                   onSave={(v) => {
@@ -430,6 +474,14 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
           </tbody>
         </table>
       </div>
+
+      {showMergeDialog && selectedForMerge.size >= 2 && (
+        <PersonMergeDialog
+          candidates={rows.filter((r) => selectedForMerge.has(r.id))}
+          onClose={() => setShowMergeDialog(false)}
+          onMerged={() => window.location.reload()}
+        />
+      )}
     </div>
   );
 }

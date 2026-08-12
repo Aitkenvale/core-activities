@@ -1,11 +1,14 @@
 "use server";
 
 import { headers } from "next/headers";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq, ilike, notExists, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
 import { households } from "@/db/schema/households";
+import { activityEnrollments } from "@/db/schema/activityEnrollments";
+import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { getCategoryLabel, CONTACT_INELIGIBLE_CATEGORIES } from "@/lib/category";
 
 async function requireAdmin() {
@@ -44,6 +47,84 @@ export async function createPerson(name: string) {
   if (!trimmed) throw new Error("Name is required");
   const [created] = await db.insert(people).values({ name: trimmed, personType: "child" }).returning({ id: people.id });
   return created;
+}
+
+export type PersonMergeFieldValues = {
+  name: string;
+  preferredName: string | null;
+  dob: string | null;
+  householdId: string | null;
+  mobile: string | null;
+  email: string | null;
+  regoYear: number | null;
+  regoFormUrl: string | null;
+  comment: string | null;
+};
+
+// Merges 2 or 3 People rows into one, field by field — the admin has
+// already resolved every field's winning value client-side (the compare
+// grid in PersonMergeDialog), this just applies that result and moves the
+// losers' history over. Same reasoning/pattern as mergePendingPerson
+// (attendance session actions) and mergeHouseholds: enrollments/attendance
+// records move to the survivor (dropping any that would collide with one
+// the survivor already has), a loser who was some household's contact
+// hands that off to the survivor, and the losers are soft-hidden rather
+// than deleted. Not wrapped in a transaction — the neon-http driver doesn't
+// support one — but every step is idempotent/NOT-EXISTS-guarded, so a
+// partial re-run is harmless.
+export async function mergePeople(survivorId: string, loserIds: string[], fieldValues: PersonMergeFieldValues) {
+  await requireAdmin();
+  const uniqueLoserIds = [...new Set(loserIds)].filter((id) => id !== survivorId);
+  if (uniqueLoserIds.length === 0) throw new Error("Nothing to merge");
+
+  await db.update(people).set(fieldValues).where(eq(people.id, survivorId));
+
+  for (const loserId of uniqueLoserIds) {
+    const enrollmentsTarget = alias(activityEnrollments, "enrollments_target");
+    await db
+      .update(activityEnrollments)
+      .set({ personId: survivorId })
+      .where(
+        and(
+          eq(activityEnrollments.personId, loserId),
+          notExists(
+            db
+              .select()
+              .from(enrollmentsTarget)
+              .where(
+                and(
+                  eq(enrollmentsTarget.activityInstanceId, activityEnrollments.activityInstanceId),
+                  eq(enrollmentsTarget.personId, survivorId),
+                ),
+              ),
+          ),
+        ),
+      );
+    // Anything left is a duplicate — the survivor was already enrolled there.
+    await db.delete(activityEnrollments).where(eq(activityEnrollments.personId, loserId));
+
+    const recordsTarget = alias(attendanceRecords, "records_target");
+    await db
+      .update(attendanceRecords)
+      .set({ personId: survivorId })
+      .where(
+        and(
+          eq(attendanceRecords.personId, loserId),
+          notExists(
+            db
+              .select()
+              .from(recordsTarget)
+              .where(and(eq(recordsTarget.attendanceEventId, attendanceRecords.attendanceEventId), eq(recordsTarget.personId, survivorId))),
+          ),
+        ),
+      );
+    // Anything left is a duplicate mark for a session the survivor already has a record for.
+    await db.delete(attendanceRecords).where(eq(attendanceRecords.personId, loserId));
+
+    await db.update(households).set({ contactPersonId: survivorId }).where(eq(households.contactPersonId, loserId));
+
+    await db.update(people).set({ hidden: true }).where(eq(people.id, loserId));
+  }
 }
 
 export async function searchHouseholds(query: string) {
