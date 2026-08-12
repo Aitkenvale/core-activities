@@ -22,6 +22,7 @@ import {
 import { formatFullName } from "@/lib/formatName";
 import { calculateAge } from "@/lib/category";
 import { MapsLinkButton } from "@/components/MapsLinkButton";
+import { AddPeopleModal } from "./AddPeopleModal";
 
 type Result = {
   id: string;
@@ -58,7 +59,7 @@ const AUTOSAVE_DELAY_MS = 700;
 
 // fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
 // whole page on focus, and it doesn't reliably zoom back out on blur.
-const compactInputStyle: React.CSSProperties = {
+export const compactInputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   fontSize: 16,
@@ -74,6 +75,7 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showAddPeople, setShowAddPeople] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // autoFocus alone can be unreliable right after a client-side route
@@ -106,14 +108,45 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
           "Find Person" for this route (src/lib/pageTitle.ts). Kept compact
           throughout (search box included) so the whole flow — search,
           result, and the edit form — fits one mobile screen. */}
-      <input
-        ref={inputRef}
-        autoFocus
-        placeholder="Search by name or household…"
-        value={query}
-        onChange={(e) => handleChange(e.target.value)}
-        style={{ ...compactInputStyle, minHeight: "var(--tap-min)", marginTop: "var(--space-2)" }}
-      />
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: "var(--space-2)" }}>
+        <input
+          ref={inputRef}
+          autoFocus
+          placeholder="Search by name or household…"
+          value={query}
+          onChange={(e) => handleChange(e.target.value)}
+          style={{ ...compactInputStyle, flex: 1, minWidth: 0, minHeight: "var(--tap-min)" }}
+        />
+        {isAdmin && (
+          <button
+            onClick={() => setShowAddPeople(true)}
+            style={{
+              flexShrink: 0,
+              minHeight: "var(--tap-min)",
+              padding: "0 14px",
+              borderRadius: "var(--radius-pill)",
+              border: "1px dashed var(--gold)",
+              background: "var(--cream2)",
+              color: "var(--warm)",
+              fontSize: "0.8rem",
+              whiteSpace: "nowrap",
+              cursor: "pointer",
+            }}
+          >
+            + Add People
+          </button>
+        )}
+      </div>
+
+      {showAddPeople && (
+        <AddPeopleModal
+          onClose={() => setShowAddPeople(false)}
+          onDone={(householdName) => {
+            setShowAddPeople(false);
+            handleChange(householdName);
+          }}
+        />
+      )}
 
       <div style={{ marginTop: "var(--space-2)", display: "grid", gap: 6 }}>
         {results.map((r) => {
@@ -749,7 +782,7 @@ function PersonEditForm({
 // child), same as the rest of the app never storing an age-derived value.
 // No DOB yet (a newborn whose exact date isn't entered) defaults to child,
 // since that's this form's main use case.
-function inferPersonType(dob: string): "child" | "adult" {
+export function inferPersonType(dob: string): "child" | "adult" {
   if (!dob) return "child";
   return calculateAge(dob) >= 18 ? "adult" : "child";
 }
@@ -817,7 +850,7 @@ function AddHouseholdMemberForm({ householdId, onDone }: { householdId: string; 
   );
 }
 
-function FieldInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+export function FieldInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label style={{ display: "grid", gap: 2 }}>
       <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</span>
