@@ -201,21 +201,28 @@ export function PersonMergeDialog({
                         />
                       </td>
                     ) : (
-                      candidates.map((c, i) => (
-                        <td
-                          key={c.id}
-                          onClick={() => setPicks((p) => ({ ...p, [f.key]: i }))}
-                          style={{
-                            ...valueCellStyle,
-                            cursor: "pointer",
-                            ...(pick === i
-                              ? { background: "var(--cream2)", boxShadow: "inset 0 0 0 2px var(--gold)" }
-                              : {}),
-                          }}
-                        >
-                          {values[i] || <span style={{ color: "var(--border)" }}>—</span>}
-                        </td>
-                      ))
+                      candidates.map((c, i) => {
+                        const selected = pick === i;
+                        return (
+                          <td
+                            key={c.id}
+                            onClick={() => setPicks((p) => ({ ...p, [f.key]: i }))}
+                            style={{
+                              ...valueCellStyle,
+                              cursor: "pointer",
+                              // The selected cell uses a fixed light chip
+                              // background regardless of theme (same pairing
+                              // as the "+ Create new X" buttons elsewhere) —
+                              // needs a fixed dark text color to match, not
+                              // the adaptive --text this cell normally uses,
+                              // which turns light-on-light in dark mode.
+                              ...(selected ? { background: "var(--cream2)", color: "var(--warm)", boxShadow: "inset 0 0 0 2px var(--gold)" } : {}),
+                            }}
+                          >
+                            {values[i] || <span style={{ color: selected ? "var(--warm)" : "var(--border)" }}>—</span>}
+                          </td>
+                        );
+                      })
                     )}
                   </tr>
                 );
