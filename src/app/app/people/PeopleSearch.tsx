@@ -598,7 +598,7 @@ function PersonEditForm({
               border: "1px dashed var(--gold)",
               borderRadius: "var(--radius-sm)",
               background: "var(--cream2)",
-              color: "var(--heading)",
+              color: "var(--warm)",
               fontSize: "0.75rem",
               cursor: "pointer",
             }}
@@ -639,7 +639,7 @@ function PersonEditForm({
       </label>
       {contactPrompt && (
         <div style={{ padding: "var(--space-2)", border: "1px dashed var(--gold)", borderRadius: "var(--radius-sm)", background: "var(--cream2)" }}>
-          <p style={{ fontSize: "0.78rem", color: "var(--text)", margin: "0 0 6px" }}>
+          <p style={{ fontSize: "0.78rem", color: "var(--warm)", margin: "0 0 6px" }}>
             Make {formatFullName(name, result.preferredName)} the contact for &ldquo;{contactPrompt.householdName}&rdquo;?
           </p>
           <div style={{ display: "flex", gap: 6 }}>
@@ -651,7 +651,7 @@ function PersonEditForm({
             </button>
             <button
               onClick={() => answerContactPrompt(false)}
-              style={{ minHeight: 28, padding: "0 12px", border: "none", background: "none", color: "var(--muted)", fontSize: "0.72rem", cursor: "pointer" }}
+              style={{ minHeight: 28, padding: "0 12px", border: "none", background: "none", color: "var(--warm)", fontSize: "0.72rem", cursor: "pointer" }}
             >
               No
             </button>
@@ -682,7 +682,7 @@ function PersonEditForm({
                 border: "1px dashed var(--gold)",
                 borderRadius: "var(--radius-sm)",
                 background: "var(--cream2)",
-                color: "var(--heading)",
+                color: "var(--warm)",
                 fontSize: "0.75rem",
                 cursor: "pointer",
               }}
