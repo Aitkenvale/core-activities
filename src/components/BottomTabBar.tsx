@@ -28,6 +28,7 @@ function getHomeTabHref(pathname: string): string {
 
 const MAIN_TABS = [
   { href: "/app", label: "Home", icon: HomeIcon, match: (p: string) => p === "/app" },
+  { href: "/app/events", label: "Events", icon: EventIcon, match: (p: string) => p.startsWith("/app/events") },
   { href: "/app/activities", label: "Activities", icon: ActivityIcon, match: (p: string) => p.startsWith("/app/activities") },
   { href: "/app/attendance", label: "Attendance", icon: AttendanceIcon, match: (p: string) => p.startsWith("/app/attendance") },
   { href: "/app/people", label: "People", icon: PeopleIcon, match: (p: string) => p.startsWith("/app/people") },
@@ -138,6 +139,18 @@ function HouseholdIcon({ active }: { active: boolean }) {
       <path d="M2 19.2c0-2.2 1.4-3.7 2.8-3.7" />
       <circle cx="19.2" cy="9.3" r="2.1" />
       <path d="M22 19.2c0-2.2-1.4-3.7-2.8-3.7" />
+    </svg>
+  );
+}
+
+// Same calendar body as the Activities icon, but with one marked day
+// instead of a grid of dots — a single occasion, not a recurring schedule.
+function EventIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="5" width="16" height="15" rx="2.5" />
+      <path d="M8 3v4M16 3v4M4 10h16" />
+      <rect x="9" y="13" width="6" height="5" rx="1" fill="currentColor" stroke="none" />
     </svg>
   );
 }
