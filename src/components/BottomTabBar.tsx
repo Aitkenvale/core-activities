@@ -143,8 +143,9 @@ function HouseholdIcon({ active }: { active: boolean }) {
   );
 }
 
-// Same calendar body as the Activities icon, but with one marked day
-// instead of a grid of dots — a single occasion, not a recurring schedule.
+// A calendar with one marked day — a single occasion, distinct from
+// Activities' open book (an ongoing class/program) and Attendance's
+// checkmark (marking a roll).
 function EventIcon({ active }: { active: boolean }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
@@ -155,15 +156,15 @@ function EventIcon({ active }: { active: boolean }) {
   );
 }
 
-// A plain calendar grid — distinct from the Attendance icon's checkmark,
-// since this is about managing the activities/classes themselves, not
+// An open book — distinct from Events' single-marked-day calendar and
+// Attendance's checkmark, since this is about the classes/programs
+// themselves (ongoing, structured learning), not a one-off date or
 // marking a roll.
 function ActivityIcon({ active }: { active: boolean }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="5" width="16" height="15" rx="2.5" />
-      <path d="M8 3v4M16 3v4M4 10h16" />
-      <path d="M8 14h2M14 14h2M8 17h2M14 17h2" />
+      <path d="M2 5h6a4 4 0 0 1 4 4v11a3 3 0 0 0-3-3H2Z" />
+      <path d="M22 5h-6a4 4 0 0 0-4 4v11a3 3 0 0 1 3-3h7Z" />
     </svg>
   );
 }
