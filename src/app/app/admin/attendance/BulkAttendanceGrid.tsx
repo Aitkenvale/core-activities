@@ -410,7 +410,7 @@ function AddDateControl({ activityId, onAddDate }: { activityId: string; onAddDa
           border: "1px dashed var(--gold)",
           borderRadius: "var(--radius-sm)",
           background: "none",
-          color: "var(--warm)",
+          color: "var(--heading)",
           fontSize: "0.75rem",
           cursor: "pointer",
         }}

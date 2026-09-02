@@ -849,7 +849,7 @@ function RosterSection({
               borderRadius: "var(--radius-md)",
               padding: "var(--space-3)",
               fontSize: "0.8rem",
-              color: "var(--warm)",
+              color: "var(--heading)",
               cursor: "pointer",
             }}
           >

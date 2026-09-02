@@ -123,7 +123,7 @@ export function TermDatesEditor({ initialTerms }: { initialTerms: TermRow[] }) {
       ) : (
         <button
           onClick={() => setAdding(true)}
-          style={{ marginTop: 8, background: "none", border: "1px dashed var(--border)", borderRadius: 2, padding: "6px 14px", fontSize: "0.8rem", color: "var(--warm)", cursor: "pointer" }}
+          style={{ marginTop: 8, background: "none", border: "1px dashed var(--border)", borderRadius: 2, padding: "6px 14px", fontSize: "0.8rem", color: "var(--heading)", cursor: "pointer" }}
         >
           + Add Term
         </button>

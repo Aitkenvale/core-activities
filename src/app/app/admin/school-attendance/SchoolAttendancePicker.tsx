@@ -79,7 +79,7 @@ export function SchoolAttendancePicker({ options }: { options: SchoolActivityOpt
             return (
               <div key={label}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontSize: "0.78rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--warm)" }}>{label}</span>
+                  <span style={{ fontSize: "0.78rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--heading)" }}>{label}</span>
                   <button
                     onClick={() => toggleGroup(groupOptions, allSelected)}
                     style={{ background: "none", border: "none", color: "var(--heading)", fontSize: "0.75rem", textDecoration: "underline", cursor: "pointer" }}

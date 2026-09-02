@@ -49,7 +49,7 @@ export default async function AttendanceRecordsPage() {
                 <span>
                   {t.year} Term {t.termNumber}
                 </span>
-                <span style={{ fontSize: "0.75rem", color: "var(--warm)" }}>Download PDF</span>
+                <span style={{ fontSize: "0.75rem", color: "var(--heading)" }}>Download PDF</span>
               </a>
             ))}
           </div>

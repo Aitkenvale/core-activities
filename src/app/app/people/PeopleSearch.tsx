@@ -808,7 +808,7 @@ function AddHouseholdMemberForm({ householdId, onDone }: { householdId: string; 
     return (
       <p style={{ fontSize: "0.8rem", color: "var(--text)", margin: 0 }}>
         Added.{" "}
-        <button onClick={onDone} style={{ background: "none", border: "none", color: "var(--warm)", fontSize: "0.75rem", cursor: "pointer" }}>
+        <button onClick={onDone} style={{ background: "none", border: "none", color: "var(--heading)", fontSize: "0.75rem", cursor: "pointer" }}>
           Close
         </button>
       </p>

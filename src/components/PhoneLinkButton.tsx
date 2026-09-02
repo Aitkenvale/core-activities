@@ -18,7 +18,7 @@ export function PhoneLinkButton({ mobile }: { mobile: string }) {
         padding: 0,
         border: "none",
         background: "none",
-        color: "var(--warm)",
+        color: "var(--heading)",
         cursor: "pointer",
       }}
     >

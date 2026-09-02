@@ -154,7 +154,7 @@ export function CadenceFields({
             ))}
             <button
               onClick={() => setOccurrences((os) => [...os, { occurrence: "first", weekday: "Monday" }])}
-              style={{ background: "none", border: "1px dashed var(--border)", borderRadius: 2, padding: "6px 10px", fontSize: "0.8rem", color: "var(--warm)", cursor: "pointer" }}
+              style={{ background: "none", border: "1px dashed var(--border)", borderRadius: 2, padding: "6px 10px", fontSize: "0.8rem", color: "var(--heading)", cursor: "pointer" }}
             >
               + Add occurrence
             </button>
