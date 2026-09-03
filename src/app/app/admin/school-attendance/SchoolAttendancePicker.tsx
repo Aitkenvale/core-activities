@@ -125,7 +125,7 @@ export function SchoolAttendancePicker({ options }: { options: SchoolActivityOpt
           padding: "0 24px",
           borderRadius: "var(--radius-pill)",
           border: "none",
-          background: selected.size === 0 ? "var(--border)" : "var(--deep)",
+          background: selected.size === 0 ? "var(--disabled-bg)" : "var(--deep)",
           color: selected.size === 0 ? "var(--muted)" : "var(--cream)",
           fontSize: "0.95rem",
           cursor: selected.size === 0 ? "default" : "pointer",

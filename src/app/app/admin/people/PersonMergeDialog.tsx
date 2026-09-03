@@ -267,7 +267,7 @@ export function PersonMergeDialog({
                 <button
                   onClick={handleConfirm}
                   disabled={saving}
-                  style={{ background: "var(--red)", color: "var(--cream)", border: "none", borderRadius: 2, padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer" }}
+                  style={{ background: "var(--red)", color: "var(--card-bg)", border: "none", borderRadius: 2, padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer" }}
                 >
                   {saving ? "Merging…" : "Confirm Merge"}
                 </button>

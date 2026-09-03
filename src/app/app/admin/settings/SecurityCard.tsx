@@ -74,7 +74,7 @@ export function SecurityCard({ initialMonths }: { initialMonths: number }) {
             padding: "0 20px",
             borderRadius: "var(--radius-pill)",
             border: "none",
-            background: "var(--border)",
+            background: "var(--disabled-bg)",
             color: "var(--muted)",
             fontSize: "0.85rem",
             cursor: "default",

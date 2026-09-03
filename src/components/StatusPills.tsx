@@ -9,7 +9,7 @@ import type { ActivityStatus } from "@/app/app/activities/actions";
 const STATUS_META: Record<ActivityStatus, { verb: string; done: string; bg: string; text: string }> = {
   active: { verb: "Activate", done: "Active", bg: "#FFFFFF", text: "var(--deep)" },
   paused: { verb: "Pause", done: "Paused", bg: "var(--yellow)", text: "var(--deep)" },
-  archived: { verb: "End Activity", done: "Ended", bg: "var(--blue)", text: "var(--cream)" },
+  archived: { verb: "End Activity", done: "Ended", bg: "var(--blue)", text: "var(--card-bg)" },
 };
 const STATUS_ORDER: ActivityStatus[] = ["active", "paused", "archived"];
 

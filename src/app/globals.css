@@ -14,6 +14,13 @@
   --table-header-bg: var(--cream2);
   --heading: var(--deep);
   --border: #D9C9A8;
+  /* A flat "disabled/muted state" fill for buttons/pills — distinct from
+     --border now that --border is bright enough (in dark mode) to work as
+     an actual border line. Reusing --border as a fill used to work here
+     because it was dark enough for --muted text to read on top of it, but
+     brightening --border for its real job broke that pairing. In light
+     mode this still matches --border's own value, so nothing changes here. */
+  --disabled-bg: #D9C9A8;
   --text: #2C1F0E;
   --muted: #8B7355;
   --green: #3D6B4A;
@@ -62,6 +69,7 @@
     --card-bg: #201D18;
     --heading: #EDCB8E;
     --border: #A7997C;
+    --disabled-bg: #423D2C;
     --text: #F2ECDD;
     --muted: #C8B79A;
     --green: #7BBE8E;
@@ -86,6 +94,7 @@
   --card-bg: #201D18;
   --heading: #EDCB8E;
   --border: #A7997C;
+  --disabled-bg: #423D2C;
   --text: #F2ECDD;
   --muted: #C8B79A;
   --green: #7BBE8E;
