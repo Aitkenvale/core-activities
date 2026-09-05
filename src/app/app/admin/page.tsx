@@ -3,27 +3,52 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 
-const ADMIN_TILES = [
-  { href: "/app/admin/people", label: "Edit All People" },
-  { href: "/app/admin/households", label: "Edit Households" },
-  { href: "/app/admin/activities", label: "Edit Activities" },
-  { href: "/app/admin/roles", label: "Teacher / Co-Teacher Roles" },
-  { href: "/app/admin/attendance", label: "Edit Attendance" },
-  { href: "/app/admin/attendance-records", label: "Attendance Records" },
-  { href: "/app/admin/school-attendance", label: "School Attendance" },
-  { href: "/app/admin/family-report", label: "Family Report" },
-  { href: "/app/admin/registrations", label: "Registrations" },
-  { href: "/app/admin/settings", label: "Settings" },
+const SECTIONS = [
+  {
+    label: "Editing",
+    tiles: [
+      { href: "/app/admin/people", label: "Edit All People" },
+      { href: "/app/admin/households", label: "Edit Households" },
+      { href: "/app/admin/activities", label: "Edit Activities" },
+      { href: "/app/admin/roles", label: "Teacher / Co-Teacher Roles" },
+      { href: "/app/admin/attendance", label: "Edit Attendance" },
+    ],
+  },
+  {
+    label: "Reports",
+    tiles: [
+      { href: "/app/admin/attendance-records", label: "Attendance Records" },
+      { href: "/app/admin/school-attendance", label: "School Attendance" },
+      { href: "/app/admin/family-report", label: "Family Report" },
+      { href: "/app/admin/registrations", label: "Registrations" },
+    ],
+  },
+  {
+    label: "Settings",
+    tiles: [{ href: "/app/admin/settings", label: "Settings" }],
+  },
 ];
 
-const tileStyle = {
-  display: "flex",
-  alignItems: "center",
-  minHeight: "var(--tap-min)",
+const sectionHeadingStyle = {
+  fontSize: "0.75rem",
+  letterSpacing: "0.06em",
+  textTransform: "uppercase" as const,
+  color: "var(--warm)",
+  marginBottom: 8,
+};
+
+const listContainerStyle = {
   background: "var(--card-bg)",
   borderRadius: "var(--radius-lg)",
   boxShadow: "var(--shadow-card)",
-  padding: "var(--space-5)",
+  overflow: "hidden",
+};
+
+const listRowStyle = {
+  display: "flex",
+  alignItems: "center",
+  minHeight: "var(--tap-min)",
+  padding: "0 var(--space-5)",
   fontSize: "1.05rem",
   color: "var(--text)",
 };
@@ -41,13 +66,25 @@ export default async function AdminMenuPage() {
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>
           Admin Functions
         </h2>
-        <div style={{ display: "grid", gap: "var(--space-3)" }}>
-          {ADMIN_TILES.map((tile) => (
-            <Link key={tile.href} href={tile.href} style={tileStyle}>
-              {tile.label}
-            </Link>
-          ))}
-        </div>
+        {SECTIONS.map((section) => (
+          <div key={section.label} style={{ marginBottom: "var(--space-5)" }}>
+            <div style={sectionHeadingStyle}>{section.label}</div>
+            <div style={listContainerStyle}>
+              {section.tiles.map((tile, i) => (
+                <Link
+                  key={tile.href}
+                  href={tile.href}
+                  style={{
+                    ...listRowStyle,
+                    borderBottom: i < section.tiles.length - 1 ? "1px solid var(--border)" : undefined,
+                  }}
+                >
+                  {tile.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
