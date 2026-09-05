@@ -141,12 +141,12 @@ function csvField(value: string | null): string {
 
 export async function generateFamilyReportCsv(categoryId: FamilyReportCategory): Promise<string> {
   const groups = await getFamilyGroups(categoryId);
-  const header = ["Suburb", "Household", "Address", "Contact", "Mobile", "Participant", "Class"];
+  const header = ["Suburb", "Participant", "Class", "Household", "Contact", "Mobile", "Address"];
   const lines = [header.join(",")];
   for (const g of groups) {
     for (const p of g.participants) {
       lines.push(
-        [g.suburb, g.householdName, g.address ?? "", g.contactName ?? "", g.contactMobile ?? "", p.participantName, p.className]
+        [g.suburb, p.participantName, p.className, g.householdName, g.contactName ?? "", g.contactMobile ?? "", g.address ?? ""]
           .map(csvField)
           .join(","),
       );
@@ -174,12 +174,12 @@ const COL = { household: 90, address: 128, contact: 82, mobile: 68, participant:
 function ColumnHeader() {
   return (
     <View style={styles.row} fixed>
-      <Text style={{ ...styles.headerCell, width: COL.household }}>Household</Text>
-      <Text style={{ ...styles.headerCell, width: COL.address }}>Address</Text>
-      <Text style={{ ...styles.headerCell, width: COL.contact }}>Contact</Text>
-      <Text style={{ ...styles.headerCell, width: COL.mobile }}>Mobile</Text>
       <Text style={{ ...styles.headerCell, width: COL.participant }}>Participant</Text>
       <Text style={{ ...styles.headerCell, width: COL.className }}>Class</Text>
+      <Text style={{ ...styles.headerCell, width: COL.household }}>Household</Text>
+      <Text style={{ ...styles.headerCell, width: COL.contact }}>Contact</Text>
+      <Text style={{ ...styles.headerCell, width: COL.mobile }}>Mobile</Text>
+      <Text style={{ ...styles.headerCell, width: COL.address }}>Address</Text>
     </View>
   );
 }
@@ -213,12 +213,12 @@ export async function generateFamilyReportPdf(categoryId: FamilyReportCategory):
               {householdsInSuburb.map((g) =>
                 g.participants.map((p, i) => (
                   <View key={`${g.key}-${i}`} style={styles.row} wrap={false}>
-                    <Text style={{ ...styles.cell, width: COL.household }}>{i === 0 ? g.householdName : ""}</Text>
-                    <Text style={{ ...styles.cell, width: COL.address }}>{i === 0 ? (g.address ?? "—") : ""}</Text>
-                    <Text style={{ ...styles.cell, width: COL.contact }}>{i === 0 ? (g.contactName ?? "—") : ""}</Text>
-                    <Text style={{ ...styles.cell, width: COL.mobile }}>{i === 0 ? (g.contactMobile ?? "—") : ""}</Text>
                     <Text style={{ ...styles.cell, width: COL.participant }}>{p.participantName}</Text>
                     <Text style={{ ...styles.cell, width: COL.className }}>{p.className}</Text>
+                    <Text style={{ ...styles.cell, width: COL.household }}>{i === 0 ? g.householdName : ""}</Text>
+                    <Text style={{ ...styles.cell, width: COL.contact }}>{i === 0 ? (g.contactName ?? "—") : ""}</Text>
+                    <Text style={{ ...styles.cell, width: COL.mobile }}>{i === 0 ? (g.contactMobile ?? "—") : ""}</Text>
+                    <Text style={{ ...styles.cell, width: COL.address }}>{i === 0 ? (g.address ?? "—") : ""}</Text>
                   </View>
                 )),
               )}
