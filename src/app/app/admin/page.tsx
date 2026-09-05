@@ -11,6 +11,7 @@ const ADMIN_TILES = [
   { href: "/app/admin/attendance", label: "Edit Attendance" },
   { href: "/app/admin/attendance-records", label: "Attendance Records" },
   { href: "/app/admin/school-attendance", label: "School Attendance" },
+  { href: "/app/admin/family-report", label: "Family Report" },
   { href: "/app/admin/registrations", label: "Registrations" },
   { href: "/app/admin/settings", label: "Settings" },
 ];
