@@ -117,25 +117,26 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
           onChange={(e) => handleChange(e.target.value)}
           style={{ ...compactInputStyle, flex: 1, minWidth: 0, minHeight: "var(--tap-min)" }}
         />
-        {isAdmin && (
-          <button
-            onClick={() => setShowAddPeople(true)}
-            style={{
-              flexShrink: 0,
-              minHeight: "var(--tap-min)",
-              padding: "0 14px",
-              borderRadius: "var(--radius-pill)",
-              border: "1px dashed var(--gold)",
-              background: "var(--cream2)",
-              color: "var(--warm)",
-              fontSize: "0.8rem",
-              whiteSpace: "nowrap",
-              cursor: "pointer",
-            }}
-          >
-            + Add People
-          </button>
-        )}
+        {/* Adding a household/person is available to anyone here, not just
+            admins — editing an *existing* person's data below (PersonDetail's
+            Edit button) stays admin-only. */}
+        <button
+          onClick={() => setShowAddPeople(true)}
+          style={{
+            flexShrink: 0,
+            minHeight: "var(--tap-min)",
+            padding: "0 14px",
+            borderRadius: "var(--radius-pill)",
+            border: "1px dashed var(--gold)",
+            background: "var(--cream2)",
+            color: "var(--warm)",
+            fontSize: "0.8rem",
+            whiteSpace: "nowrap",
+            cursor: "pointer",
+          }}
+        >
+          + Add People
+        </button>
       </div>
 
       {showAddPeople && (

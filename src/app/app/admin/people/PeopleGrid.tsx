@@ -10,6 +10,7 @@ import {
   createContactPerson,
   saveHouseholdContact,
   createPerson,
+  deletePerson,
   type PersonPatch,
 } from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS, formatCategoryLabel } from "@/lib/category";
@@ -68,6 +69,7 @@ const COLUMNS: { key: SortKey; label: string; width: number | undefined }[] = [
 ];
 const COMMENT_MIN_WIDTH = 180;
 const CHECKBOX_COL_WIDTH = 36;
+const DELETE_COL_WIDTH = 40;
 const MAX_MERGE_SELECTION = 3;
 
 // Fixed row height so a cell never grows taller when it switches from
@@ -193,6 +195,21 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
       console.error("Create failed:", e);
     } finally {
       setCreating(false);
+    }
+  }
+
+  // Blocked server-side (with a specific reason) unless this person truly
+  // has nothing attached — attendance history, enrollments, being a
+  // household's contact — since deleting them would otherwise cascade-drop
+  // real attendance records or leave a dangling contact reference. Anyone
+  // with real history should be Hidden instead, not deleted.
+  async function handleDelete(id: string, name: string) {
+    if (!window.confirm(`Delete ${name}? This can't be undone.`)) return;
+    try {
+      await deletePerson(id);
+      setRows((rs) => rs.filter((r) => r.id !== id));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Couldn't delete that person.");
     }
   }
 
@@ -322,7 +339,7 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
             borderCollapse: "collapse",
             tableLayout: "fixed",
             width: "100%",
-            minWidth: CHECKBOX_COL_WIDTH + COLUMNS.reduce((sum, c) => sum + (c.width ?? COMMENT_MIN_WIDTH), 0),
+            minWidth: CHECKBOX_COL_WIDTH + DELETE_COL_WIDTH + COLUMNS.reduce((sum, c) => sum + (c.width ?? COMMENT_MIN_WIDTH), 0),
             background: "var(--card-bg)",
           }}
         >
@@ -347,6 +364,7 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                   {col.label} {sortKey === col.key ? (sortAsc ? "▲" : "▼") : ""}
                 </th>
               ))}
+              <th style={{ ...cellStyle, width: DELETE_COL_WIDTH, background: "var(--table-header-bg)" }} />
             </tr>
           </thead>
           <tbody>
@@ -469,6 +487,11 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                   onEdit={() => setEditing({ id: r.id, field: "comment" })}
                   onDone={() => setEditing(null)}
                 />
+                <td style={{ ...cellStyle, textAlign: "center" }}>
+                  <button onClick={() => handleDelete(r.id, r.name)} title="Delete" style={{ ...iconButtonStyle, width: 24, height: 24 }}>
+                    <TrashIcon />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -749,6 +772,17 @@ function RegoFormCell({ value, onSave, editing, onEdit, onDone }: { value: strin
         </button>
       )}
     </td>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
   );
 }
 

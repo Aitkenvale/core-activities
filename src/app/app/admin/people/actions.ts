@@ -127,6 +127,28 @@ export async function mergePeople(survivorId: string, loserIds: string[], fieldV
   }
 }
 
+// A real hard delete — but only when nothing would be lost. People are
+// normally soft-hidden (see mergePeople above) because activityEnrollments
+// and attendanceRecords cascade-delete when their person row goes, which
+// would silently wipe real attendance history; households.contactPersonId
+// has no FK at all, so deleting someone's contact would leave a dangling
+// reference. This only allows deleting a person with none of that — a
+// mistaken or duplicate blank entry — everything else should use Hide.
+export async function deletePerson(personId: string) {
+  await requireAdmin();
+
+  const [isContact] = await db.select({ id: households.id }).from(households).where(eq(households.contactPersonId, personId)).limit(1);
+  if (isContact) throw new Error("This person is a household's contact — change that household's contact first.");
+
+  const [hasEnrollment] = await db.select({ id: activityEnrollments.id }).from(activityEnrollments).where(eq(activityEnrollments.personId, personId)).limit(1);
+  if (hasEnrollment) throw new Error("This person has activity enrollments — use Hide instead of Delete.");
+
+  const [hasAttendance] = await db.select({ id: attendanceRecords.id }).from(attendanceRecords).where(eq(attendanceRecords.personId, personId)).limit(1);
+  if (hasAttendance) throw new Error("This person has attendance history — use Hide instead of Delete.");
+
+  await db.delete(people).where(eq(people.id, personId));
+}
+
 export async function searchHouseholds(query: string) {
   await requireAdmin();
   const q = query.trim();

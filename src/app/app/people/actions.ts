@@ -130,15 +130,18 @@ export async function updateHouseholdAddress(householdId: string, address: strin
   await db.update(households).set({ address: address.trim() || null }).where(eq(households.id, householdId));
 }
 
+// Available to any signed-in user, not just admins — finding/creating a
+// household is the "Add People" flow's own job (see AddPeopleModal), not an
+// admin-data-editing one.
 export async function searchHouseholds(query: string) {
-  await requireAdmin();
+  await requireSession();
   const q = query.trim();
   if (!q) return db.select({ id: households.id, name: households.name }).from(households).limit(10);
   return db.select({ id: households.id, name: households.name }).from(households).where(ilike(households.name, `%${q}%`)).limit(10);
 }
 
 export async function createHousehold(name: string) {
-  await requireAdmin();
+  await requireSession();
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Name is required");
   const [created] = await db.insert(households).values({ name: trimmed }).returning({ id: households.id, name: households.name });
@@ -193,8 +196,10 @@ export async function createContactPerson(name: string) {
 // Sets a household's contact and (if provided) that contact's own mobile
 // number in one go — the Contact field here edits both together, since
 // Contact's Mobile is really "the contact's mobile," not this person's own.
+// Open to any signed-in user — the Add People flow uses this to set a newly
+// added member as their household's contact (see AddPeopleModal).
 export async function saveHouseholdContact(householdId: string, contactPersonId: string | null, contactMobile: string | null) {
-  await requireAdmin();
+  await requireSession();
   await db.update(households).set({ contactPersonId }).where(eq(households.id, householdId));
   if (contactPersonId) {
     await db.update(people).set({ mobile: contactMobile || null }).where(eq(people.id, contactPersonId));
@@ -203,9 +208,9 @@ export async function saveHouseholdContact(householdId: string, contactPersonId:
 
 // "Add new babies etc." — a new household member (child or adult) found
 // while looking someone up, without leaving Find Person for the full
-// People grid.
+// People grid. Open to any signed-in user (see AddPeopleModal).
 export async function addHouseholdMember(householdId: string, name: string, personType: "child" | "adult", dob: string | null) {
-  await requireAdmin();
+  await requireSession();
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Name is required");
   const [created] = await db
