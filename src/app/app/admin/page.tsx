@@ -33,16 +33,22 @@ export default async function AdminMenuPage() {
   if (session?.user?.role !== "admin") redirect("/app");
 
   return (
-    <>
-      {/* No body heading — AppHeader's sticky title already shows "Admin
-          Functions" for this route (src/lib/pageTitle.ts). */}
-      <div style={{ display: "grid", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
-        {ADMIN_TILES.map((tile) => (
-          <Link key={tile.href} href={tile.href} style={tileStyle}>
-            {tile.label}
-          </Link>
-        ))}
+    // Wide/desktop-oriented like every other admin page now (see
+    // isAdminWidePage) — AppHeader no longer renders here, so this needs
+    // its own heading instead of relying on the sticky title bar.
+    <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
+      <div style={{ maxWidth: 640, padding: "0 9px" }}>
+        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>
+          Admin Functions
+        </h2>
+        <div style={{ display: "grid", gap: "var(--space-3)" }}>
+          {ADMIN_TILES.map((tile) => (
+            <Link key={tile.href} href={tile.href} style={tileStyle}>
+              {tile.label}
+            </Link>
+          ))}
+        </div>
       </div>
-    </>
+    </div>
   );
 }

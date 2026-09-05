@@ -1,10 +1,10 @@
-// Admin routes that are edited on a computer and need full desktop width
-// plus the plain admin tab bar (no outer header) — Settings is included
-// even though it's cards rather than a spreadsheet, since it's still an
-// admin function edited on a computer. Only the bare "/app/admin" L2 tile
-// menu is left out, since that's a normal mobile tile menu.
-const ADMIN_WIDE_PREFIXES = ["/app/admin/people", "/app/admin/households", "/app/admin/activities", "/app/admin/settings", "/app/admin/attendance", "/app/admin/roles", "/app/admin/registrations"];
-
+// Every admin route — including the bare "/app/admin" L2 tile menu itself
+// — is edited on a computer and gets full desktop width plus the plain
+// admin tab bar (no outer mobile header). Matching the whole /app/admin
+// prefix instead of a curated per-page list means a newly added admin
+// page is wide by default, not narrow-by-omission (this list previously
+// missed a couple of new report pages simply because nobody remembered
+// to add them here).
 export function isAdminWidePage(pathname: string): boolean {
-  return ADMIN_WIDE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  return pathname.startsWith("/app/admin");
 }

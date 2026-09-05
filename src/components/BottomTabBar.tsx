@@ -57,7 +57,11 @@ export function BottomTabBar() {
   const { data } = useSession();
 
   if (!data?.user) return null;
-  const tabs = pathname.startsWith("/app/admin/") ? ADMIN_TABS : MAIN_TABS;
+  // Bare "/app/admin" (no trailing slash) now also gets the admin tab set,
+  // matching that it's a wide/desktop-oriented page too (see
+  // isAdminWidePage) — getHomeTabHref below already treats exactly-"/app/
+  // admin" as true Home rather than looping back to itself.
+  const tabs = pathname.startsWith("/app/admin") ? ADMIN_TABS : MAIN_TABS;
 
   return (
     <nav
