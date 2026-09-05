@@ -1,11 +1,15 @@
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
-import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, eq, exists, gte, isNull, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { activityInstances } from "@/db/schema/activityInstances";
+import { attendanceEvents } from "@/db/schema/attendanceEvents";
+import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { people } from "@/db/schema/people";
 import { households } from "@/db/schema/households";
+
+export type FamilyReportCategory = "psec" | "jysep";
 
 type ParticipantRow = { participantName: string; className: string };
 
@@ -41,13 +45,22 @@ function deriveSuburb(address: string | null): string {
   return stripped || last;
 }
 
-// Every PSEC/JYSEP participant, grouped by household — a household with no
-// address on file still gets its own group (just filed under "No
-// Address"), and a participant with no household at all becomes its own
-// singleton group rather than being silently dropped or merged with
+function threeMonthsAgoIso(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 3);
+  return d.toISOString().slice(0, 10);
+}
+
+// Every participant in the given category, grouped by household — but only
+// those who've actually attended (a real "present" mark) that specific
+// class within the last 3 months, not just anyone still enrolled. A
+// household with no address on file still gets its own group (filed under
+// "No Address"), and a participant with no household at all becomes their
+// own singleton group rather than being silently dropped or merged with
 // unrelated no-household children.
-async function getFamilyGroups(): Promise<FamilyGroup[]> {
+async function getFamilyGroups(categoryId: FamilyReportCategory): Promise<FamilyGroup[]> {
   const householdContacts = alias(people, "household_contacts");
+  const cutoff = threeMonthsAgoIso();
 
   const rows = await db
     .select({
@@ -67,7 +80,7 @@ async function getFamilyGroups(): Promise<FamilyGroup[]> {
     .leftJoin(householdContacts, eq(householdContacts.id, households.contactPersonId))
     .where(
       and(
-        inArray(activityInstances.categoryId, ["psec", "jysep"]),
+        eq(activityInstances.categoryId, categoryId),
         eq(activityEnrollments.role, "participant"),
         eq(activityEnrollments.active, true),
         eq(people.hidden, false),
@@ -77,6 +90,24 @@ async function getFamilyGroups(): Promise<FamilyGroup[]> {
         // drop every no-household row too, since a plain equality check
         // against a null column never matches.
         or(isNull(households.id), eq(households.hidden, false)),
+        // Actually attended this specific class recently — not just still
+        // enrolled. A separate EXISTS rather than a join, so a person who
+        // attended several times in the window doesn't fan out into
+        // duplicate rows.
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(attendanceRecords)
+            .innerJoin(attendanceEvents, eq(attendanceEvents.id, attendanceRecords.attendanceEventId))
+            .where(
+              and(
+                eq(attendanceRecords.personId, people.id),
+                eq(attendanceEvents.activityInstanceId, activityInstances.id),
+                eq(attendanceRecords.status, "present"),
+                gte(attendanceEvents.sessionDate, cutoff),
+              ),
+            ),
+        ),
       ),
     )
     .orderBy(asc(people.name));
@@ -108,8 +139,8 @@ function csvField(value: string | null): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export async function generateFamilyReportCsv(): Promise<string> {
-  const groups = await getFamilyGroups();
+export async function generateFamilyReportCsv(categoryId: FamilyReportCategory): Promise<string> {
+  const groups = await getFamilyGroups(categoryId);
   const header = ["Suburb", "Household", "Address", "Contact", "Mobile", "Participant", "Class"];
   const lines = [header.join(",")];
   for (const g of groups) {
@@ -153,8 +184,8 @@ function ColumnHeader() {
   );
 }
 
-export async function generateFamilyReportPdf(): Promise<Buffer> {
-  const groups = await getFamilyGroups();
+export async function generateFamilyReportPdf(categoryId: FamilyReportCategory): Promise<Buffer> {
+  const groups = await getFamilyGroups(categoryId);
 
   // Suburb is a section break, not a repeated column — saves a whole
   // column's width, and reads more clearly than the same suburb name
@@ -165,11 +196,15 @@ export async function generateFamilyReportPdf(): Promise<Buffer> {
     bySuburb.get(g.suburb)!.push(g);
   }
 
+  const label = categoryId.toUpperCase();
+
   return renderToBuffer(
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>PSEC / JYSEP Family Report</Text>
-        <Text style={styles.subtitle}>Every household with a participant in a PSEC or JYSEP class, grouped by suburb.</Text>
+        <Text style={styles.title}>{label} Family Report</Text>
+        <Text style={styles.subtitle}>
+          Every household with a {label} participant who&rsquo;s attended in the last 3 months, grouped by suburb.
+        </Text>
         <ColumnHeader />
         <View style={styles.table}>
           {Array.from(bySuburb.entries()).map(([suburb, householdsInSuburb]) => (

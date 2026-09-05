@@ -5,6 +5,19 @@ import { auth } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Family Report" };
 
+const linkStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  minHeight: "var(--tap-min)",
+  background: "var(--card-bg)",
+  borderRadius: "var(--radius-md)",
+  boxShadow: "var(--shadow-card)",
+  padding: "10px var(--space-4)",
+  fontSize: "0.9rem",
+  color: "var(--text)",
+};
+
 export default async function FamilyReportPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.role !== "admin") redirect("/app");
@@ -16,48 +29,27 @@ export default async function FamilyReportPage() {
           Family Report
         </h2>
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: "0 0 var(--space-5)" }}>
-          Every household with a participant in a PSEC or JYSEP class, grouped by suburb — participant names, their
-          class, and the household&rsquo;s address and contact.
+          Households with a participant who&rsquo;s attended in the last 3 months, grouped by suburb — participant
+          names, their class, and the household&rsquo;s address and contact. PSEC and JYSEP are separate downloads.
         </p>
 
-        <div style={{ display: "grid", gap: "var(--space-2)" }}>
-          <a
-            href="/api/admin/family-report-pdf"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              minHeight: "var(--tap-min)",
-              background: "var(--card-bg)",
-              borderRadius: "var(--radius-md)",
-              boxShadow: "var(--shadow-card)",
-              padding: "10px var(--space-4)",
-              fontSize: "0.9rem",
-              color: "var(--text)",
-            }}
-          >
-            <span>PDF (A4, print-ready)</span>
-            <span style={{ fontSize: "0.75rem", color: "var(--heading)" }}>Download</span>
-          </a>
-          <a
-            href="/api/admin/family-report-csv"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              minHeight: "var(--tap-min)",
-              background: "var(--card-bg)",
-              borderRadius: "var(--radius-md)",
-              boxShadow: "var(--shadow-card)",
-              padding: "10px var(--space-4)",
-              fontSize: "0.9rem",
-              color: "var(--text)",
-            }}
-          >
-            <span>CSV (spreadsheet)</span>
-            <span style={{ fontSize: "0.75rem", color: "var(--heading)" }}>Download</span>
-          </a>
-        </div>
+        {(["psec", "jysep"] as const).map((category) => (
+          <div key={category} style={{ marginBottom: "var(--space-5)" }}>
+            <h3 style={{ fontSize: "0.75rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--warm)", marginBottom: 8 }}>
+              {category.toUpperCase()}
+            </h3>
+            <div style={{ display: "grid", gap: "var(--space-2)" }}>
+              <a href={`/api/admin/family-report-pdf?category=${category}`} style={linkStyle}>
+                <span>PDF (A4, print-ready)</span>
+                <span style={{ fontSize: "0.75rem", color: "var(--heading)" }}>Download</span>
+              </a>
+              <a href={`/api/admin/family-report-csv?category=${category}`} style={linkStyle}>
+                <span>CSV (spreadsheet)</span>
+                <span style={{ fontSize: "0.75rem", color: "var(--heading)" }}>Download</span>
+              </a>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
