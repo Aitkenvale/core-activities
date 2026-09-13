@@ -16,11 +16,6 @@ async function requireSession() {
   if (!session?.user?.id) throw new Error("Not signed in");
 }
 
-async function requireAdmin() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (session?.user?.role !== "admin") throw new Error("Admin only");
-}
-
 // Hidden people don't show up here — same convention as every other person
 // search in the app. Matching on household name too (not just the person's
 // own name) means everyone in a matching household shows up, since the
@@ -91,42 +86,42 @@ export async function searchPeopleDirectory(query: string) {
 // The lightweight edit surface reachable from a search result — mobile,
 // household address, and notes are the fields facilitators actually need to
 // fix on the spot (a parent calls in with a new number/address), without
-// sending them to the full admin spreadsheet. Admin-only, matching every
-// other People-data change in the app.
+// sending them to the full admin spreadsheet. Open to any signed-in user,
+// same as the rest of this Edit form.
 export async function updatePersonName(id: string, name: string) {
-  await requireAdmin();
+  await requireSession();
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Name is required");
   await db.update(people).set({ name: trimmed }).where(eq(people.id, id));
 }
 
 export async function updatePersonMobile(id: string, mobile: string) {
-  await requireAdmin();
+  await requireSession();
   await db.update(people).set({ mobile: mobile.trim() || null }).where(eq(people.id, id));
 }
 
 export async function updatePersonPreferredName(id: string, preferredName: string) {
-  await requireAdmin();
+  await requireSession();
   await db.update(people).set({ preferredName: preferredName.trim() || null }).where(eq(people.id, id));
 }
 
 export async function updatePersonRegoYear(id: string, regoYear: number | null) {
-  await requireAdmin();
+  await requireSession();
   await db.update(people).set({ regoYear }).where(eq(people.id, id));
 }
 
 export async function updatePersonDob(id: string, dob: string | null) {
-  await requireAdmin();
+  await requireSession();
   await db.update(people).set({ dob: dob || null }).where(eq(people.id, id));
 }
 
 export async function updatePersonNotes(id: string, comment: string) {
-  await requireAdmin();
+  await requireSession();
   await db.update(people).set({ comment: comment.trim() || null }).where(eq(people.id, id));
 }
 
 export async function updateHouseholdAddress(householdId: string, address: string) {
-  await requireAdmin();
+  await requireSession();
   await db.update(households).set({ address: address.trim() || null }).where(eq(households.id, householdId));
 }
 
@@ -152,7 +147,7 @@ export async function createHousehold(name: string) {
 // edit form — separate from updateHouseholdAddress, which only ever
 // touches the household they're already in.
 export async function assignHousehold(personId: string, householdId: string | null) {
-  await requireAdmin();
+  await requireSession();
   await db.update(people).set({ householdId }).where(eq(people.id, personId));
 }
 
@@ -160,13 +155,13 @@ export async function assignHousehold(personId: string, householdId: string | nu
 // person, when they confirm "yes, make me the contact" — an existing
 // household's contact is changed elsewhere (Edit Households), not from here.
 export async function setHouseholdContact(householdId: string, contactPersonId: string) {
-  await requireAdmin();
+  await requireSession();
   await db.update(households).set({ contactPersonId }).where(eq(households.id, householdId));
 }
 
 // Who's eligible to be a household's contact — 15+ only (CONTACT_INELIGIBLE_CATEGORIES).
 export async function searchPeopleForContact(query: string) {
-  await requireAdmin();
+  await requireSession();
   const q = query.trim();
   if (q.length < 2) return [];
   const rows = await db
@@ -183,7 +178,7 @@ export async function searchPeopleForContact(query: string) {
 // anywhere, just so a household can point its contact at someone who isn't
 // in People yet.
 export async function createContactPerson(name: string) {
-  await requireAdmin();
+  await requireSession();
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Name is required");
   const [created] = await db

@@ -262,25 +262,23 @@ function PersonDetail({
       />
       {result.comment && <DetailRow label="Notes" value={result.comment} />}
       <DetailRow label="Activities" value={result.activities.length ? result.activities.join(", ") : "—"} />
-      {isAdmin && (
-        <button
-          onClick={() => setEditing(true)}
-          style={{
-            justifySelf: "start",
-            marginTop: 4,
-            minHeight: 32,
-            padding: "0 14px",
-            borderRadius: "var(--radius-pill)",
-            border: "1px solid var(--deep)",
-            background: "var(--deep)",
-            color: "var(--cream)",
-            fontSize: "0.75rem",
-            cursor: "pointer",
-          }}
-        >
-          Edit
-        </button>
-      )}
+      <button
+        onClick={() => setEditing(true)}
+        style={{
+          justifySelf: "start",
+          marginTop: 4,
+          minHeight: 32,
+          padding: "0 14px",
+          borderRadius: "var(--radius-pill)",
+          border: "1px solid var(--deep)",
+          background: "var(--deep)",
+          color: "var(--cream)",
+          fontSize: "0.75rem",
+          cursor: "pointer",
+        }}
+      >
+        Edit
+      </button>
     </div>
   );
 }
