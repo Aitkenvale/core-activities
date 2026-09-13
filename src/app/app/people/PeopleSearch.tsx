@@ -23,7 +23,7 @@ import { formatFullName } from "@/lib/formatName";
 import { calculateAge } from "@/lib/category";
 import { MapsLinkButton } from "@/components/MapsLinkButton";
 import { RegoFormUpload } from "@/components/RegoFormUpload";
-import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { CloseButton } from "@/components/CloseButton";
 import { AddPeopleModal } from "./AddPeopleModal";
 
 type Result = {
@@ -546,35 +546,12 @@ function PersonEditForm({
   }
 
   return (
-    <>
-      {/* A real popup (backdrop + centered card), not an inline expansion —
-          tapping the backdrop closes it the same way the "Auto-Save" button
-          does (flush anything still mid-debounce, keep the changes), same
-          pattern as the Attendance Add Info popup. */}
-      <div onClick={handleFinish} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.65)" }} />
-      <div
-        style={{
-          position: "fixed",
-          left: "50%",
-          top: "50%",
-          transform: "translate(-50%, -50%)",
-          zIndex: 91,
-          width: "min(90vw, 380px)",
-          maxHeight: "85vh",
-          overflowY: "auto",
-          background: "var(--card-bg)",
-          borderRadius: "var(--radius-lg)",
-          boxShadow: "var(--shadow-elevated)",
-          padding: "var(--space-5)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <ModalCloseButton onClick={handleFinish} />
-        {/* Same centered-badge-next-to-the-title arrangement as the
-            Attendance Add Info popup, not a separate labeled field further
-            down — the title stays left-aligned, the badge centers in the
-            remaining width. */}
-        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", marginBottom: "var(--space-4)", paddingRight: 28 }}>
+    // Whole-screen now instead of a floating centered card, same as the
+    // Attendance Add Info popup — same header-row shape too (title left, a
+    // centered badge if there's one, then the close X).
+    <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "var(--page-bg)", display: "flex", flexDirection: "column" }}>
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", padding: "16px 5%" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", flex: 1, minWidth: 0 }}>
           <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", flexShrink: 0 }}>
             Edit {formatFullName(result.name, result.preferredName)}
           </h3>
@@ -589,7 +566,9 @@ function PersonEditForm({
             />
           )}
         </div>
-        <div style={{ display: "grid", gap: 6 }}>
+        <CloseButton onClick={handleFinish} />
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 5% var(--space-6)", display: "grid", gap: 6 }}>
       <FieldInput label="Name" value={name} onChange={setName} />
       <FieldInput label="AKA" value={preferredName} onChange={setPreferredName} />
       {isMobileEligible(dob) && <FieldInput label="Mobile" value={mobile} onChange={setMobile} />}
@@ -799,9 +778,8 @@ function PersonEditForm({
       {result.householdId && addingMember && (
         <AddHouseholdMemberForm householdId={result.householdId} onDone={() => setAddingMember(false)} />
       )}
-        </div>
       </div>
-    </>
+    </div>
   );
 }
 

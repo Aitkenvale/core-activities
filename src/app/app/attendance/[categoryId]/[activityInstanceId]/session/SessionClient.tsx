@@ -29,7 +29,7 @@ import { formatFullName } from "@/lib/formatName";
 import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/personCompleteness";
 import { calculateAge } from "@/lib/category";
 import { getRoleLabels } from "@/lib/activityRoleLabels";
-import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { CloseButton } from "@/components/CloseButton";
 import { MapsLinkButton } from "@/components/MapsLinkButton";
 import { PhoneLinkButton } from "@/components/PhoneLinkButton";
 import { RegoFormUpload } from "@/components/RegoFormUpload";
@@ -1196,31 +1196,12 @@ function AddInfoModal({
   }
 
   return (
-    <>
-      {/* Tapping outside closes without discarding — auto-save already ran,
-          so this behaves like the "Auto-Save" button, not Cancel. */}
-      <div onClick={handleFinish} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.65)" }} />
-      <div
-        style={{
-          position: "fixed",
-          left: "50%",
-          top: "50%",
-          transform: "translate(-50%, -50%)",
-          zIndex: 91,
-          width: "min(90vw, 340px)",
-          maxHeight: "85vh",
-          overflowY: "auto",
-          background: "var(--card-bg)",
-          borderRadius: "var(--radius-lg)",
-          boxShadow: "var(--shadow-elevated)",
-          padding: "var(--space-5)",
-        }}
-      >
-        <ModalCloseButton onClick={handleFinish} />
-        {/* A centered badge, not flush right next to the title, now that the
-            X close button occupies the card's actual top-right corner —
-            title stays left-aligned, badge centers in the remaining width. */}
-        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", marginBottom: "var(--space-4)", paddingRight: 28 }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "var(--page-bg)", display: "flex", flexDirection: "column" }}>
+      {/* Same header-row shape as the app's own top-right icons (title left,
+          a centered badge if there's one, then the close X) — whole-screen
+          now instead of a floating centered card. */}
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", padding: "16px 5%" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", flex: 1, minWidth: 0 }}>
           <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", flexShrink: 0 }}>Add Info</h3>
           {isUnder15 && (
             // The linked form is the real signal now that forms actually
@@ -1244,11 +1225,13 @@ function AddInfoModal({
             />
           )}
         </div>
+        <CloseButton onClick={handleFinish} />
+      </div>
 
-        <div style={{ display: "grid", gap: "var(--space-3)" }}>
-          <ModalField label="Name">
-            <input value={name} onChange={(e) => setName(e.target.value)} style={modalInputStyle} />
-          </ModalField>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 5% var(--space-6)", display: "grid", gap: "var(--space-3)" }}>
+        <ModalField label="Name">
+          <input value={name} onChange={(e) => setName(e.target.value)} style={modalInputStyle} />
+        </ModalField>
           <ModalField label="AKA">
             <input value={preferredName} onChange={(e) => setPreferredName(e.target.value)} style={modalInputStyle} />
           </ModalField>
@@ -1406,7 +1389,6 @@ function AddInfoModal({
               {contactMobile.trim() && <PhoneLinkButton mobile={contactMobile.trim()} />}
             </div>
           </ModalField>
-        </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: "var(--space-4)" }}>
           <button
@@ -1426,7 +1408,7 @@ function AddInfoModal({
         </div>
         {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 8 }}>{error}</p>}
       </div>
-    </>
+    </div>
   );
 }
 
