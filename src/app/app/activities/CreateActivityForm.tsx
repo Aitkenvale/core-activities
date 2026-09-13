@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createActivityWithRoster, updateActivityWithRoster, deleteActivity, type ActivityForEdit, type ActivityStatus } from "./actions";
 import { CadenceFields } from "@/components/CadenceFields";
@@ -57,28 +57,33 @@ export type SavedActivitySummary = {
   hidden: boolean;
 };
 
-export function CreateActivityForm({
-  categories,
-  neighbourhoods,
-  mode = "create",
-  initial,
-  onSaved,
-  onCancel,
-  isAdmin = false,
-}: {
-  categories: Category[];
-  neighbourhoods: Neighbourhood[];
-  mode?: "create" | "edit";
-  initial?: ActivityForEdit;
-  // Embeds this form inside a modal (the admin grid's Add/Edit popups)
-  // instead of the standalone page's own success screen + router navigation.
-  onSaved?: (result: SavedActivitySummary) => void;
-  onCancel?: () => void;
-  // The admin grid's own Edit popup passes this — an admin can freely move
-  // status any direction with no lock and no confirmation (editing, not a
-  // one-way decision), unlike a regular user on the standalone page.
-  isAdmin?: boolean;
-}) {
+// Lets an embedding modal (the admin grid's Add/Edit popups) flush this
+// form the same way its own "Auto-Save" button does — used so closing via
+// the X or the backdrop behaves identically to clicking Auto-Save, instead
+// of silently discarding an already-debounced-but-not-yet-flushed change
+// and leaving the grid behind it showing a stale name/etc.
+export type CreateActivityFormHandle = { finish: () => Promise<void> };
+
+export const CreateActivityForm = forwardRef<
+  CreateActivityFormHandle,
+  {
+    categories: Category[];
+    neighbourhoods: Neighbourhood[];
+    mode?: "create" | "edit";
+    initial?: ActivityForEdit;
+    // Embeds this form inside a modal (the admin grid's Add/Edit popups)
+    // instead of the standalone page's own success screen + router navigation.
+    onSaved?: (result: SavedActivitySummary) => void;
+    onCancel?: () => void;
+    // The admin grid's own Edit popup passes this — an admin can freely move
+    // status any direction with no lock and no confirmation (editing, not a
+    // one-way decision), unlike a regular user on the standalone page.
+    isAdmin?: boolean;
+  }
+>(function CreateActivityForm(
+  { categories, neighbourhoods, mode = "create", initial, onSaved, onCancel, isAdmin = false },
+  ref,
+) {
   const router = useRouter();
   const [name, setName] = useState(initial?.name ?? "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? categories[0]?.id ?? "");
@@ -262,6 +267,11 @@ export function CreateActivityForm({
       else router.push("/app/activities");
     }
   }
+
+  // Exposed so an embedding modal's own X/backdrop close can flush this
+  // form exactly like clicking "Auto-Save" — including staying open with
+  // an error shown if validation fails, same as that button.
+  useImperativeHandle(ref, () => ({ finish: handleFinish }), [handleFinish]);
 
   // Cancel undoes whatever auto-save already persisted during this editing
   // session — in edit mode that means writing the original snapshot back;
@@ -470,7 +480,7 @@ export function CreateActivityForm({
       )}
     </div>
   );
-}
+});
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (

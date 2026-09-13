@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { updateActivity, bulkCreateEventsFromCadence } from "./actions";
 import { getActivityForEdit, type ActivityForEdit, type ActivityStatus } from "@/app/app/activities/actions";
-import { CreateActivityForm } from "@/app/app/activities/CreateActivityForm";
+import { CreateActivityForm, type CreateActivityFormHandle } from "@/app/app/activities/CreateActivityForm";
 import { EnrolAttendeesModal } from "@/components/EnrolAttendeesModal";
 import { StatusBadge } from "@/components/StatusPills";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
@@ -89,6 +89,7 @@ export function ActivitiesGrid({
   const [enrolModalFor, setEnrolModalFor] = useState<Row | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
+  const formModalRef = useRef<CreateActivityFormHandle>(null);
 
   function patchLocal(id: string, patch: Partial<Row>) {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -294,8 +295,21 @@ export function ActivitiesGrid({
       </div>
 
       {formModal && (
-        <ModalShell title={formModal.mode === "edit" ? "Edit Activity" : "Add Activity"} onClose={() => setFormModal(null)}>
+        <ModalShell
+          title={formModal.mode === "edit" ? "Edit Activity" : "Add Activity"}
+          // The X and the backdrop both land here — previously this just
+          // discarded the modal outright, which (since CreateActivityForm
+          // debounce-autosaves independently of how the modal closes) could
+          // leave a change already written to the DB with this grid still
+          // showing the old value until a manual page reload. Flushing via
+          // the form's own "Auto-Save" logic first means every way of
+          // closing this modal ends up consistent with what's actually
+          // saved — same as clicking Auto-Save directly, including staying
+          // open with an error shown if validation fails.
+          onClose={() => formModalRef.current?.finish()}
+        >
           <CreateActivityForm
+            ref={formModalRef}
             categories={categories}
             neighbourhoods={neighbourhoods}
             mode={formModal.mode}
