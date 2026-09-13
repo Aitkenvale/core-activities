@@ -127,6 +127,12 @@ export const CreateActivityForm = forwardRef<
     participants: initial?.participants ?? [],
   });
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The debounce effect below runs once on mount too (not just on a real
+  // change) — in edit mode that meant opening the form immediately
+  // re-saved every field unchanged 700ms later, flashing "Saving…" for no
+  // reason. Skips only that first run; any actual edit after mount still
+  // debounces normally.
+  const skippedFirstRunRef = useRef(false);
 
   // Keeps recomputing the note from facilitators until the creator edits
   // it themselves — after that, their wording wins.
@@ -220,6 +226,10 @@ export const CreateActivityForm = forwardRef<
   // already pending so an unrelated field's autosave can't sneak the
   // unconfirmed status through underneath it.
   useEffect(() => {
+    if (!skippedFirstRunRef.current) {
+      skippedFirstRunRef.current = true;
+      return;
+    }
     if (mode === "edit" && !isAdmin && status === "archived" && committedStatusRef.current !== "archived") {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       setShowEndConfirm(true);
