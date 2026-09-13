@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AccountMenu } from "@/components/AccountMenu";
-import { BackButton } from "@/components/BackButton";
+import { BackButton, getParentPath } from "@/components/BackButton";
+import { SearchButton } from "@/components/SearchButton";
+import { CloseButton } from "@/components/CloseButton";
 import { isAdminWidePage } from "@/lib/adminWidePages";
 import { getPageTitle } from "@/lib/pageTitle";
 
@@ -12,8 +14,18 @@ import { getPageTitle } from "@/lib/pageTitle";
 // so it hides itself on those routes only.
 export function AppHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   if (isAdminWidePage(pathname)) return null;
   const title = getPageTitle(pathname);
+
+  // The login icon is only needed on Home — everywhere else its top-right
+  // slot now does something more useful: a Search icon (into People) on
+  // the three list pages, or an explicit Close on a page reached by
+  // drilling in (an Activity/Attendance sub-page, or People itself).
+  const isHome = pathname === "/app";
+  const isListPage = pathname === "/app/attendance" || pathname === "/app/events" || pathname === "/app/activities";
+  const isPeoplePage = pathname === "/app/people";
+  const isActivityOrAttendanceSubpage = (pathname.startsWith("/app/activities") || pathname.startsWith("/app/attendance")) && !isListPage;
 
   return (
     <div
@@ -51,7 +63,10 @@ export function AppHeader() {
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
         {/* SessionClient portals its lock-status pill in here when viewing a session; empty everywhere else. */}
         <div id="lock-status-slot" />
-        <AccountMenu />
+        {(isHome || isListPage) && <SearchButton />}
+        {isHome && <AccountMenu />}
+        {isPeoplePage && <CloseButton onClick={() => router.back()} />}
+        {isActivityOrAttendanceSubpage && <CloseButton onClick={() => router.push(getParentPath(pathname) ?? "/app")} />}
       </div>
     </div>
   );

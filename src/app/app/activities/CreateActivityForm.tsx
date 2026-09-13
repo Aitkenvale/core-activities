@@ -321,30 +321,7 @@ export const CreateActivityForm = forwardRef<
     <div style={{ display: "grid", gap: "var(--space-5)", paddingBottom: "var(--space-6)" }}>
       {mode === "edit" && (
         <section>
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
-            <StatusPills value={status} onChange={setStatus} locked={statusLocked} />
-            {/* Same flush-then-leave logic as the "Auto-Save" button further
-                down — a quicker way back to the list without scrolling past
-                the whole form. */}
-            <button
-              onClick={handleFinish}
-              disabled={saving || cancelling}
-              style={{
-                flexShrink: 0,
-                padding: "6px 16px",
-                borderRadius: "var(--radius-pill)",
-                border: "none",
-                background: "var(--deep)",
-                color: "var(--cream)",
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {saving ? "Saving…" : "Done"}
-            </button>
-          </div>
+          <StatusPills value={status} onChange={setStatus} locked={statusLocked} />
           {statusLocked && (
             <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--muted)" }}>
               This activity has ended — only an admin can reopen it.
