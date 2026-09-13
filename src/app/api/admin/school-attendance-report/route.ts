@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     return new Response(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="School Attendance.xlsx"`,
+        "Content-Disposition": `attachment; filename="Attendance for Schools.xlsx"`,
       },
     });
   } catch (e) {

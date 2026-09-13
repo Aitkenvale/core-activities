@@ -62,7 +62,7 @@ export function SchoolAttendancePicker({ options }: { options: SchoolActivityOpt
     >
       <ModalCloseButton onClick={() => router.push("/app/admin")} />
       <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 4, paddingRight: 28 }}>
-        School Attendance
+        Attendance for Schools
       </h2>
       <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "var(--space-5)" }}>
         Select which PSEC/JYSEP activities to include — generates an Excel file with one row per active participant

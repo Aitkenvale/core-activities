@@ -18,7 +18,7 @@ const SECTIONS = [
     label: "Reports",
     tiles: [
       { href: "/app/admin/attendance-records", label: "Attendance Records" },
-      { href: "/app/admin/school-attendance", label: "School Attendance" },
+      { href: "/app/admin/school-attendance", label: "Attendance for Schools" },
       { href: "/app/admin/family-report", label: "Family Report" },
       { href: "/app/admin/missing-data", label: "Missing Data" },
       { href: "/app/admin/registrations", label: "Registrations" },

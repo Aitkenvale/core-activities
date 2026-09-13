@@ -23,6 +23,7 @@ import { formatFullName } from "@/lib/formatName";
 import { calculateAge } from "@/lib/category";
 import { MapsLinkButton } from "@/components/MapsLinkButton";
 import { RegoFormUpload } from "@/components/RegoFormUpload";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { AddPeopleModal } from "./AddPeopleModal";
 
 type Result = {
@@ -217,7 +218,11 @@ function PersonDetail({
   }, [editing, onCollapse]);
 
   if (editing) {
-    return <PersonEditForm result={result} onChange={onChange} onDone={() => setEditing(false)} />;
+    // Closing the edit popup (Auto-Save, Cancel, X, or tapping the backdrop)
+    // returns all the way to the search results, not back to this expanded
+    // read-only card — same "one clear way out" as the Attendance Add Info
+    // popup, rather than a second collapse step the person then has to find.
+    return <PersonEditForm result={result} onChange={onChange} onDone={onCollapse} />;
   }
 
   return (
@@ -541,22 +546,35 @@ function PersonEditForm({
     onDone();
   }
 
-  const formRef = useRef<HTMLDivElement>(null);
-  // Tapping outside this form closes it the same way the "Auto-Save" button
-  // does — flush anything still mid-debounce, keep the changes — not the
-  // same as Cancel. No dependency array: handleFinish closes over every
-  // field's latest value, so this re-subscribes each render rather than
-  // risk calling a stale closure from the first render.
-  useEffect(() => {
-    function handleOutsideClick(e: MouseEvent) {
-      if (formRef.current && !formRef.current.contains(e.target as Node)) handleFinish();
-    }
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  });
-
   return (
-    <div ref={formRef} style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 6 }}>
+    <>
+      {/* A real popup (backdrop + centered card), not an inline expansion —
+          tapping the backdrop closes it the same way the "Auto-Save" button
+          does (flush anything still mid-debounce, keep the changes), same
+          pattern as the Attendance Add Info popup. */}
+      <div onClick={handleFinish} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.65)" }} />
+      <div
+        style={{
+          position: "fixed",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 91,
+          width: "min(90vw, 380px)",
+          maxHeight: "85vh",
+          overflowY: "auto",
+          background: "var(--card-bg)",
+          borderRadius: "var(--radius-lg)",
+          boxShadow: "var(--shadow-elevated)",
+          padding: "var(--space-5)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <ModalCloseButton onClick={handleFinish} />
+        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-4)", paddingRight: 28 }}>
+          Edit {formatFullName(result.name, result.preferredName)}
+        </h3>
+        <div style={{ display: "grid", gap: 6 }}>
       <FieldInput label="Name" value={name} onChange={setName} />
       <FieldInput label="AKA" value={preferredName} onChange={setPreferredName} />
       <label style={{ display: "grid", gap: 2 }}>
@@ -771,7 +789,9 @@ function PersonEditForm({
       {result.householdId && addingMember && (
         <AddHouseholdMemberForm householdId={result.householdId} onDone={() => setAddingMember(false)} />
       )}
-    </div>
+        </div>
+      </div>
+    </>
   );
 }
 

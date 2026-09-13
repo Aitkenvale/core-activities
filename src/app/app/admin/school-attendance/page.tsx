@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { getSchoolActivityOptions } from "@/lib/reports/schoolAttendanceReport";
 import { SchoolAttendancePicker } from "./SchoolAttendancePicker";
 
-export const metadata: Metadata = { title: "School Attendance" };
+export const metadata: Metadata = { title: "Attendance for Schools" };
 
 export default async function SchoolAttendancePage() {
   const session = await auth.api.getSession({ headers: await headers() });

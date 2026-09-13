@@ -79,7 +79,7 @@ export async function generateSchoolAttendanceReportXlsx(activityIds: string[]):
   const rows = rosters.flat().sort((a, b) => a.className.localeCompare(b.className) || a.participantName.localeCompare(b.participantName));
 
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("School Attendance");
+  const sheet = workbook.addWorksheet("Attendance for Schools");
   sheet.columns = [
     { header: "Participant Name", key: "participantName", width: 28 },
     { header: "Household Name", key: "householdName", width: 28 },
