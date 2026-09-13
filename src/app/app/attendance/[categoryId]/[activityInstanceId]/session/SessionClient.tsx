@@ -443,11 +443,12 @@ function DatePicker({
 
   const pillStyle = {
     flexShrink: 0,
-    minHeight: "var(--tap-min)",
-    padding: "8px 16px",
-    // Flatter than a full stadium pill (was --radius-pill) — still rounded,
-    // just not bulbous.
-    borderRadius: "var(--radius-md)",
+    // 25% shorter than --tap-min (44px) to save vertical space — these
+    // aren't the app's usual tap targets, just a horizontally-scrolling
+    // row of date choices.
+    minHeight: 33,
+    padding: "6px 16px",
+    borderRadius: "var(--radius-pill)",
     fontSize: "0.8rem",
     cursor: "pointer",
     lineHeight: "normal",
