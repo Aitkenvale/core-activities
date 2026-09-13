@@ -899,7 +899,7 @@ function PersonInfoBadge({ person, onSaved, level, isAdmin }: { person: RosterRo
         title={level === "green" ? "Details complete" : level === "yellow" ? "Some details missing" : "No emergency contact on file"}
         style={{ flexShrink: 0, display: "flex", padding: 0, border: "none", background: "none", cursor: "pointer" }}
       >
-        <FaceIcon level={level} />
+        <CompletenessDot level={level} />
       </button>
       {open && <AddInfoModal person={person} onClose={() => setOpen(false)} onSaved={onSaved} isAdmin={isAdmin} />}
     </span>
@@ -907,17 +907,14 @@ function PersonInfoBadge({ person, onSaved, level, isAdmin }: { person: RosterRo
 }
 
 // Green/yellow/red carries the actual meaning (see personCompleteness.ts for
-// what each level requires) — the mouth shape is just a redundant visual
-// cue on top of color, not the primary signal.
-function FaceIcon({ level }: { level: CompletenessLevel }) {
+// what each level requires) — a plain solid dot, not a face. The face was
+// confusing people (its expression reads as a judgment on the person, not
+// a data-completeness status), so color alone is the signal now.
+function CompletenessDot({ level }: { level: CompletenessLevel }) {
   const color = level === "green" ? "var(--green)" : level === "yellow" ? "var(--yellow)" : "var(--red)";
-  const mouthPath = level === "green" ? "M8 14.5 Q12 18 16 14.5" : level === "yellow" ? "M8 15.5 L16 15.5" : "M8 17 Q12 13 16 17";
   return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9.5" />
-      <circle cx="8.5" cy="10" r="1.1" fill={color} stroke="none" />
-      <circle cx="15.5" cy="10" r="1.1" fill={color} stroke="none" />
-      <path d={mouthPath} />
+    <svg width="19" height="19" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9.5" fill={color} />
     </svg>
   );
 }
