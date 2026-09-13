@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { searchOverlay } from "@/components/SearchOverlay";
 
 // Same circular button treatment as AccountMenu — this is what fills the
 // header's top-right slot on Attendance/Events/Activities (and sits to the
@@ -9,6 +12,10 @@ export function SearchButton() {
     <Link
       href="/app/people"
       aria-label="Search People"
+      // Synchronous, right inside this tap's own event handler — see
+      // SearchOverlay for why that's what actually gets iOS to open the
+      // keyboard, not just show the search page.
+      onClick={() => searchOverlay.open()}
       style={{
         flexShrink: 0,
         width: "var(--tap-min)",

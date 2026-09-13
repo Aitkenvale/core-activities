@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import {
   searchPeopleDirectory,
   updatePersonName,
@@ -78,22 +78,17 @@ export const compactInputStyle: React.CSSProperties = {
 // popup, so a field missing there looks the same way here.
 const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)" };
 
-export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
+// Forwards the search input's own ref out to SearchOverlay, which mounts
+// this once (globally, always in the DOM) and calls .focus() on it itself
+// at the moment Search is tapped — synchronously, in the tap's own event
+// handler, which is what actually gets iOS Safari to open the keyboard
+// (a focus() call deferred to a mount effect, as this used to do, is too
+// late for iOS to treat as caused by the tap).
+export const PeopleSearch = forwardRef<HTMLInputElement, { isAdmin: boolean }>(function PeopleSearch({ isAdmin }, ref) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAddPeople, setShowAddPeople] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // autoFocus alone can be unreliable right after a client-side route
-  // transition — focusing imperatively on mount is more consistent. Note
-  // this puts the caret in the box either way, but iOS Safari specifically
-  // still won't slide the on-screen keyboard up on a script-triggered focus
-  // (only a real tap does that) — that part is a platform restriction, not
-  // something fixable from here.
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
 
   async function handleChange(value: string) {
     setQuery(value);
@@ -117,8 +112,7 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
           result, and the edit form — fits one mobile screen. */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: "var(--space-2)" }}>
         <input
-          ref={inputRef}
-          autoFocus
+          ref={ref}
           placeholder="Search by name or household…"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
@@ -194,7 +188,7 @@ export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
       </div>
     </>
   );
-}
+});
 
 function PersonDetail({
   result,
