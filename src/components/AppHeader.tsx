@@ -37,10 +37,16 @@ export function AppHeader() {
             the header's own minHeight/padding is what other pages assume
             is its fixed rendered height (--app-header-height), so this
             can't grow the header even though the text itself now reads
-            bigger. */}
+            bigger. The "Community Education" subtitle is small enough that
+            both lines together still fit inside that same fixed height. */}
         <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.7rem", lineHeight: 1, color: "var(--text)" }}>
           {title}
         </h1>
+        {title === "Aitkenvale" && (
+          <span style={{ display: "block", fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginTop: 2, lineHeight: 1 }}>
+            Community Education
+          </span>
+        )}
       </Link>
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
         {/* SessionClient portals its lock-status pill in here when viewing a session; empty everywhere else. */}

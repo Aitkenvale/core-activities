@@ -209,18 +209,23 @@ export function SessionClient({
     <>
       {pillSlot && createPortal(<LockStatusPill locked={locked} cancelled={cancelled} onToggle={toggleLocked} disabled={!canToggleLock} />, pillSlot)}
 
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-4)" }}>
-        {activityName}
-      </h2>
+      {/* Sticky, right below AppHeader — the roster below scrolls
+          underneath this instead of the title/date pills scrolling away
+          with everything else. */}
+      <div style={{ position: "sticky", top: "var(--app-header-height)", zIndex: 30, background: "var(--page-bg)", paddingTop: "var(--space-2)" }}>
+        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", textAlign: "center", margin: "0 0 var(--space-4)" }}>
+          {activityName}
+        </h2>
 
-      <DatePicker
-        activityInstanceId={activityInstanceId}
-        selectedDate={selectedDate}
-        recentDates={recentDates}
-        heldDates={heldDates}
-        onPick={goToDate}
-        awaitingConfirmation={needsDateConfirmation}
-      />
+        <DatePicker
+          activityInstanceId={activityInstanceId}
+          selectedDate={selectedDate}
+          recentDates={recentDates}
+          heldDates={heldDates}
+          onPick={goToDate}
+          awaitingConfirmation={needsDateConfirmation}
+        />
+      </div>
 
       {needsDateConfirmation ? (
         <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
@@ -440,7 +445,9 @@ function DatePicker({
     flexShrink: 0,
     minHeight: "var(--tap-min)",
     padding: "8px 16px",
-    borderRadius: "var(--radius-pill)",
+    // Flatter than a full stadium pill (was --radius-pill) — still rounded,
+    // just not bulbous.
+    borderRadius: "var(--radius-md)",
     fontSize: "0.8rem",
     cursor: "pointer",
     lineHeight: "normal",
