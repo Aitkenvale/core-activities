@@ -23,6 +23,7 @@ import {
   updatePersonInfo,
   createEventDate,
   changeEnrollmentRole,
+  uploadRegoForm,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
 import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/personCompleteness";
@@ -31,6 +32,7 @@ import { getRoleLabels } from "@/lib/activityRoleLabels";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { MapsLinkButton } from "@/components/MapsLinkButton";
 import { PhoneLinkButton } from "@/components/PhoneLinkButton";
+import { RegoFormUpload } from "@/components/RegoFormUpload";
 
 type RosterRow = {
   personId: string;
@@ -943,6 +945,7 @@ function AddInfoModal({
   // Unknown DOB defaults to the stricter under-15 bracket, same reasoning
   // as the face-icon completeness level.
   const isUnder15 = age === null || age < 15;
+  const [regoFormUrl, setRegoFormUrl] = useState(person.regoFormUrl);
   const [householdId, setHouseholdId] = useState(person.householdId);
   const [householdQuery, setHouseholdQuery] = useState(person.householdName ?? "");
   const [householdResults, setHouseholdResults] = useState<
@@ -1215,30 +1218,25 @@ function AddInfoModal({
         <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", marginBottom: "var(--space-4)", paddingRight: 28 }}>
           <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", flexShrink: 0 }}>Add Info</h3>
           {isUnder15 && (
-            <span style={{ flex: 1, textAlign: "center", fontSize: "0.8rem", color: "var(--yellow)", whiteSpace: "nowrap" }}>
-              {/* The linked form is the real signal now that forms actually
-                  get scanned/linked — a recorded rego year is only shown as
-                  a fallback when no form is linked yet, not the other way
-                  around (see personCompleteness.ts). */}
-              {person.regoFormUrl ? (
-                isAdmin ? (
-                  <a
-                    href={`/api/admin/rego-form?url=${encodeURIComponent(person.regoFormUrl)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "var(--yellow)", textDecoration: "underline" }}
-                  >
-                    Registration Form on File
-                  </a>
-                ) : (
-                  "Registration Form on File"
-                )
-              ) : person.regoYear ? (
-                `Registration: ${person.regoYear}`
-              ) : (
-                "No Registration Form"
-              )}
-            </span>
+            // The linked form is the real signal now that forms actually
+            // get scanned/linked — a recorded rego year is only shown as a
+            // fallback when no form is linked yet, not the other way around
+            // (see personCompleteness.ts). "Add Registration Form" opens a
+            // mobile-friendly photo/file picker (see RegoFormUpload) rather
+            // than just naming the gap.
+            <RegoFormUpload
+              regoFormUrl={regoFormUrl}
+              regoYearFallback={person.regoYear}
+              isAdmin={isAdmin}
+              uploadAction={(formData) => uploadRegoForm(person.personId, formData)}
+              onUploaded={(url) => {
+                setRegoFormUrl(url);
+                onSaved();
+              }}
+              linkedLabel="Registration Form on File"
+              addLabel="Add Registration Form"
+              style={{ flex: 1, textAlign: "center", fontSize: "0.8rem", color: "var(--yellow)", whiteSpace: "nowrap" }}
+            />
           )}
         </div>
 

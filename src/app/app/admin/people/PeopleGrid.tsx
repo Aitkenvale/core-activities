@@ -11,11 +11,13 @@ import {
   saveHouseholdContact,
   createPerson,
   deletePerson,
+  uploadRegoForm,
   type PersonPatch,
 } from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS, formatCategoryLabel } from "@/lib/category";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { PersonMergeDialog } from "./PersonMergeDialog";
+import { RegoFormUpload } from "@/components/RegoFormUpload";
 
 // Infants can't be enrolled in anything — the Participants filter only ever
 // needs Young Child through Adult.
@@ -457,16 +459,7 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                   onEdit={() => setEditing({ id: r.id, field: "mobile" })}
                   onDone={() => setEditing(null)}
                 />
-                <RegoFormCell
-                  value={r.regoFormUrl}
-                  onSave={(v) => {
-                    patchLocal(r.id, { regoFormUrl: v.trim() || null });
-                    save(r.id, { regoFormUrl: v.trim() || null });
-                  }}
-                  editing={editing?.id === r.id && editing.field === "regoFormUrl"}
-                  onEdit={() => setEditing({ id: r.id, field: "regoFormUrl" })}
-                  onDone={() => setEditing(null)}
-                />
+                <RegoFormCell personId={r.id} value={r.regoFormUrl} onUploaded={(url) => patchLocal(r.id, { regoFormUrl: url })} />
                 <td style={{ ...cellStyle, textAlign: "center" }}>
                   <input
                     type="checkbox"
@@ -712,65 +705,20 @@ function TextCell({
   );
 }
 
-// "Link" (paste a URL to the person's scanned registration form) when
-// nothing's set, "View" (opens it in a new tab) once it is — a plain URL
-// field rather than a real upload for now, so a form hosted anywhere
-// (Vercel Blob, a shared drive, wherever) can be linked the same way.
-function RegoFormCell({ value, onSave, editing, onEdit, onDone }: { value: string | null; onSave: (v: string) => void; editing: boolean; onEdit: () => void; onDone: () => void }) {
-  const [draft, setDraft] = useState(value || "");
-
-  if (editing) {
-    function commit() {
-      onSave(draft);
-      onDone();
-    }
-    return (
-      <td style={cellStyle}>
-        <input
-          autoFocus
-          type="url"
-          placeholder="Paste form URL…"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") onDone();
-          }}
-          style={inputStyle}
-        />
-      </td>
-    );
-  }
-
+// A real file upload — clicking "Link" opens the browser's native file
+// picker and uploads straight to Blob, rather than pasting a URL by hand.
+function RegoFormCell({ personId, value, onUploaded }: { personId: string; value: string | null; onUploaded: (url: string) => void }) {
   return (
     <td style={cellStyle}>
-      {value ? (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          {/* Routed through our own proxy, not the raw blob URL — the store
-              is private (requires a token to read), so the API route below
-              streams the file back after checking for an admin session. */}
-          <a
-            href={`/api/admin/rego-form?url=${encodeURIComponent(value)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: "var(--heading)", textDecoration: "underline" }}
-          >
-            View
-          </a>
-          <button
-            onClick={onEdit}
-            title="Change link"
-            style={{ ...iconButtonStyle, color: "var(--muted)" }}
-          >
-            <PencilIcon />
-          </button>
-        </span>
-      ) : (
-        <button onClick={onEdit} style={{ background: "none", border: "none", padding: 0, color: "var(--heading)", textDecoration: "underline", fontSize: "0.85rem", cursor: "pointer" }}>
-          Link
-        </button>
-      )}
+      <RegoFormUpload
+        regoFormUrl={value}
+        isAdmin
+        uploadAction={(formData) => uploadRegoForm(personId, formData)}
+        onUploaded={onUploaded}
+        addLabel="Link"
+        linkedLabel="View"
+        style={{ fontSize: "0.85rem", color: "var(--heading)" }}
+      />
     </td>
   );
 }
@@ -782,15 +730,6 @@ function TrashIcon() {
       <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
       <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
       <path d="M10 11v6M14 11v6" />
-    </svg>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
 }

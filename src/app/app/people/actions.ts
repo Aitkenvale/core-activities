@@ -10,6 +10,7 @@ import { households } from "@/db/schema/households";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { activityInstances } from "@/db/schema/activityInstances";
 import { getCategoryLabel, CONTACT_INELIGIBLE_CATEGORIES } from "@/lib/category";
+import { uploadPersonRegoForm } from "@/lib/blobUpload";
 
 async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -105,11 +106,6 @@ export async function updatePersonPreferredName(id: string, preferredName: strin
   await db.update(people).set({ preferredName: preferredName.trim() || null }).where(eq(people.id, id));
 }
 
-export async function updatePersonRegoYear(id: string, regoYear: number | null) {
-  await requireSession();
-  await db.update(people).set({ regoYear }).where(eq(people.id, id));
-}
-
 export async function updatePersonDob(id: string, dob: string | null) {
   await requireSession();
   await db.update(people).set({ dob: dob || null }).where(eq(people.id, id));
@@ -123,6 +119,15 @@ export async function updatePersonNotes(id: string, comment: string) {
 export async function updateHouseholdAddress(householdId: string, address: string) {
   await requireSession();
   await db.update(households).set({ address: address.trim() || null }).where(eq(households.id, householdId));
+}
+
+// Open to any signed-in user — this is the mobile "take a photo or pick a
+// form" picker on the general People Edit form (see RegoFormUpload).
+export async function uploadRegoForm(personId: string, formData: FormData) {
+  await requireSession();
+  const file = formData.get("file");
+  if (!(file instanceof File)) throw new Error("No file was selected.");
+  return uploadPersonRegoForm(personId, file);
 }
 
 // Available to any signed-in user, not just admins — finding/creating a

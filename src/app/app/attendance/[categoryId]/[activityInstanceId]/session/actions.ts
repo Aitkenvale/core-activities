@@ -13,6 +13,7 @@ import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { getEditWindowMonths } from "@/lib/settings";
 import { getCategoryLabel, CONTACT_INELIGIBLE_CATEGORIES } from "@/lib/category";
+import { uploadPersonRegoForm } from "@/lib/blobUpload";
 
 async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -260,6 +261,17 @@ export async function updatePersonInfo(
     patch = { ...patch, name: trimmed };
   }
   await db.update(people).set(patch).where(eq(people.id, personId));
+}
+
+// "Add Registration Form" in the Add Info modal — a mobile-friendly photo
+// (or existing file) picker, same underlying upload as the general People
+// Edit form and Admin People's grid (see RegoFormUpload). Not admin-only,
+// same reasoning as updatePersonInfo above.
+export async function uploadRegoForm(personId: string, formData: FormData) {
+  await requireUserId();
+  const file = formData.get("file");
+  if (!(file instanceof File)) throw new Error("No file was selected.");
+  return uploadPersonRegoForm(personId, file);
 }
 
 export async function enrollExistingPerson(activityInstanceId: string, personId: string, role: "participant" | "facilitator" | "assistant") {

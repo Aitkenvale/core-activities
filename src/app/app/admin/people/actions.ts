@@ -10,6 +10,7 @@ import { households } from "@/db/schema/households";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { getCategoryLabel, CONTACT_INELIGIBLE_CATEGORIES } from "@/lib/category";
+import { uploadPersonRegoForm } from "@/lib/blobUpload";
 
 async function requireAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -154,6 +155,17 @@ export async function searchHouseholds(query: string) {
   const q = query.trim();
   if (!q) return db.select({ id: households.id, name: households.name }).from(households).limit(10);
   return db.select({ id: households.id, name: households.name }).from(households).where(ilike(households.name, `%${q}%`)).limit(10);
+}
+
+// A real file upload (not a paste-a-URL field) — the Rego column's "Link"
+// opens the browser's native file picker, uploads straight to Blob, and
+// links it, same as the general People Edit form and the Attendance Add
+// Info modal (see RegoFormUpload).
+export async function uploadRegoForm(personId: string, formData: FormData) {
+  await requireAdmin();
+  const file = formData.get("file");
+  if (!(file instanceof File)) throw new Error("No file was selected.");
+  return uploadPersonRegoForm(personId, file);
 }
 
 export async function createHousehold(name: string) {

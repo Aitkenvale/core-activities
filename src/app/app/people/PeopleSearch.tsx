@@ -6,7 +6,6 @@ import {
   updatePersonName,
   updatePersonPreferredName,
   updatePersonMobile,
-  updatePersonRegoYear,
   updatePersonDob,
   updatePersonNotes,
   updateHouseholdAddress,
@@ -18,10 +17,12 @@ import {
   searchPeopleForContact,
   createContactPerson,
   saveHouseholdContact,
+  uploadRegoForm,
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
 import { calculateAge } from "@/lib/category";
 import { MapsLinkButton } from "@/components/MapsLinkButton";
+import { RegoFormUpload } from "@/components/RegoFormUpload";
 import { AddPeopleModal } from "./AddPeopleModal";
 
 type Result = {
@@ -296,7 +297,7 @@ function PersonEditForm({
   const [preferredName, setPreferredName] = useState(result.preferredName ?? "");
   const [mobile, setMobile] = useState(result.mobile ?? "");
   const [dob, setDob] = useState(result.dob ?? "");
-  const [regoYear, setRegoYear] = useState(result.regoYear !== null ? String(result.regoYear) : "");
+  const [regoFormUrl, setRegoFormUrl] = useState(result.regoFormUrl);
   const [householdId, setHouseholdId] = useState(result.householdId);
   const [householdQuery, setHouseholdQuery] = useState(result.householdName ?? "");
   const [householdResults, setHouseholdResults] = useState<{ id: string; name: string }[]>([]);
@@ -447,8 +448,6 @@ function PersonEditForm({
     if (preferredName !== (originalRef.current.preferredName ?? "")) tasks.push(updatePersonPreferredName(result.id, preferredName));
     if (mobile !== (originalRef.current.mobile ?? "")) tasks.push(updatePersonMobile(result.id, mobile));
     if (dob !== (originalRef.current.dob ?? "")) tasks.push(updatePersonDob(result.id, dob || null));
-    const regoYearNum = regoYear.trim() ? parseInt(regoYear, 10) : null;
-    if (regoYearNum !== originalRef.current.regoYear) tasks.push(updatePersonRegoYear(result.id, regoYearNum));
     if (householdId !== originalRef.current.householdId) tasks.push(assignHousehold(result.id, householdId));
     const onOriginalHousehold = householdId === originalRef.current.householdId;
     const addressBaseline = onOriginalHousehold ? (originalRef.current.householdAddress ?? "") : householdBaselineRef.current.address;
@@ -470,7 +469,7 @@ function PersonEditForm({
         preferredName: preferredName.trim() || null,
         mobile: mobile.trim() || null,
         dob: dob || null,
-        regoYear: regoYearNum,
+        regoFormUrl,
         householdId,
         householdName: householdId ? householdQuery : null,
         householdAddress: householdId ? address.trim() || null : null,
@@ -495,7 +494,7 @@ function PersonEditForm({
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, preferredName, mobile, dob, regoYear, householdId, address, contactPersonId, contactMobile, notes]);
+  }, [name, preferredName, mobile, dob, householdId, address, contactPersonId, contactMobile, notes]);
 
   // The relabeled former Save button — auto-save already did the work, this
   // just flushes anything still mid-debounce and closes.
@@ -519,7 +518,6 @@ function PersonEditForm({
         updatePersonPreferredName(result.id, originalRef.current.preferredName ?? ""),
         updatePersonMobile(result.id, originalRef.current.mobile ?? ""),
         updatePersonDob(result.id, originalRef.current.dob),
-        updatePersonRegoYear(result.id, originalRef.current.regoYear),
         assignHousehold(result.id, originalRef.current.householdId),
         updatePersonNotes(result.id, originalRef.current.comment ?? ""),
       ];
@@ -569,13 +567,13 @@ function PersonEditForm({
       {isRegoEligible(dob) && (
         <label style={{ display: "grid", gap: 2 }}>
           <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Rego</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={regoYear}
-            onChange={(e) => setRegoYear(e.target.value.replace(/\D/g, ""))}
-            style={compactInputStyle}
+          <RegoFormUpload
+            regoFormUrl={regoFormUrl}
+            regoYearFallback={result.regoYear}
+            isAdmin={false}
+            uploadAction={(formData) => uploadRegoForm(result.id, formData)}
+            onUploaded={setRegoFormUrl}
+            style={{ fontSize: "0.9rem", color: "var(--text)" }}
           />
         </label>
       )}
