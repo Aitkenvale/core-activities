@@ -56,7 +56,7 @@ function missingFieldsFor(row: {
 // Current participants (active roster entry, on an active/non-hidden
 // activity) who've actually attended that specific activity at least twice
 // in the last 4 weeks — same "actually attended, not just enrolled"
-// reasoning as the Family Report, just a shorter window and a >=2 count
+// reasoning as the Family Visit Planner, just a shorter window and a >=2 count
 // instead of >=1. Every category is included (not just PSEC/JYSEP), grouped
 // by category then activity, and only people missing at least one of the 5
 // essential fields are kept. Under-4s are excluded entirely (see the age
@@ -67,7 +67,7 @@ async function getMissingDataGroups(): Promise<CategoryGroup[]> {
 
   // A scalar subquery (not exists()) since this needs an actual count
   // threshold (>=2), not just "attended at all" — same tables/columns as
-  // the Family Report's exists() check, just counted instead.
+  // the Family Visit Planner's exists() check, just counted instead.
   const attendedTwicePlus = sql`(
     select count(*) from ${attendanceRecords}
     inner join ${attendanceEvents} on ${attendanceEvents.id} = ${attendanceRecords.attendanceEventId}

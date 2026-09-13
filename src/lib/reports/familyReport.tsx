@@ -201,7 +201,7 @@ export async function generateFamilyReportPdf(categoryId: FamilyReportCategory):
   return renderToBuffer(
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>{label} Family Report</Text>
+        <Text style={styles.title}>{label} Family Visit Planner</Text>
         <Text style={styles.subtitle}>
           Every household with a {label} participant who&rsquo;s attended in the last 3 months, grouped by suburb.
         </Text>

@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "Family Report" };
+export const metadata: Metadata = { title: "Family Visit Planner" };
 
 const linkStyle = {
   display: "flex",
@@ -26,7 +26,7 @@ export default async function FamilyReportPage() {
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
       <div style={{ maxWidth: 640, padding: "0 9px" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-3)" }}>
-          Family Report
+          Family Visit Planner
         </h2>
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: "0 0 var(--space-5)" }}>
           Households with a participant who&rsquo;s attended in the last 3 months, grouped by suburb — participant

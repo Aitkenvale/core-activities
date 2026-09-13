@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     return new Response(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${category.toUpperCase()} Family Report.pdf"`,
+        "Content-Disposition": `attachment; filename="${category.toUpperCase()} Family Visit Planner.pdf"`,
       },
     });
   } catch (e) {

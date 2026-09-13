@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     return new Response(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${category.toUpperCase()} Family Report.csv"`,
+        "Content-Disposition": `attachment; filename="${category.toUpperCase()} Family Visit Planner.csv"`,
       },
     });
   } catch (e) {
