@@ -73,6 +73,11 @@ export const compactInputStyle: React.CSSProperties = {
   color: "var(--text)",
 };
 
+// Flags a field that's part of isPersonInfoComplete-equivalent essentials
+// and still empty — same red-border treatment as the Attendance Add Info
+// popup, so a field missing there looks the same way here.
+const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)" };
+
 export function PeopleSearch({ isAdmin }: { isAdmin: boolean }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
@@ -571,37 +576,48 @@ function PersonEditForm({
         onClick={(e) => e.stopPropagation()}
       >
         <ModalCloseButton onClick={handleFinish} />
-        <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", marginBottom: "var(--space-4)", paddingRight: 28 }}>
-          Edit {formatFullName(result.name, result.preferredName)}
-        </h3>
+        {/* Same centered-badge-next-to-the-title arrangement as the
+            Attendance Add Info popup, not a separate labeled field further
+            down — the title stays left-aligned, the badge centers in the
+            remaining width. */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", marginBottom: "var(--space-4)", paddingRight: 28 }}>
+          <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", flexShrink: 0 }}>
+            Edit {formatFullName(result.name, result.preferredName)}
+          </h3>
+          {isRegoEligible(dob) && (
+            <RegoFormUpload
+              regoFormUrl={regoFormUrl}
+              regoYearFallback={result.regoYear}
+              isAdmin={false}
+              uploadAction={(formData) => uploadRegoForm(result.id, formData)}
+              onUploaded={setRegoFormUrl}
+              style={{ flex: 1, textAlign: "center", fontSize: "0.8rem", color: "var(--yellow)", whiteSpace: "nowrap" }}
+            />
+          )}
+        </div>
         <div style={{ display: "grid", gap: 6 }}>
       <FieldInput label="Name" value={name} onChange={setName} />
       <FieldInput label="AKA" value={preferredName} onChange={setPreferredName} />
+      {isMobileEligible(dob) && <FieldInput label="Mobile" value={mobile} onChange={setMobile} />}
       <label style={{ display: "grid", gap: 2 }}>
         <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>DOB</span>
-        <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={{ ...compactInputStyle, textAlign: "left", minWidth: 0 }} />
+        <input
+          type="date"
+          value={dob}
+          onChange={(e) => setDob(e.target.value)}
+          style={{ ...compactInputStyle, textAlign: "left", minWidth: 0, ...(!dob ? missingBorderStyle : {}) }}
+        />
       </label>
-      {isMobileEligible(dob) && <FieldInput label="Mobile" value={mobile} onChange={setMobile} />}
-      {isRegoEligible(dob) && (
-        <label style={{ display: "grid", gap: 2 }}>
-          <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Rego</span>
-          <RegoFormUpload
-            regoFormUrl={regoFormUrl}
-            regoYearFallback={result.regoYear}
-            isAdmin={false}
-            uploadAction={(formData) => uploadRegoForm(result.id, formData)}
-            onUploaded={setRegoFormUrl}
-            style={{ fontSize: "0.9rem", color: "var(--text)" }}
-          />
-        </label>
-      )}
+      {/* Single divider — Personal info above, Household info below, same
+          as the Attendance Add Info popup. */}
+      <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: 0, width: "100%" }} />
       <label style={{ display: "grid", gap: 2 }}>
         <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Household</span>
         <input
           placeholder="Search household…"
           value={householdQuery}
           onChange={(e) => handleHouseholdSearch(e.target.value)}
-          style={compactInputStyle}
+          style={{ ...compactInputStyle, ...(!householdId ? missingBorderStyle : {}) }}
         />
         {householdQuery.trim() && householdId === null && (
           <button
@@ -685,7 +701,7 @@ function PersonEditForm({
             placeholder="Search person…"
             value={contactQuery}
             onChange={(e) => handleContactSearch(e.target.value)}
-            style={compactInputStyle}
+            style={{ ...compactInputStyle, ...(!contactPersonId ? missingBorderStyle : {}) }}
           />
           {contactQuery.trim() && contactPersonId === null && (
             <button
@@ -737,7 +753,7 @@ function PersonEditForm({
           )}
         </label>
       )}
-      {householdId && <FieldInput label="Contact's Mobile" value={contactMobile} onChange={setContactMobile} />}
+      {householdId && <FieldInput label="Contact's Mobile" value={contactMobile} onChange={setContactMobile} missing={!contactMobile} />}
       <FieldInput label="Notes" value={notes} onChange={setNotes} />
 
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -867,11 +883,24 @@ function AddHouseholdMemberForm({ householdId, onDone }: { householdId: string; 
   );
 }
 
-export function FieldInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+export function FieldInput({
+  label,
+  value,
+  onChange,
+  missing = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  // Same red-border-when-empty treatment as the Attendance Add Info popup's
+  // essential fields — off by default so existing callers (AddPeopleModal,
+  // AddHouseholdMemberForm) are unaffected.
+  missing?: boolean;
+}) {
   return (
     <label style={{ display: "grid", gap: 2 }}>
       <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} style={compactInputStyle} />
+      <input value={value} onChange={(e) => onChange(e.target.value)} style={{ ...compactInputStyle, ...(missing ? missingBorderStyle : {}) }} />
     </label>
   );
 }
