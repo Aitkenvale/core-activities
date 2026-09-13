@@ -9,6 +9,7 @@ import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { people } from "@/db/schema/people";
 import { households } from "@/db/schema/households";
+import { calculateAge } from "@/lib/category";
 
 type PersonRow = {
   personName: string;
@@ -58,7 +59,8 @@ function missingFieldsFor(row: {
 // reasoning as the Family Report, just a shorter window and a >=2 count
 // instead of >=1. Every category is included (not just PSEC/JYSEP), grouped
 // by category then activity, and only people missing at least one of the 5
-// essential fields are kept.
+// essential fields are kept. Under-4s are excluded entirely (see the age
+// check in the loop below).
 async function getMissingDataGroups(): Promise<CategoryGroup[]> {
   const householdContacts = alias(people, "household_contacts");
   const cutoff = fourWeeksAgoIso();
@@ -81,6 +83,7 @@ async function getMissingDataGroups(): Promise<CategoryGroup[]> {
       categorySortOrder: activityCategories.sortOrder,
       activityName: activityInstances.name,
       personName: people.name,
+      dob: people.dob,
       regoYear: people.regoYear,
       regoFormUrl: people.regoFormUrl,
       householdId: people.householdId,
@@ -107,6 +110,12 @@ async function getMissingDataGroups(): Promise<CategoryGroup[]> {
 
   const categories = new Map<string, CategoryGroup>();
   for (const r of rows) {
+    // Too young for this report's essential-info checks to be meaningful
+    // yet (rego/household paperwork for a toddler isn't the same urgency as
+    // for an enrolled program participant) — an unknown DOB isn't excluded,
+    // since we can't confirm they're actually under 4.
+    if (r.dob && calculateAge(r.dob) < 4) continue;
+
     const missing = missingFieldsFor({ ...r, name: r.personName });
     if (missing.length === 0) continue;
 
@@ -145,8 +154,9 @@ export async function generateMissingDataReportPdf(): Promise<Buffer> {
       <Page size="A4" style={styles.page}>
         <Text style={styles.title}>Missing Data Report</Text>
         <Text style={styles.subtitle}>
-          Current participants who&rsquo;ve attended twice or more in the last 4 weeks, grouped by activity, with any
-          missing essential information (surname, rego, household, household contact, household contact mobile).
+          Current participants aged 4+ who&rsquo;ve attended twice or more in the last 4 weeks, grouped by activity,
+          with any missing essential information (surname, rego, household, household contact, household contact
+          mobile).
         </Text>
         {totalPeople === 0 && <Text style={styles.empty}>Nothing missing — every recently-active participant is fully on file.</Text>}
         {groups.map((category) => (

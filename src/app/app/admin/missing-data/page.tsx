@@ -29,8 +29,9 @@ export default async function MissingDataPage() {
           Missing Data
         </h2>
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: "0 0 var(--space-5)" }}>
-          Current participants who&rsquo;ve attended twice or more in the last 4 weeks, grouped by activity, with any
-          missing essential information — surname, rego, household, household contact, household contact mobile.
+          Current participants aged 4+ who&rsquo;ve attended twice or more in the last 4 weeks, grouped by activity,
+          with any missing essential information — surname, rego, household, household contact, household contact
+          mobile.
         </p>
 
         <a href="/api/admin/missing-data-report" style={linkStyle}>
