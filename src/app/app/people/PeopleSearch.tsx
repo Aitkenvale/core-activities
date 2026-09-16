@@ -23,6 +23,8 @@ import { formatFullName } from "@/lib/formatName";
 import { calculateAge } from "@/lib/category";
 import { RegoFormUpload } from "@/components/RegoFormUpload";
 import { CloseButton } from "@/components/CloseButton";
+import { MapsLinkButton } from "@/components/MapsLinkButton";
+import { PhoneLinkButton } from "@/components/PhoneLinkButton";
 import { AddPeopleModal } from "./AddPeopleModal";
 
 type Result = {
@@ -480,7 +482,14 @@ function PersonEditForm({
       <div style={{ flex: 1, overflowY: "auto", padding: "0 5% var(--space-6)", display: "grid", gap: 6 }}>
       <FieldInput label="Name" value={name} onChange={setName} />
       <FieldInput label="AKA" value={preferredName} onChange={setPreferredName} />
-      {isMobileEligible(dob) && <FieldInput label="Mobile" value={mobile} onChange={setMobile} />}
+      {isMobileEligible(dob) && (
+        <FieldInput
+          label="Mobile"
+          value={mobile}
+          onChange={setMobile}
+          action={mobile.trim() && <PhoneLinkButton mobile={mobile.trim()} />}
+        />
+      )}
       <label style={{ display: "grid", gap: 2 }}>
         <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>DOB</span>
         <input
@@ -572,7 +581,12 @@ function PersonEditForm({
         </div>
       )}
       {householdId ? (
-        <FieldInput label="Address" value={address} onChange={setAddress} />
+        <FieldInput
+          label="Address"
+          value={address}
+          onChange={setAddress}
+          action={address.trim() && <MapsLinkButton address={address.trim()} />}
+        />
       ) : (
         <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: 0 }}>No household on file — address can&rsquo;t be set.</p>
       )}
@@ -635,7 +649,15 @@ function PersonEditForm({
           )}
         </label>
       )}
-      {householdId && <FieldInput label="Contact's Mobile" value={contactMobile} onChange={setContactMobile} missing={!contactMobile} />}
+      {householdId && (
+        <FieldInput
+          label="Contact's Mobile"
+          value={contactMobile}
+          onChange={setContactMobile}
+          missing={!contactMobile}
+          action={contactMobile.trim() && <PhoneLinkButton mobile={contactMobile.trim()} />}
+        />
+      )}
       <FieldInput label="Notes" value={notes} onChange={setNotes} />
 
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -769,6 +791,7 @@ export function FieldInput({
   value,
   onChange,
   missing = false,
+  action,
 }: {
   label: string;
   value: string;
@@ -777,11 +800,21 @@ export function FieldInput({
   // essential fields — off by default so existing callers (AddPeopleModal,
   // AddHouseholdMemberForm) are unaffected.
   missing?: boolean;
+  // A trailing icon button (call/maps) — same "only when there's a real
+  // value to act on" convention as the Attendance Add Info popup.
+  action?: React.ReactNode;
 }) {
   return (
     <label style={{ display: "grid", gap: 2 }}>
       <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} style={{ ...compactInputStyle, ...(missing ? missingBorderStyle : {}) }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ ...compactInputStyle, flex: 1, minWidth: 0, ...(missing ? missingBorderStyle : {}) }}
+        />
+        {action}
+      </div>
     </label>
   );
 }
