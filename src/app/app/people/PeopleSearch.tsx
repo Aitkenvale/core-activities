@@ -445,23 +445,37 @@ function PersonEditForm({
     // Attendance Add Info popup — same header-row shape too (title left, a
     // centered badge if there's one, then the close X).
     <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "var(--page-bg)", display: "flex", flexDirection: "column" }}>
-      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", padding: "16px 5%" }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", flex: 1, minWidth: 0 }}>
-          <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", flexShrink: 0 }}>
+      <div style={{ flexShrink: 0, padding: "16px 5%" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)" }}>
+          <h3
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: "1.1rem",
+              color: "var(--heading)",
+              flex: 1,
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             Edit {formatFullName(result.name, result.preferredName)}
           </h3>
-          {isRegoEligible(dob) && (
-            <RegoFormUpload
-              regoFormUrl={regoFormUrl}
-              regoYearFallback={result.regoYear}
-              isAdmin={false}
-              uploadAction={(formData) => uploadRegoForm(result.id, formData)}
-              onUploaded={setRegoFormUrl}
-              style={{ flex: 1, textAlign: "center", fontSize: "0.8rem", color: "var(--yellow)", whiteSpace: "nowrap" }}
-            />
-          )}
+          <CloseButton onClick={handleFinish} />
         </div>
-        <CloseButton onClick={handleFinish} />
+        {/* Its own line, left-aligned — sharing the title's row left it
+            fighting the close button for space and getting clipped behind
+            it once the name ran long. */}
+        {isRegoEligible(dob) && (
+          <RegoFormUpload
+            regoFormUrl={regoFormUrl}
+            regoYearFallback={result.regoYear}
+            isAdmin={false}
+            uploadAction={(formData) => uploadRegoForm(result.id, formData)}
+            onUploaded={setRegoFormUrl}
+            style={{ display: "block", marginTop: 6, fontSize: "0.8rem", color: "var(--yellow)" }}
+          />
+        )}
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "0 5% var(--space-6)", display: "grid", gap: 6 }}>
       <FieldInput label="Name" value={name} onChange={setName} />

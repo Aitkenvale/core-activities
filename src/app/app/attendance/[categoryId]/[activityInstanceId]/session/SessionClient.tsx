@@ -1197,35 +1197,36 @@ function AddInfoModal({
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "var(--page-bg)", display: "flex", flexDirection: "column" }}>
-      {/* Same header-row shape as the app's own top-right icons (title left,
-          a centered badge if there's one, then the close X) — whole-screen
-          now instead of a floating centered card. */}
-      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", padding: "16px 5%" }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", flex: 1, minWidth: 0 }}>
+      {/* Whole-screen, not a floating centered card. Title + close X share
+          the top row; the rego badge gets its own left-aligned line below
+          — sharing the title's row left it fighting the close button for
+          space and getting clipped behind it once its text ran long. */}
+      <div style={{ flexShrink: 0, padding: "16px 5%" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)" }}>
           <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)", flexShrink: 0 }}>Add Info</h3>
-          {isUnder15 && (
-            // The linked form is the real signal now that forms actually
-            // get scanned/linked — a recorded rego year is only shown as a
-            // fallback when no form is linked yet, not the other way around
-            // (see personCompleteness.ts). "Add Registration Form" opens a
-            // mobile-friendly photo/file picker (see RegoFormUpload) rather
-            // than just naming the gap.
-            <RegoFormUpload
-              regoFormUrl={regoFormUrl}
-              regoYearFallback={person.regoYear}
-              isAdmin={isAdmin}
-              uploadAction={(formData) => uploadRegoForm(person.personId, formData)}
-              onUploaded={(url) => {
-                setRegoFormUrl(url);
-                onSaved();
-              }}
-              linkedLabel="Registration Form on File"
-              addLabel="Add Registration Form"
-              style={{ flex: 1, textAlign: "center", fontSize: "0.8rem", color: "var(--yellow)", whiteSpace: "nowrap" }}
-            />
-          )}
+          <CloseButton onClick={handleFinish} />
         </div>
-        <CloseButton onClick={handleFinish} />
+        {isUnder15 && (
+          // The linked form is the real signal now that forms actually
+          // get scanned/linked — a recorded rego year is only shown as a
+          // fallback when no form is linked yet, not the other way around
+          // (see personCompleteness.ts). "Add Registration Form" opens a
+          // mobile-friendly photo/file picker (see RegoFormUpload) rather
+          // than just naming the gap.
+          <RegoFormUpload
+            regoFormUrl={regoFormUrl}
+            regoYearFallback={person.regoYear}
+            isAdmin={isAdmin}
+            uploadAction={(formData) => uploadRegoForm(person.personId, formData)}
+            onUploaded={(url) => {
+              setRegoFormUrl(url);
+              onSaved();
+            }}
+            linkedLabel="Registration Form on File"
+            addLabel="Add Registration Form"
+            style={{ display: "block", marginTop: 6, fontSize: "0.8rem", color: "var(--yellow)" }}
+          />
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "0 5% var(--space-6)", display: "grid", gap: "var(--space-3)" }}>
