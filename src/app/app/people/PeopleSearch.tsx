@@ -21,7 +21,6 @@ import {
 } from "./actions";
 import { formatFullName } from "@/lib/formatName";
 import { calculateAge } from "@/lib/category";
-import { MapsLinkButton } from "@/components/MapsLinkButton";
 import { RegoFormUpload } from "@/components/RegoFormUpload";
 import { CloseButton } from "@/components/CloseButton";
 import { AddPeopleModal } from "./AddPeopleModal";
@@ -84,15 +83,17 @@ const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)"
 // handler, which is what actually gets iOS Safari to open the keyboard
 // (a focus() call deferred to a mount effect, as this used to do, is too
 // late for iOS to treat as caused by the tap).
-export const PeopleSearch = forwardRef<HTMLInputElement, { isAdmin: boolean }>(function PeopleSearch({ isAdmin }, ref) {
+export const PeopleSearch = forwardRef<HTMLInputElement>(function PeopleSearch(_props, ref) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Which result (if any) has its whole-screen Edit view open — tapping a
+  // result goes straight there now, no read-only card in between.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddPeople, setShowAddPeople] = useState(false);
 
   async function handleChange(value: string) {
     setQuery(value);
-    setExpandedId(null);
+    setEditingId(null);
     if (value.trim().length < 2) {
       setResults([]);
       return;
@@ -151,37 +152,29 @@ export const PeopleSearch = forwardRef<HTMLInputElement, { isAdmin: boolean }>(f
       )}
 
       <div style={{ marginTop: "var(--space-2)", display: "grid", gap: 6 }}>
-        {results.map((r) => {
-          const expanded = expandedId === r.id;
-          return (
-            <div key={r.id} style={{ background: "var(--card-bg)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card)" }}>
-              <button
-                onClick={() => setExpandedId(expanded ? null : r.id)}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  minHeight: "var(--tap-min)",
-                  padding: "8px var(--space-3)",
-                  background: "none",
-                  border: "none",
-                  fontSize: "1.05rem",
-                  color: "var(--text)",
-                  cursor: "pointer",
-                }}
-              >
-                {formatFullName(r.name, r.preferredName)}
-              </button>
-              {expanded && (
-                <PersonDetail
-                  result={r}
-                  isAdmin={isAdmin}
-                  onChange={(patch) => patchResult(r.id, patch)}
-                  onCollapse={() => setExpandedId(null)}
-                />
-              )}
-            </div>
-          );
-        })}
+        {results.map((r) => (
+          <div key={r.id} style={{ background: "var(--card-bg)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card)" }}>
+            <button
+              onClick={() => setEditingId(r.id)}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                minHeight: "var(--tap-min)",
+                padding: "8px var(--space-3)",
+                background: "none",
+                border: "none",
+                fontSize: "1.05rem",
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
+            >
+              {formatFullName(r.name, r.preferredName)}
+            </button>
+            {editingId === r.id && (
+              <PersonEditForm result={r} onChange={(patch) => patchResult(r.id, patch)} onDone={() => setEditingId(null)} />
+            )}
+          </div>
+        ))}
         {query.trim().length >= 2 && results.length === 0 && (
           <p style={{ color: "var(--muted)", fontSize: "0.95rem" }}>No matches.</p>
         )}
@@ -189,104 +182,6 @@ export const PeopleSearch = forwardRef<HTMLInputElement, { isAdmin: boolean }>(f
     </>
   );
 });
-
-function PersonDetail({
-  result,
-  isAdmin,
-  onChange,
-  onCollapse,
-}: {
-  result: Result;
-  isAdmin: boolean;
-  onChange: (patch: Partial<Result>) => void;
-  onCollapse: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const detailRef = useRef<HTMLDivElement>(null);
-
-  // Tapping anywhere outside this expanded card collapses it back — same
-  // "clicking away closes it" behaviour as the Attendance Add Info popup,
-  // just without a backdrop since this is an inline accordion, not a modal.
-  useEffect(() => {
-    if (editing) return;
-    function handleOutsideClick(e: MouseEvent) {
-      if (detailRef.current && !detailRef.current.contains(e.target as Node)) onCollapse();
-    }
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [editing, onCollapse]);
-
-  if (editing) {
-    // Closing the edit popup (Auto-Save, Cancel, X, or tapping the backdrop)
-    // returns all the way to the search results, not back to this expanded
-    // read-only card — same "one clear way out" as the Attendance Add Info
-    // popup, rather than a second collapse step the person then has to find.
-    return <PersonEditForm result={result} onChange={onChange} onDone={onCollapse} />;
-  }
-
-  return (
-    <div ref={detailRef} style={{ padding: "0 var(--space-3) var(--space-3)", display: "grid", gap: 4 }}>
-      <DetailRow label="Name" value={result.name} />
-      <DetailRow label="AKA" value={result.preferredName ?? "—"} />
-      <DetailRow label="DOB" value={result.dob ?? "—"} />
-      {isMobileEligible(result.dob) && (
-        <DetailRow label="Mobile" value={result.mobile ?? "—"} href={result.mobile ? `tel:${result.mobile}` : undefined} />
-      )}
-      {isRegoEligible(result.dob) && (
-        <DetailRow
-          label="Rego"
-          value={result.regoFormUrl ? "Form on file" : result.regoYear ? String(result.regoYear) : "—"}
-          action={
-            result.regoFormUrl && isAdmin ? (
-              <a
-                href={`/api/admin/rego-form?url=${encodeURIComponent(result.regoFormUrl)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontSize: "0.78rem", color: "var(--heading)", textDecoration: "underline" }}
-              >
-                View
-              </a>
-            ) : undefined
-          }
-        />
-      )}
-      <DetailRow label="Household" value={result.householdName ?? "—"} />
-      <DetailRow
-        label="Address"
-        value={result.householdAddress ?? "—"}
-        action={result.householdAddress ? <MapsLinkButton address={result.householdAddress} /> : undefined}
-      />
-      <DetailRow
-        label="Contact"
-        value={
-          result.householdContactName
-            ? `${result.householdContactName}${result.householdContactPreferredName ? ` (${result.householdContactPreferredName})` : ""} — ${result.householdContactMobile ?? "—"}`
-            : "—"
-        }
-        href={result.householdContactMobile ? `tel:${result.householdContactMobile}` : undefined}
-      />
-      {result.comment && <DetailRow label="Notes" value={result.comment} />}
-      <DetailRow label="Activities" value={result.activities.length ? result.activities.join(", ") : "—"} />
-      <button
-        onClick={() => setEditing(true)}
-        style={{
-          justifySelf: "start",
-          marginTop: 4,
-          minHeight: 32,
-          padding: "0 14px",
-          borderRadius: "var(--radius-pill)",
-          border: "1px solid var(--deep)",
-          background: "var(--deep)",
-          color: "var(--cream)",
-          fontSize: "0.75rem",
-          cursor: "pointer",
-        }}
-      >
-        Edit
-      </button>
-    </div>
-  );
-}
 
 function PersonEditForm({
   result,
@@ -877,20 +772,3 @@ export function FieldInput({
   );
 }
 
-function DetailRow({ label, value, href, action }: { label: string; value: string; href?: string; action?: React.ReactNode }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-      <p style={{ fontSize: "0.95rem", color: "var(--text)", margin: 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        <span style={{ color: "var(--muted)" }}>{label}: </span>
-        {href ? (
-          <a href={href} style={{ color: "var(--text)" }}>
-            {value}
-          </a>
-        ) : (
-          value
-        )}
-      </p>
-      {action}
-    </div>
-  );
-}

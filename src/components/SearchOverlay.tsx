@@ -22,7 +22,7 @@ import { CloseButton } from "@/components/CloseButton";
 // parent/child of it in the tree.
 export const searchOverlay = { open: () => {} };
 
-export function SearchOverlay({ isAdmin }: { isAdmin: boolean }) {
+export function SearchOverlay() {
   const pathname = usePathname();
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -78,7 +78,7 @@ export function SearchOverlay({ isAdmin }: { isAdmin: boolean }) {
           to call .focus() on. Only the outer container's display is what
           actually shows/hides this. */}
       <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", padding: "0 5% 24px" }}>
-        <PeopleSearch ref={inputRef} isAdmin={isAdmin} />
+        <PeopleSearch ref={inputRef} />
       </div>
     </div>
   );
