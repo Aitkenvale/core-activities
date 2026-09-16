@@ -31,6 +31,7 @@ export function RegoFormUpload({
   style,
   addLabel = "Add Registration Form",
   linkedLabel = "Registration Form on File",
+  readOnly = false,
 }: {
   regoFormUrl: string | null;
   regoYearFallback?: number | null;
@@ -40,6 +41,8 @@ export function RegoFormUpload({
   style?: React.CSSProperties;
   addLabel?: string;
   linkedLabel?: string;
+  // Status text only, no upload/replace trigger — People Edit's view mode.
+  readOnly?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -65,7 +68,7 @@ export function RegoFormUpload({
 
   return (
     <span style={style}>
-      <input ref={inputRef} type="file" accept="image/*,application/pdf" onChange={handleFile} style={{ display: "none" }} />
+      {!readOnly && <input ref={inputRef} type="file" accept="image/*,application/pdf" onChange={handleFile} style={{ display: "none" }} />}
       {uploading ? (
         "Uploading…"
       ) : regoFormUrl ? (
@@ -81,18 +84,30 @@ export function RegoFormUpload({
             </a>
           ) : (
             linkedLabel
-          )}{" "}
-          <button type="button" onClick={() => inputRef.current?.click()} style={triggerStyle}>
-            Replace
-          </button>
+          )}
+          {!readOnly && (
+            <>
+              {" "}
+              <button type="button" onClick={() => inputRef.current?.click()} style={triggerStyle}>
+                Replace
+              </button>
+            </>
+          )}
         </>
       ) : regoYearFallback ? (
         <>
-          {`Registration: ${regoYearFallback}`}{" "}
-          <button type="button" onClick={() => inputRef.current?.click()} style={triggerStyle}>
-            Add Form
-          </button>
+          {`Registration: ${regoYearFallback}`}
+          {!readOnly && (
+            <>
+              {" "}
+              <button type="button" onClick={() => inputRef.current?.click()} style={triggerStyle}>
+                Add Form
+              </button>
+            </>
+          )}
         </>
+      ) : readOnly ? (
+        "No registration form"
       ) : (
         <button type="button" onClick={() => inputRef.current?.click()} style={triggerStyle}>
           {addLabel}

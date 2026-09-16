@@ -79,6 +79,12 @@ export const compactInputStyle: React.CSSProperties = {
 // popup, so a field missing there looks the same way here.
 const missingBorderStyle: React.CSSProperties = { border: "1px solid var(--red)" };
 
+// The non-editing look for a field — same size/padding as always (no
+// layout shift switching modes), just a transparent border and a
+// background matching the page instead of a card, so it reads as plain
+// text rather than something you can currently type into.
+const viewInputStyle: React.CSSProperties = { border: "1px solid transparent", background: "var(--page-bg)", cursor: "default" };
+
 // Forwards the search input's own ref out to SearchOverlay, which mounts
 // this once (globally, always in the DOM) and calls .focus() on it itself
 // at the moment Search is tapped — synchronously, in the tap's own event
@@ -216,6 +222,10 @@ function PersonEditForm({
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addingMember, setAddingMember] = useState(false);
+  // Opens read-only — the Edit button (top, next to the close X) is what
+  // makes fields interactive. Same fields/layout either way (see
+  // viewInputStyle) so switching modes doesn't jitter.
+  const [editing, setEditing] = useState(false);
 
   // Frozen snapshot of every field as this form opened — used both to diff
   // "did this actually change" for auto-save, and by Cancel to revert.
@@ -397,19 +407,57 @@ function PersonEditForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, preferredName, mobile, dob, householdId, address, contactPersonId, contactMobile, notes]);
 
-  // The relabeled former Save button — auto-save already did the work, this
-  // just flushes anything still mid-debounce and closes.
+  // The close X — flushes anything still mid-debounce (auto-save already
+  // did the rest) and leaves, in either edit or view mode.
   async function handleFinish() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     await persist();
     onDone();
   }
 
+  // The Edit/Done toggle's "Done" side — same flush as handleFinish, but
+  // switches back to the read-only view instead of leaving the page.
+  async function handleStopEditing() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    await persist();
+    setEditing(false);
+  }
+
+  // Every field back to how it was when this form opened — used by both
+  // Cancel (below) and, implicitly, by switching back to the read-only
+  // view showing the reverted values rather than the discarded edits.
+  function resetLocalFieldsToOriginal() {
+    const o = originalRef.current;
+    setName(o.name);
+    setPreferredName(o.preferredName ?? "");
+    setMobile(o.mobile ?? "");
+    setDob(o.dob ?? "");
+    setHouseholdId(o.householdId);
+    setHouseholdQuery(o.householdName ?? "");
+    setHouseholdResults([]);
+    setContactPrompt(null);
+    setAddress(o.householdAddress ?? "");
+    setContactPersonId(o.householdContactPersonId);
+    setContactQuery(o.householdContactPreferredName || o.householdContactName || "");
+    setContactResults([]);
+    setContactMobile(o.householdContactMobile ?? "");
+    setNotes(o.comment ?? "");
+    setAddingMember(false);
+    householdBaselineRef.current = {
+      householdId: o.householdId,
+      address: o.householdAddress ?? "",
+      contactPersonId: o.householdContactPersonId,
+      contactMobile: o.householdContactMobile ?? "",
+    };
+  }
+
   // Undoes whatever auto-save already persisted for this person and their
-  // *original* household this session, then closes. If the admin also
-  // browsed into a different household and edited its address/contact
-  // before cancelling, that other household's data isn't reverted here —
-  // it's a real, independent record, not something scoped to this session.
+  // *original* household this session, then drops back to the read-only
+  // view (not off the page entirely — same as Done, just discarding
+  // instead of keeping). If the admin also browsed into a different
+  // household and edited its address/contact before cancelling, that other
+  // household's data isn't reverted here — it's a real, independent
+  // record, not something scoped to this session.
   async function handleCancel() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setCancelling(true);
@@ -434,12 +482,13 @@ function PersonEditForm({
       }
       await Promise.all(tasks);
       onChange(originalRef.current);
+      resetLocalFieldsToOriginal();
     } catch {
-      // Best-effort revert — still close either way.
+      // Best-effort revert — still drop back to view mode either way.
     } finally {
       setCancelling(false);
     }
-    onDone();
+    setEditing(false);
   }
 
   return (
@@ -461,9 +510,32 @@ function PersonEditForm({
               whiteSpace: "nowrap",
             }}
           >
-            Edit {formatFullName(result.name, result.preferredName)}
+            {formatFullName(result.name, result.preferredName)}
           </h3>
-          <CloseButton onClick={handleFinish} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {/* Opens read-only — this is what makes the fields below
+                interactive, and relabels itself once they are so there's
+                one obvious way back out of editing (the other being the
+                close X, which exits both at once). */}
+            <button
+              onClick={() => (editing ? handleStopEditing() : setEditing(true))}
+              disabled={saving || cancelling}
+              style={{
+                minHeight: 32,
+                padding: "0 14px",
+                borderRadius: "var(--radius-pill)",
+                border: `1px solid ${editing ? "var(--deep)" : "var(--border)"}`,
+                background: editing ? "var(--deep)" : "var(--card-bg)",
+                color: editing ? "var(--cream)" : "var(--text)",
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {saving ? "Saving…" : editing ? "Done" : "Edit"}
+            </button>
+            <CloseButton onClick={handleFinish} />
+          </div>
         </div>
         {/* Its own line, left-aligned — sharing the title's row left it
             fighting the close button for space and getting clipped behind
@@ -475,18 +547,20 @@ function PersonEditForm({
             isAdmin={false}
             uploadAction={(formData) => uploadRegoForm(result.id, formData)}
             onUploaded={setRegoFormUrl}
+            readOnly={!editing}
             style={{ display: "block", marginTop: 6, fontSize: "0.8rem", color: "var(--yellow)" }}
           />
         )}
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "0 5% var(--space-6)", display: "grid", gap: 6 }}>
-      <FieldInput label="Name" value={name} onChange={setName} />
-      <FieldInput label="AKA" value={preferredName} onChange={setPreferredName} />
+      <FieldInput label="Name" value={name} onChange={setName} readOnly={!editing} />
+      <FieldInput label="AKA" value={preferredName} onChange={setPreferredName} readOnly={!editing} />
       {isMobileEligible(dob) && (
         <FieldInput
           label="Mobile"
           value={mobile}
           onChange={setMobile}
+          readOnly={!editing}
           action={mobile.trim() && <PhoneLinkButton mobile={mobile.trim()} />}
         />
       )}
@@ -496,7 +570,14 @@ function PersonEditForm({
           type="date"
           value={dob}
           onChange={(e) => setDob(e.target.value)}
-          style={{ ...compactInputStyle, textAlign: "left", minWidth: 0, ...(!dob ? missingBorderStyle : {}) }}
+          readOnly={!editing}
+          style={{
+            ...compactInputStyle,
+            textAlign: "left",
+            minWidth: 0,
+            ...(!dob && editing ? missingBorderStyle : {}),
+            ...(!editing ? viewInputStyle : {}),
+          }}
         />
       </label>
       {/* Single divider — Personal info above, Household info below, same
@@ -508,9 +589,14 @@ function PersonEditForm({
           placeholder="Search household…"
           value={householdQuery}
           onChange={(e) => handleHouseholdSearch(e.target.value)}
-          style={{ ...compactInputStyle, ...(!householdId ? missingBorderStyle : {}) }}
+          readOnly={!editing}
+          style={{
+            ...compactInputStyle,
+            ...(!householdId && editing ? missingBorderStyle : {}),
+            ...(!editing ? viewInputStyle : {}),
+          }}
         />
-        {householdQuery.trim() && householdId === null && (
+        {editing && householdQuery.trim() && householdId === null && (
           <button
             onClick={handleCreateHousehold}
             style={{
@@ -528,7 +614,7 @@ function PersonEditForm({
             + Create new household: &ldquo;{householdQuery.trim()}&rdquo;
           </button>
         )}
-        {householdResults.length > 0 && (
+        {editing && householdResults.length > 0 && (
           <div style={{ display: "grid", gap: 2 }}>
             {householdResults.map((h) => (
               <button
@@ -550,7 +636,7 @@ function PersonEditForm({
             ))}
           </div>
         )}
-        {(householdId || householdQuery.trim()) && (
+        {editing && (householdId || householdQuery.trim()) && (
           <button
             onClick={removeHousehold}
             style={{ justifySelf: "start", padding: 0, border: "none", background: "none", color: "var(--red)", fontSize: "0.7rem", cursor: "pointer" }}
@@ -559,7 +645,7 @@ function PersonEditForm({
           </button>
         )}
       </label>
-      {contactPrompt && (
+      {editing && contactPrompt && (
         <div style={{ padding: "var(--space-2)", border: "1px dashed var(--gold)", borderRadius: "var(--radius-sm)", background: "var(--cream2)" }}>
           <p style={{ fontSize: "0.78rem", color: "var(--warm)", margin: "0 0 6px" }}>
             Make {formatFullName(name, result.preferredName)} the contact for &ldquo;{contactPrompt.householdName}&rdquo;?
@@ -585,6 +671,7 @@ function PersonEditForm({
           label="Address"
           value={address}
           onChange={setAddress}
+          readOnly={!editing}
           action={address.trim() && <MapsLinkButton address={address.trim()} />}
         />
       ) : (
@@ -597,9 +684,14 @@ function PersonEditForm({
             placeholder="Search person…"
             value={contactQuery}
             onChange={(e) => handleContactSearch(e.target.value)}
-            style={{ ...compactInputStyle, ...(!contactPersonId ? missingBorderStyle : {}) }}
+            readOnly={!editing}
+            style={{
+              ...compactInputStyle,
+              ...(!contactPersonId && editing ? missingBorderStyle : {}),
+              ...(!editing ? viewInputStyle : {}),
+            }}
           />
-          {contactQuery.trim() && contactPersonId === null && (
+          {editing && contactQuery.trim() && contactPersonId === null && (
             <button
               onClick={handleCreateContact}
               style={{
@@ -617,7 +709,7 @@ function PersonEditForm({
               + Create new contact: &ldquo;{contactQuery.trim()}&rdquo;
             </button>
           )}
-          {contactResults.length > 0 && (
+          {editing && contactResults.length > 0 && (
             <div style={{ display: "grid", gap: 2 }}>
               {contactResults.map((p) => (
                 <button
@@ -639,7 +731,7 @@ function PersonEditForm({
               ))}
             </div>
           )}
-          {(contactPersonId || contactQuery.trim()) && (
+          {editing && (contactPersonId || contactQuery.trim()) && (
             <button
               onClick={removeContact}
               style={{ justifySelf: "start", padding: 0, border: "none", background: "none", color: "var(--red)", fontSize: "0.7rem", cursor: "pointer" }}
@@ -655,28 +747,14 @@ function PersonEditForm({
           value={contactMobile}
           onChange={setContactMobile}
           missing={!contactMobile}
+          readOnly={!editing}
           action={contactMobile.trim() && <PhoneLinkButton mobile={contactMobile.trim()} />}
         />
       )}
-      <FieldInput label="Notes" value={notes} onChange={setNotes} />
+      <FieldInput label="Notes" value={notes} onChange={setNotes} readOnly={!editing} />
 
+      {editing && (
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <button
-          onClick={handleFinish}
-          disabled={saving || cancelling}
-          style={{
-            minHeight: 32,
-            padding: "0 14px",
-            borderRadius: "var(--radius-pill)",
-            border: "none",
-            background: "var(--deep)",
-            color: "var(--cream)",
-            fontSize: "0.75rem",
-            cursor: "pointer",
-          }}
-        >
-          {saving ? "Saving…" : "Auto-Save"}
-        </button>
         <button
           onClick={handleCancel}
           disabled={saving || cancelling}
@@ -704,9 +782,10 @@ function PersonEditForm({
           </button>
         )}
       </div>
+      )}
       {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", margin: 0 }}>{error}</p>}
 
-      {result.householdId && addingMember && (
+      {editing && result.householdId && addingMember && (
         <AddHouseholdMemberForm householdId={result.householdId} onDone={() => setAddingMember(false)} />
       )}
       </div>
@@ -792,17 +871,23 @@ export function FieldInput({
   onChange,
   missing = false,
   action,
+  readOnly = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   // Same red-border-when-empty treatment as the Attendance Add Info popup's
   // essential fields — off by default so existing callers (AddPeopleModal,
-  // AddHouseholdMemberForm) are unaffected.
+  // AddHouseholdMemberForm) are unaffected. Suppressed while readOnly, since
+  // there's nothing to fix from a view you can't currently type into.
   missing?: boolean;
   // A trailing icon button (call/maps) — same "only when there's a real
   // value to act on" convention as the Attendance Add Info popup.
   action?: React.ReactNode;
+  // People Edit's view/edit toggle — same size and layout either way (see
+  // viewInputStyle), just not editable and no red border, until Edit is
+  // pressed. Off by default so existing callers are unaffected.
+  readOnly?: boolean;
 }) {
   return (
     <label style={{ display: "grid", gap: 2 }}>
@@ -811,7 +896,14 @@ export function FieldInput({
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          style={{ ...compactInputStyle, flex: 1, minWidth: 0, ...(missing ? missingBorderStyle : {}) }}
+          readOnly={readOnly}
+          style={{
+            ...compactInputStyle,
+            flex: 1,
+            minWidth: 0,
+            ...(missing && !readOnly ? missingBorderStyle : {}),
+            ...(readOnly ? viewInputStyle : {}),
+          }}
         />
         {action}
       </div>
