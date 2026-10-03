@@ -12,6 +12,7 @@ const SECTIONS = [
       { href: "/app/admin/activities", label: "Edit Activities" },
       { href: "/app/admin/roles", label: "Teacher / Co-Teacher Roles" },
       { href: "/app/admin/attendance", label: "Edit Attendance" },
+      { href: "/app/admin/courses", label: "Edit Courses" },
     ],
   },
   {

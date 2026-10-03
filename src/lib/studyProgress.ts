@@ -24,6 +24,21 @@ export async function listStudyProgress(track: StudyTrackId, personIds: string[]
     .where(and(eq(studyProgress.track, track), inArray(studyProgress.personId, personIds)));
 }
 
+export type StudyProgressRow = StudyProgressEntry & { track: string };
+
+// Everyone's log across every track at once, for the admin Edit Courses grid.
+export async function listAllStudyProgress(): Promise<StudyProgressRow[]> {
+  return db
+    .select({
+      personId: studyProgress.personId,
+      track: studyProgress.track,
+      item: studyProgress.item,
+      unit: studyProgress.unit,
+      status: studyProgress.status,
+    })
+    .from(studyProgress);
+}
+
 // Absolute state, not "cycle" — the client works out the next state, this
 // just records it. "none" deletes the row (not studied is the absence of
 // one), anything else upserts.

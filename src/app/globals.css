@@ -272,3 +272,183 @@ input[type="radio"] {
     justify-content: center;
   }
 }
+
+/* Edit Courses grid (admin/courses/CourseGrid.tsx): every person down the
+   side, every course across the top. There are ~17,000 boxes, so a box's
+   static look lives here rather than in per-element inline styles — only its
+   fill colour and state (shared style objects) are inline. .cg-scroll is the
+   one thing on the page that scrolls, in both directions; the three header
+   rows and the name column are sticky inside it, with the header heights as
+   variables so each row's offset follows from the ones above. */
+.cg-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+}
+
+.cg-table {
+  --cg-group-h: 28px;
+  --cg-course-h: 96px;
+  --cg-unit-h: 22px;
+  --cg-row-h: 40px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  user-select: none;
+}
+
+.cg-table th,
+.cg-table td {
+  padding: 0;
+}
+
+.cg-corner,
+.cg-group,
+.cg-course,
+.cg-unit {
+  position: sticky;
+  z-index: 4;
+  background: var(--table-header-bg);
+  color: var(--text);
+  font-weight: 500;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.cg-corner {
+  top: 0;
+  left: 0;
+  z-index: 5;
+  padding: 0 8px 6px;
+  text-align: left;
+  vertical-align: bottom;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+}
+
+.cg-group {
+  top: 0;
+  height: var(--cg-group-h);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+}
+
+/* left = the name column's width (NAME_COL_W in CourseGrid.tsx). */
+.cg-group-label {
+  position: sticky;
+  left: 230px;
+  display: inline-block;
+  padding-left: 10px;
+  white-space: nowrap;
+}
+
+.cg-course {
+  top: var(--cg-group-h);
+  height: var(--cg-course-h);
+  padding-bottom: 6px;
+  vertical-align: bottom;
+  font-size: 0.72rem;
+}
+
+.cg-unit {
+  top: calc(var(--cg-group-h) + var(--cg-course-h));
+  height: var(--cg-unit-h);
+  line-height: var(--cg-unit-h);
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+
+/* A course with a single box per person: its label runs up the column,
+   wrapping onto a second line when it's long, and reads from the bottom. */
+.cg-vert {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  max-height: calc(var(--cg-course-h) + var(--cg-unit-h) - 12px);
+  overflow: hidden;
+  line-height: 1.15;
+  font-size: 0.68rem;
+  text-align: left;
+}
+
+.cg-edge--group {
+  border-left: 1px solid var(--border);
+}
+
+.cg-edge--book {
+  border-left: 1px solid var(--disabled-bg);
+}
+
+.cg-name {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  height: var(--cg-row-h);
+  padding: 4px 8px;
+  text-align: left;
+  font-weight: 400;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--disabled-bg);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.cg-name-main {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.cg-name-sub {
+  display: block;
+  font-size: 0.66rem;
+  line-height: 1.25;
+  color: var(--muted);
+}
+
+.cg-cell {
+  height: var(--cg-row-h);
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--disabled-bg);
+}
+
+.cg-cell--group {
+  border-left: 1px solid var(--border);
+}
+
+.cg-cell--book {
+  border-left: 1px solid var(--disabled-bg);
+}
+
+.cg-row:hover > .cg-cell,
+.cg-row:hover > .cg-name {
+  background: var(--table-header-bg);
+}
+
+.cg-box {
+  display: block;
+  width: 20px;
+  height: 20px;
+  margin: 0 auto;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
