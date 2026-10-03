@@ -29,7 +29,7 @@ import { getStudyProgress, restoreStudyStatuses, setStudyStatus } from "./studyA
 import { StudyLogOverlay } from "./StudyLogOverlay";
 import { formatFullName } from "@/lib/formatName";
 import type { StudyTrackId } from "@/lib/studyTracks";
-import { actionButtonStyle, buttonRowStyle, toggleButtonStyle } from "./statusButtons";
+import { actionButtonStyle, buttonGridStyle, toggleButtonStyle } from "./statusButtons";
 import { ActivityTitle } from "./ActivityTitle";
 import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/personCompleteness";
 import { calculateAge } from "@/lib/category";
@@ -257,7 +257,7 @@ export function SessionClient({
               state — and study history doesn't depend on a session
               existing, so it shouldn't wait for one. */}
           <div style={{ display: "flex", justifyContent: "center", marginTop: "var(--space-4)" }}>
-            <StudyLogButton onClick={() => setStudyOpen(true)} />
+            <StudyLogButton onClick={() => setStudyOpen(true)} style={{ width: "auto", padding: "0 16px" }} />
           </div>
         </>
       ) : (
@@ -320,51 +320,47 @@ export function SessionClient({
             />
           )}
 
-          {/* Two centred rows: what happens to this session (confirm it, or
-              call it off), then what is being edited (who is in the activity,
-              and their study history). */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
-            <div style={buttonRowStyle}>
-              {/* Pressing it again takes the confirmation back. Greyed while
-                  the class is cancelled: a class that didn't happen has no
-                  attendance to confirm. */}
-              <button
-                onClick={toggleLocked}
-                disabled={!canToggleLock || (cancelled && !locked)}
-                aria-pressed={locked}
-                style={toggleButtonStyle({ tone: "green", on: locked, blocked: cancelled, noPermission: !canToggleLock })}
-              >
-                {locked ? "Attendance Confirmed" : "Confirm Attendance"}
-              </button>
-              {/* An admin-editable, no-checkbox state: the facilitator is
-                  saying no session happened at all, distinct from marking
-                  everyone absent. Pressing it again reinstates the class;
-                  it can't overrule confirmed attendance, so it is greyed
-                  while that is on. */}
-              <button
-                onClick={toggleCancelled}
-                disabled={!canToggleLock || (locked && !cancelled)}
-                aria-pressed={cancelled}
-                style={toggleButtonStyle({ tone: "red", on: cancelled, blocked: locked, noPermission: !canToggleLock })}
-              >
-                {cancelled ? "Class Cancelled" : "Cancel Class"}
-              </button>
-            </div>
-            <div style={buttonRowStyle}>
-              <button
-                onClick={() => setEditMode((v) => !v)}
-                style={{
-                  ...actionButtonStyle,
-                  border: "1px solid var(--border)",
-                  background: editMode ? "var(--deep)" : "var(--card-bg)",
-                  color: editMode ? "var(--cream)" : "var(--text)",
-                  cursor: "pointer",
-                }}
-              >
-                {editMode ? "Done Editing" : "Edit Participants"}
-              </button>
-              <StudyLogButton onClick={() => setStudyOpen(true)} />
-            </div>
+          {/* A block of four equal buttons, two by two: what happens to this
+              session (confirm it, or call it off), then what is being edited
+              (who is in the activity, and their study history). */}
+          <div style={{ ...buttonGridStyle, marginTop: "var(--space-4)" }}>
+            {/* Pressing it again takes the confirmation back. Greyed while
+                the class is cancelled: a class that didn't happen has no
+                attendance to confirm. */}
+            <button
+              onClick={toggleLocked}
+              disabled={!canToggleLock || (cancelled && !locked)}
+              aria-pressed={locked}
+              style={toggleButtonStyle({ tone: "green", on: locked, blocked: cancelled, noPermission: !canToggleLock })}
+            >
+              {locked ? "Attendance Confirmed" : "Confirm Attendance"}
+            </button>
+            {/* An admin-editable, no-checkbox state: the facilitator is
+                saying no session happened at all, distinct from marking
+                everyone absent. Pressing it again reinstates the class;
+                it can't overrule confirmed attendance, so it is greyed
+                while that is on. */}
+            <button
+              onClick={toggleCancelled}
+              disabled={!canToggleLock || (locked && !cancelled)}
+              aria-pressed={cancelled}
+              style={toggleButtonStyle({ tone: "red", on: cancelled, blocked: locked, noPermission: !canToggleLock })}
+            >
+              {cancelled ? "Class Cancelled" : "Cancel Class"}
+            </button>
+            <button
+              onClick={() => setEditMode((v) => !v)}
+              style={{
+                ...actionButtonStyle,
+                border: "1px solid var(--border)",
+                background: editMode ? "var(--deep)" : "var(--card-bg)",
+                color: editMode ? "var(--cream)" : "var(--text)",
+                cursor: "pointer",
+              }}
+            >
+              {editMode ? "Done Editing" : "Edit Participants"}
+            </button>
+            <StudyLogButton onClick={() => setStudyOpen(true)} />
           </div>
         </>
       )}
@@ -388,9 +384,9 @@ export function SessionClient({
 
 // Blue rather than the green/red the buttons beside it use, since those two
 // carry meaning (confirm / cancel) and this one is just a way into the history.
-function StudyLogButton({ onClick }: { onClick: () => void }) {
+function StudyLogButton({ onClick, style }: { onClick: () => void; style?: React.CSSProperties }) {
   return (
-    <button onClick={onClick} style={{ ...actionButtonStyle, border: "1px solid var(--blue)", background: "var(--card-bg)", color: "var(--blue)", cursor: "pointer" }}>
+    <button onClick={onClick} style={{ ...actionButtonStyle, border: "1px solid var(--blue)", background: "var(--card-bg)", color: "var(--blue)", cursor: "pointer", ...style }}>
       Edit Study History
     </button>
   );
