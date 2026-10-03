@@ -35,12 +35,6 @@ const VIEWS = PILLS.flatMap((p) => {
   return track ? [{ ...p, track }] : [];
 });
 
-// A line under the pills where a pill's list needs explaining.
-const NOTE: Record<string, string> = {
-  sc: "Study Circles and Ruhi Camps keep one shared record of Ruhi units, so this lists everyone with Ruhi progress from either.",
-  ruhi_branches: "Ruhi Branches are kept for Study Circles and Ruhi Camps alike, one box each rather than units.",
-};
-
 // What "a study item" is in each course: one Grade, one Text, one Branch, one
 // DSA course — and for Ruhi one unit, each of a book's three boxes counting on
 // its own.
@@ -310,7 +304,6 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
     "--cg-unit-h": stacked ? "22px" : "0px",
   } as React.CSSProperties;
   const headRows = stacked ? 2 : 1;
-  const note = NOTE[view.id];
   // Admin pages stop at 1400px, but the Ruhi table (42 unit boxes) is a little
   // wider than that, which hid the last book behind a sideways scroll on a big
   // screen. So the page grows to fit its table (and a pixel each side for the
@@ -340,7 +333,6 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
             <LegendItem status="complete" text="Completed" />
           </div>
         </div>
-        {note && <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--muted)" }}>{note}</p>}
       </div>
 
       <div className="cg-scroll" ref={scrollRef}>
