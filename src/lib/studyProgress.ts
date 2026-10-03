@@ -6,6 +6,7 @@
 import { and, eq, inArray, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
+import { people } from "@/db/schema/people";
 import { studyProgress } from "@/db/schema/studyProgress";
 import type { StoredStudyStatus, StudyStatus, StudyTrackId } from "@/lib/studyTracks";
 
@@ -37,6 +38,17 @@ export async function listAllStudyProgress(): Promise<StudyProgressRow[]> {
       status: studyProgress.status,
     })
     .from(studyProgress);
+}
+
+// Everyone who isn't hidden and has at least one box in any study log, for the
+// admin Course Report — the people the report can possibly list, so the page
+// doesn't ship the whole directory to the browser.
+export async function listPeopleWithStudyProgress() {
+  return db
+    .selectDistinct({ id: people.id, name: people.name, preferredName: people.preferredName, dob: people.dob })
+    .from(people)
+    .innerJoin(studyProgress, eq(studyProgress.personId, people.id))
+    .where(eq(people.hidden, false));
 }
 
 // Absolute state, not "cycle" — the client works out the next state, this

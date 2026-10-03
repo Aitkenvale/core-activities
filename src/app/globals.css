@@ -452,3 +452,70 @@ input[type="radio"] {
   background: transparent;
   cursor: pointer;
 }
+
+/* Course Report (admin/course-report/CourseReport.tsx) reuses the Edit
+   Courses grid above, read-only: its boxes are plain spans, its headings are
+   sort buttons, and the Completed count sticks beside the name column
+   (--cr-name-w is that column's width, set by the component). */
+.cg-box--static {
+  cursor: default;
+}
+
+.cr-count-head,
+.cr-count {
+  position: sticky;
+  left: var(--cr-name-w);
+}
+
+.cr-count-head {
+  text-align: center;
+  line-height: 1.2;
+}
+
+.cr-count {
+  z-index: 2;
+  height: var(--cg-row-h);
+  padding: 0 4px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--disabled-bg);
+  border-right: 1px solid var(--border);
+}
+
+.cg-row:hover > .cr-count {
+  background: var(--table-header-bg);
+}
+
+.cr-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cr-sort:hover {
+  color: var(--text);
+}
+
+.cr-sort--stacked {
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.cr-arrow {
+  display: inline-block;
+  width: 0.8em;
+  font-size: 0.55rem;
+  line-height: 1;
+  text-align: center;
+}

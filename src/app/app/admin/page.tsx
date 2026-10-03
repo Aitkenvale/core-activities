@@ -23,6 +23,7 @@ const SECTIONS = [
       { href: "/app/admin/family-report", label: "Family Visit Planner" },
       { href: "/app/admin/missing-data", label: "Missing Data" },
       { href: "/app/admin/registrations", label: "Registrations" },
+      { href: "/app/admin/course-report", label: "Course Report" },
     ],
   },
   {
