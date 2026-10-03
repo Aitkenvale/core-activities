@@ -85,26 +85,37 @@ type ReportRow = {
   sortKey: string;
   // `${item}:${unit}` -> the box's state; a box that isn't there is not studied.
   cells: Record<string, StoredStudyStatus>;
-  completed: number;
-  // Per item: how far along it is, for sorting by that item's heading — each
-  // completed box is worth 2 and each partly done one 1.
+  // Study items completed, plus half for anything partly done (see credit).
+  score: number;
+  // The furthest box into the course with any progress, left to right: how
+  // high up the grades (or texts, books, courses) they have got.
+  reach: number;
+  // The same tally per item, for sorting by that item's heading.
   itemScore: Record<number, number>;
 };
+
+// A partly done item is worth half an item — once, however many are partly
+// done, so a pile of half-finished items never outranks one more finished one.
+const credit = (completed: number, anyPartial: boolean) => completed + (anyPartial ? 0.5 : 0);
+const formatScore = (score: number) => (Number.isInteger(score) ? String(score) : score.toFixed(1));
 
 type SortKey = "name" | "completed" | `item:${number}`;
 type Sort = { key: SortKey; dir: "asc" | "desc" };
 
-// Most study items completed first, then A to Z.
+// Furthest along first: most study items completed (a partly done one counts
+// half), then whoever has got into the higher grades, then A to Z.
 const DEFAULT_SORT: Sort = { key: "completed", dir: "desc" };
 // A heading's first click: names read best A to Z, the counts biggest first.
 const firstDirection = (key: SortKey): Sort["dir"] => (key === "name" ? "asc" : "desc");
 
-// Whichever heading is sorted on, people who tie come out A to Z.
+// Whichever heading is sorted on, people who tie come out A to Z. The
+// Completed tally also breaks its own ties by how high up the course people
+// have got, in whichever direction it is sorted.
 function compareFor(sort: Sort): (a: ReportRow, b: ReportRow) => number {
   const dir = sort.dir === "asc" ? 1 : -1;
   const byName = (a: ReportRow, b: ReportRow) => a.sortKey.localeCompare(b.sortKey) || a.id.localeCompare(b.id);
   if (sort.key === "name") return (a, b) => dir * byName(a, b);
-  if (sort.key === "completed") return (a, b) => dir * (a.completed - b.completed) || byName(a, b);
+  if (sort.key === "completed") return (a, b) => dir * (a.score - b.score) || dir * (a.reach - b.reach) || byName(a, b);
   const item = Number(sort.key.slice("item:".length));
   return (a, b) => dir * ((a.itemScore[item] ?? 0) - (b.itemScore[item] ?? 0)) || byName(a, b);
 }
@@ -144,9 +155,23 @@ function LegendItem({ status, text }: { status: StudyStatus; text: string }) {
 
 // A column heading you can click to sort by. The arrow's slot is always
 // there, so a heading doesn't shift when it becomes the sorted one.
-function SortButton({ label, dir, onClick, stacked, children }: { label: string; dir: Sort["dir"] | null; onClick: () => void; stacked?: boolean; children: React.ReactNode }) {
+function SortButton({
+  label,
+  hint,
+  dir,
+  onClick,
+  stacked,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  dir: Sort["dir"] | null;
+  onClick: () => void;
+  stacked?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <button type="button" className={`cr-sort${stacked ? " cr-sort--stacked" : ""}`} onClick={onClick} title={`Sort by ${label}`}>
+    <button type="button" className={`cr-sort${stacked ? " cr-sort--stacked" : ""}`} onClick={onClick} title={`Sort by ${label}${hint ? `. ${hint}` : ""}`}>
       {children}
       <span aria-hidden className="cr-arrow">
         {dir === "asc" ? "▲" : dir === "desc" ? "▼" : ""}
@@ -174,6 +199,11 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
   const rows = useMemo<ReportRow[]>(() => {
     const peopleById = new Map(people.map((p) => [p.id, p]));
     const validItems = new Set(track.items.map((i) => i.id));
+    // Where each box sits in the course, left to right: "higher" means later.
+    const position = new Map<string, number>();
+    track.items.forEach((item, i) => {
+      for (const unit of studyUnits(track)) position.set(`${item.id}:${unit}`, i * track.units + unit - 1);
+    });
     const byPerson = new Map<string, ReportRow>();
     for (const r of progress) {
       if (r.track !== track.id || !validItems.has(r.item) || r.unit < 1 || r.unit > track.units) continue;
@@ -188,7 +218,8 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
           categoryText: categoryLabel ? formatCategoryLabel(categoryLabel) : "No date of birth",
           sortKey: (p.preferredName || p.name).toLowerCase(),
           cells: {},
-          completed: 0,
+          score: 0,
+          reach: -1,
           itemScore: {},
         };
         byPerson.set(p.id, row);
@@ -196,11 +227,23 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
       row.cells[`${r.item}:${r.unit}`] = r.status;
     }
     for (const row of byPerson.values()) {
+      let completed = 0;
+      let anyPartial = false;
+      const itemCompleted: Record<number, number> = {};
+      const itemPartial: Record<number, boolean> = {};
       for (const [key, status] of Object.entries(row.cells)) {
-        if (status === "complete") row.completed += 1;
         const item = Number(key.split(":")[0]);
-        row.itemScore[item] = (row.itemScore[item] ?? 0) + (status === "complete" ? 2 : 1);
+        if (status === "complete") {
+          completed += 1;
+          itemCompleted[item] = (itemCompleted[item] ?? 0) + 1;
+        } else {
+          anyPartial = true;
+          itemPartial[item] = true;
+        }
+        row.reach = Math.max(row.reach, position.get(key) ?? -1);
       }
+      row.score = credit(completed, anyPartial);
+      for (const item of track.items) row.itemScore[item.id] = credit(itemCompleted[item.id] ?? 0, itemPartial[item.id] ?? false);
     }
     return [...byPerson.values()];
   }, [people, progress, track]);
@@ -280,7 +323,12 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
                 </SortButton>
               </th>
               <th rowSpan={headRows} scope="col" className="cg-corner cr-count-head" aria-sort={ariaSort("completed")}>
-                <SortButton label={COMPLETED_HEAD[track.id].toLowerCase()} dir={dirOf("completed")} onClick={() => sortBy("completed")}>
+                <SortButton
+                  label={COMPLETED_HEAD[track.id].toLowerCase()}
+                  hint="A partly done item counts as a half (once, however many are). Ties go to whoever is furthest into the course, then A to Z."
+                  dir={dirOf("completed")}
+                  onClick={() => sortBy("completed")}
+                >
                   {COMPLETED_HEAD[track.id]}
                 </SortButton>
               </th>
@@ -323,7 +371,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
                   <span className="cg-name-main">{person.display}</span>
                   <span className="cg-name-sub">{person.categoryText}</span>
                 </th>
-                <td className="cr-count">{person.completed}</td>
+                <td className="cr-count">{formatScore(person.score)}</td>
                 {columns.map((col) => {
                   const status: StudyStatus = person.cells[col.key] ?? "none";
                   return (
