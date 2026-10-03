@@ -36,7 +36,7 @@ const sectionHeadingStyle = {
   fontSize: "0.75rem",
   letterSpacing: "0.06em",
   textTransform: "uppercase" as const,
-  color: "var(--warm)",
+  color: "var(--heading)",
   marginBottom: 8,
 };
 

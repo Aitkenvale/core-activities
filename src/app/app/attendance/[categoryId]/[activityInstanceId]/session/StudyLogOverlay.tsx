@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CloseButton } from "@/components/CloseButton";
 import { isRegress, nextStudyStatus, studyCellKey, type StoredStudyStatus, type StudyStatus, type StudyTrack, type StudyTrackId } from "@/lib/studyTracks";
-import { StudyLogGrid, studySwatchStyle, type StudyParticipant } from "./StudyLogGrid";
+import { StudyLogGrid, studyGridWidth, studySwatchStyle, type StudyParticipant } from "./StudyLogGrid";
 
 type ProgressRow = { personId: string; item: number; unit: number; status: StoredStudyStatus };
 
@@ -156,6 +156,8 @@ export function StudyLogOverlay({
   const error = loadError ?? saveError;
   // One example colour for the legend when every log fills the same way.
   const legendTone = tracks.every((t) => t.legendTone === tracks[0].legendTone) ? tracks[0].legendTone : "neutral";
+  // How wide the widest grid needs to be (see .study-sections in globals.css).
+  const gridMinWidth = Math.max(...tracks.map((t) => studyGridWidth(t, participants.length)));
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "var(--page-bg)", display: "flex", flexDirection: "column" }}>
@@ -185,10 +187,13 @@ export function StudyLogOverlay({
       )}
 
       {/* The one scroll area — each grid's sticky header and label column
-          stick to this, in whichever direction it's scrolled. Each log's
-          section is as wide as its grid (so a heading that sticks to the left
-          edge stays there however far you scroll sideways). overscroll-behavior
-          stops the end of a scroll from carrying on into the page underneath. */}
+          stick to this, in whichever direction it's scrolled. The grids' wrapper
+          is never narrower than the widest grid (so a heading that sticks to the
+          left edge stays there however far you scroll sideways); on a desktop
+          screen it also fills the window, with the grids centred and lined up
+          with the heading above (.study-sections in globals.css).
+          overscroll-behavior stops the end of a scroll from carrying on into
+          the page underneath. */}
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
         {participants.length === 0 ? (
           <p style={{ padding: "var(--space-4) 5%", color: "var(--muted)", fontSize: "0.9rem" }}>
@@ -197,12 +202,14 @@ export function StudyLogOverlay({
         ) : !loaded ? (
           !loadError && <p style={{ padding: "var(--space-4) 5%", color: "var(--muted)", fontSize: "0.9rem" }}>Loading…</p>
         ) : (
-          tracks.map((track) => (
-            <section key={track.id} style={{ width: "max-content", minWidth: "100%" }}>
-              {tracks.length > 1 && <h4 className="study-section-title">{track.title}</h4>}
-              <StudyLogGrid track={track} participants={participants} progress={progress[track.id] ?? NO_PROGRESS} onCycle={cyclers[track.id]} />
-            </section>
-          ))
+          <div className="study-sections" style={{ ["--study-min" as string]: `${gridMinWidth}px` }}>
+            {tracks.map((track) => (
+              <section key={track.id}>
+                {tracks.length > 1 && <h4 className="study-section-title">{track.title}</h4>}
+                <StudyLogGrid track={track} participants={participants} progress={progress[track.id] ?? NO_PROGRESS} onCycle={cyclers[track.id]} />
+              </section>
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -167,6 +167,14 @@ const Cell = memo(function Cell({
   );
 });
 
+// The narrowest a log's grid can be: its label column plus every box column.
+// The overlay needs it too, to size the area the grids sit in.
+export function studyGridWidth(track: StudyTrack, participantCount: number): number {
+  const colW = track.units > 1 ? UNIT_COL_W : SINGLE_COL_W;
+  const labelW = track.longLabels ? LONG_LABEL_COL_W : LABEL_COL_W;
+  return labelW + participantCount * studyUnits(track).length * colW;
+}
+
 // Names across the top, the track's rows down the left, and a box (Ruhi: three
 // boxes, U1/U2/U3) under each name. Meant to sit inside a scroll container of
 // its own: the header row(s) and the label column are sticky, so both stay in
@@ -189,10 +197,9 @@ export function StudyLogGrid({
   const units = useMemo(() => studyUnits(track), [track]);
 
   const showUnits = track.units > 1;
-  const colW = showUnits ? UNIT_COL_W : SINGLE_COL_W;
   const labelW = track.longLabels ? LONG_LABEL_COL_W : LABEL_COL_W;
   const rowH = track.longLabels ? LONG_BODY_ROW_H : BODY_ROW_H;
-  const tableWidth = labelW + participants.length * units.length * colW;
+  const tableWidth = studyGridWidth(track, participants.length);
 
   const headBase: React.CSSProperties = { position: "sticky", background: "var(--table-header-bg)", padding: 0, fontWeight: 500, textAlign: "center" };
   // With no unit row beneath it, the name row is the last header row and
@@ -201,19 +208,27 @@ export function StudyLogGrid({
 
   return (
     <table
+      className="study-table"
       style={{
         borderCollapse: "separate",
         borderSpacing: 0,
         tableLayout: "fixed",
-        width: tableWidth,
+        // Never narrower than its columns need; --study-w is the width it has on a phone
+        // (see .study-table in globals.css, which lets it fill the window on a desktop).
+        minWidth: tableWidth,
+        ["--study-w" as string]: `${tableWidth}px`,
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
       }}
     >
+      {/* Only the label column has a width of its own: on a phone the table is
+          exactly as wide as the columns need, so the others come out at colW
+          each; on a desktop, where it grows to fill the window, the extra width
+          is shared equally between them and the labels stay as they were. */}
       <colgroup>
         <col style={{ width: labelW }} />
-        {participants.flatMap((p) => units.map((u) => <col key={`${p.personId}-${u}`} style={{ width: colW }} />))}
+        {participants.flatMap((p) => units.map((u) => <col key={`${p.personId}-${u}`} />))}
       </colgroup>
       <thead>
         <tr>

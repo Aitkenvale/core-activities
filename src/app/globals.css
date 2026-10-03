@@ -258,6 +258,34 @@ input[type="radio"] {
   display: none;
 }
 
+/* The grids inside the study overlay. On a phone each keeps its natural width
+   (--study-w, set by the grid) and scrolls sideways if that is wider than the
+   screen. On a desktop-sized window — not a phone on its side, which is wide
+   but short — they grow to fill it, held in from the edges by the same 5% as
+   the heading above so everything lines up. Either way the wrapper is never
+   narrower than the widest grid (--study-min, set by the overlay), so nothing
+   is cut off; the 10% is the two side gaps, which are a share of the scroll
+   area's width just as this min-width is. (A percentage-wide table inside a
+   shrink-to-fit wrapper sizes itself in a loop, hence the explicit width.) */
+.study-sections {
+  width: 100%;
+  min-width: var(--study-min);
+}
+
+.study-table {
+  width: var(--study-w);
+}
+
+@media (min-width: 640px) and (min-height: 521px) {
+  .study-sections {
+    padding: 0 5%;
+    min-width: calc(var(--study-min) + 10%);
+  }
+  .study-table {
+    width: 100%;
+  }
+}
+
 /* The heading above each grid when the overlay holds more than one log (Ruhi
    Units, then Ruhi Branches). It sticks to the left edge so it stays in view
    while the grids scroll sideways. */
@@ -306,6 +334,10 @@ input[type="radio"] {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  /* Where scroll bars are always shown, keep the room for the vertical one
+     even when a short list doesn't need it, so the width doesn't change with
+     the list (the Course Report counts on it). */
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -326,6 +358,26 @@ input[type="radio"] {
 .cg-table th,
 .cg-table td {
   padding: 0;
+}
+
+/* The blanket padding: 0 above is more specific than the paddings set on
+   .cg-name and .cg-corner further down, so it always won — and a name sat
+   flush against the table's left edge. This gives the Name column its room.
+   The first and last box columns of a grid get a gutter too (--cg-gutter,
+   set by each component, which also widens those columns by the same amount):
+   a column is 26-32px wide with a 20px box centred in it, so without it the
+   first box sat almost on the sticky columns' edge. */
+.cg-table .cg-name,
+.cg-table .cg-corner:not(.cr-count-head) {
+  padding-left: 12px;
+}
+
+.cg-table .cg-pad-start {
+  padding-left: var(--cg-gutter);
+}
+
+.cg-table .cg-pad-end {
+  padding-right: var(--cg-gutter);
 }
 
 .cg-corner,
@@ -511,10 +563,10 @@ input[type="radio"] {
   background: var(--table-header-bg);
 }
 
+/* Inline, not flex: in a heading that wraps ("Units / completed") a flex row
+   left the arrow at the far edge of the cell, away from the text. */
 .cr-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+  display: inline-block;
   padding: 0;
   border: 0;
   background: none;
@@ -530,14 +582,21 @@ input[type="radio"] {
 }
 
 .cr-sort--stacked {
+  display: inline-flex;
   flex-direction: column;
   justify-content: flex-end;
+  align-items: center;
 }
 
 .cr-arrow {
   display: inline-block;
   width: 0.8em;
+  margin-left: 3px;
   font-size: 0.55rem;
   line-height: 1;
   text-align: center;
+}
+
+.cr-sort--stacked .cr-arrow {
+  margin-left: 0;
 }

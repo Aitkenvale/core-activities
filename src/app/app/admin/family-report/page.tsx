@@ -35,7 +35,7 @@ export default async function FamilyReportPage() {
 
         {(["psec", "jysep"] as const).map((category) => (
           <div key={category} style={{ marginBottom: "var(--space-5)" }}>
-            <h3 style={{ fontSize: "0.75rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--warm)", marginBottom: 8 }}>
+            <h3 style={{ fontSize: "0.75rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--heading)", marginBottom: 8 }}>
               {category.toUpperCase()}
             </h3>
             <div style={{ display: "grid", gap: "var(--space-2)" }}>

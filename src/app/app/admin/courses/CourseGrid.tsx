@@ -81,6 +81,10 @@ for (const track of TRACKS) {
     }
   });
 }
+// The first and last box columns carry a gutter (.cg-pad-start / .cg-pad-end in
+// globals.css), so the boxes aren't hard against the name column or the end.
+COLUMNS[0].tdClass += " cg-pad-start";
+COLUMNS[COLUMNS.length - 1].tdClass += " cg-pad-end";
 
 // Ruhi packs three boxes under each book, so its columns are narrow; a track
 // with one box per person gives it a column wide enough for the label above
@@ -89,7 +93,10 @@ for (const track of TRACKS) {
 const NAME_COL_W = 230;
 const UNIT_COL_W = 26;
 const SINGLE_COL_W = 32;
-const colWidth = (col: Column) => (col.track.units > 1 ? UNIT_COL_W : SINGLE_COL_W);
+// Room before the first box and after the last; those two columns are widened by it.
+const GUTTER_W = 12;
+const colWidth = (col: Column) =>
+  (col.track.units > 1 ? UNIT_COL_W : SINGLE_COL_W) + (col.index === 0 ? GUTTER_W : 0) + (col.index === COLUMNS.length - 1 ? GUTTER_W : 0);
 const TABLE_WIDTH = NAME_COL_W + COLUMNS.reduce((sum, col) => sum + colWidth(col), 0);
 
 type PersonProgress = Record<string, StudyStatus>;
@@ -362,7 +369,7 @@ export function CourseGrid({
       </div>
 
       <div className="cg-scroll">
-        <table className="cg-table" style={{ width: TABLE_WIDTH }}>
+        <table className="cg-table" style={{ width: TABLE_WIDTH, "--cg-gutter": `${GUTTER_W}px` } as React.CSSProperties}>
           <colgroup>
             <col style={{ width: NAME_COL_W }} />
             {COLUMNS.map((col) => (
@@ -374,8 +381,13 @@ export function CourseGrid({
               <th rowSpan={3} scope="col" className="cg-corner">
                 Name
               </th>
-              {TRACKS.map((t) => (
-                <th key={t.id} scope="colgroup" colSpan={t.items.length * t.units} className="cg-group">
+              {TRACKS.map((t, ti) => (
+                <th
+                  key={t.id}
+                  scope="colgroup"
+                  colSpan={t.items.length * t.units}
+                  className={`cg-group${ti === 0 ? " cg-pad-start" : ""}${ti === TRACKS.length - 1 ? " cg-pad-end" : ""}`}
+                >
                   {/* Sticks beside the name column while any of its group is
                       on screen, rather than sitting centred in a group that
                       can be far wider than the window. */}
@@ -384,18 +396,19 @@ export function CourseGrid({
               ))}
             </tr>
             <tr>
-              {TRACKS.flatMap((t) =>
+              {TRACKS.flatMap((t, ti) =>
                 t.items.map((item, i) => {
                   const edge = i === 0 ? " cg-edge--group" : t.units > 1 ? " cg-edge--book" : "";
+                  const pad = `${ti === 0 && i === 0 ? " cg-pad-start" : ""}${ti === TRACKS.length - 1 && i === t.items.length - 1 ? " cg-pad-end" : ""}`;
                   return t.units > 1 ? (
-                    <th key={`${t.id}:${item.id}`} scope="colgroup" colSpan={t.units} className={`cg-course${edge}`}>
+                    <th key={`${t.id}:${item.id}`} scope="colgroup" colSpan={t.units} className={`cg-course${edge}${pad}`}>
                       {item.label}
                     </th>
                   ) : (
                     // A single box per person: the label runs up the column
                     // (wrapping onto a second line when it's long) and
                     // reaches down through the unit row beneath.
-                    <th key={`${t.id}:${item.id}`} scope="col" rowSpan={2} className={`cg-course cg-course--rot${edge}`}>
+                    <th key={`${t.id}:${item.id}`} scope="col" rowSpan={2} className={`cg-course cg-course--rot${edge}${pad}`}>
                       <span className="cg-vert">{item.label}</span>
                     </th>
                   );

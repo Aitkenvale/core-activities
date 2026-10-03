@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { studySwatchStyle } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/StudyLogGrid";
 import { formatCategoryLabel, getCategoryLabel } from "@/lib/category";
 import { formatFullName } from "@/lib/formatName";
@@ -69,8 +69,25 @@ const SWATCH = Object.fromEntries(
 // its own that sticks beside the name.
 const NAME_COL_W = 230;
 const COUNT_COL_W = 104;
+// Room between the sticky columns and the first box, and the same after the
+// last, so the boxes aren't hard against either edge. The first and last box
+// columns are each widened by it.
+const GUTTER_W = 12;
 const UNIT_COL_W = 26;
 const SINGLE_COL_W = 32;
+
+// How wide a vertical scroll bar is in this browser: nothing where scroll bars
+// float over the content (the macOS default), around 15px where they're always
+// shown. Read off a throwaway scroller, since the real one may not have a bar
+// at the moment.
+function scrollbarWidth(): number {
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:absolute;visibility:hidden;width:100px;height:100px;overflow:scroll";
+  document.body.appendChild(probe);
+  const width = probe.offsetWidth - probe.clientWidth;
+  probe.remove();
+  return width;
+}
 
 // One column per box a person can tick, in the order they're drawn.
 type Column = { key: string; item: StudyItem; unit: number; tdClass: string };
@@ -82,9 +99,10 @@ function columnsFor(track: StudyTrack): Column[] {
       const first = itemIndex === 0 && unit === 1;
       // A faint line between Ruhi books keeps each book's three boxes together.
       const firstInBook = track.units > 1 && unit === 1 && !first;
-      out.push({ key: `${item.id}:${unit}`, item, unit, tdClass: `cg-cell${first ? " cg-cell--group" : firstInBook ? " cg-cell--book" : ""}` });
+      out.push({ key: `${item.id}:${unit}`, item, unit, tdClass: `cg-cell${first ? " cg-cell--group cg-pad-start" : firstInBook ? " cg-cell--book" : ""}` });
     }
   });
+  out[out.length - 1].tdClass += " cg-pad-end";
   return out;
 }
 
@@ -198,6 +216,11 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // The page's width allows for the scroll bar (see pageMaxWidth), so it needs to know it.
+  useEffect(() => {
+    document.documentElement.style.setProperty("--scrollbar-w", `${scrollbarWidth()}px`);
+  }, []);
+
   const view = VIEWS.find((v) => v.id === pillId) ?? VIEWS[0];
   const track = view.track;
   const stacked = track.units > 1;
@@ -275,12 +298,13 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
   const dirOf = (key: SortKey) => (sort.key === key ? sort.dir : null);
   const ariaSort = (key: SortKey) => (sort.key !== key ? undefined : sort.dir === "asc" ? ("ascending" as const) : ("descending" as const));
 
-  const tableWidth = NAME_COL_W + COUNT_COL_W + columns.length * (stacked ? UNIT_COL_W : SINGLE_COL_W);
+  const tableWidth = NAME_COL_W + COUNT_COL_W + 2 * GUTTER_W + columns.length * (stacked ? UNIT_COL_W : SINGLE_COL_W);
   // The Edit Courses header sizes, minus its group row; a course with one box
   // per person gets the whole header height for its labels to run up.
   const tableStyle = {
     width: tableWidth,
     "--cr-name-w": `${NAME_COL_W}px`,
+    "--cg-gutter": `${GUTTER_W}px`,
     "--cg-group-h": "0px",
     "--cg-course-h": stacked ? "30px" : "118px",
     "--cg-unit-h": stacked ? "22px" : "0px",
@@ -289,15 +313,17 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
   const note = NOTE[view.id];
   // Admin pages stop at 1400px, but the Ruhi table (42 unit boxes) is a little
   // wider than that, which hid the last book behind a sideways scroll on a big
-  // screen. So the page grows to fit its table (with room for the scroll
-  // bar); a screen narrower than the table still scrolls sideways.
-  const pageMaxWidth = Math.max(1400, tableWidth + 24);
+  // screen. So the page grows to fit its table (and a pixel each side for the
+  // border) plus the width of the scroll bar, if this browser shows one, so a
+  // bar doesn't squeeze the table into scrolling sideways; a screen narrower
+  // than that still scrolls sideways.
+  const pageMaxWidth = Math.max(1400, tableWidth + 2);
 
   return (
     // Fills the page (main is the scroll container and this is its only child)
     // so the table below can be the thing that scrolls, in both directions,
     // keeping its headings and name column in view.
-    <div style={{ maxWidth: pageMaxWidth, margin: "0 auto", paddingTop: "var(--space-3)", height: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ maxWidth: `calc(${pageMaxWidth}px + var(--scrollbar-w, 0px))`, margin: "0 auto", paddingTop: "var(--space-3)", height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, padding: "0 9px var(--space-3)" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
           Course Report ({sorted.length})
@@ -322,8 +348,8 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
           <colgroup>
             <col style={{ width: NAME_COL_W }} />
             <col style={{ width: COUNT_COL_W }} />
-            {columns.map((col) => (
-              <col key={col.key} style={{ width: stacked ? UNIT_COL_W : SINGLE_COL_W }} />
+            {columns.map((col, ci) => (
+              <col key={col.key} style={{ width: (stacked ? UNIT_COL_W : SINGLE_COL_W) + (ci === 0 ? GUTTER_W : 0) + (ci === columns.length - 1 ? GUTTER_W : 0) }} />
             ))}
           </colgroup>
           <thead>
@@ -345,7 +371,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
               </th>
               {track.items.map((item, i) => {
                 const key: SortKey = `item:${item.id}`;
-                const edge = i === 0 ? " cg-edge--group" : stacked ? " cg-edge--book" : "";
+                const edge = (i === 0 ? " cg-edge--group cg-pad-start" : stacked ? " cg-edge--book" : "") + (i === track.items.length - 1 ? " cg-pad-end" : "");
                 return stacked ? (
                   <th key={item.id} scope="colgroup" colSpan={track.units} className={`cg-course${edge}`} aria-sort={ariaSort(key)}>
                     <SortButton label={item.label} dir={dirOf(key)} onClick={() => sortBy(key)}>
@@ -367,7 +393,13 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
               <tr>
                 {track.items.flatMap((item, i) =>
                   studyUnits(track).map((u) => (
-                    <th key={`${item.id}:${u}`} scope="col" className={`cg-unit${u === 1 ? (i === 0 ? " cg-edge--group" : " cg-edge--book") : ""}`}>
+                    <th
+                      key={`${item.id}:${u}`}
+                      scope="col"
+                      className={`cg-unit${u === 1 ? (i === 0 ? " cg-edge--group cg-pad-start" : " cg-edge--book") : ""}${
+                        i === track.items.length - 1 && u === track.units ? " cg-pad-end" : ""
+                      }`}
+                    >
                       U{u}
                     </th>
                   )),
