@@ -8,6 +8,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
 import { studyProgress } from "@/db/schema/studyProgress";
+import { communityToday } from "@/lib/studyDate";
 import type { StoredStudyStatus, StudyStatus, StudyTrackId } from "@/lib/studyTracks";
 
 export type StudyProgressEntry = { personId: string; item: number; unit: number; status: StoredStudyStatus };
@@ -53,7 +54,13 @@ export async function listPeopleWithStudyProgress() {
 
 // Absolute state, not "cycle" — the client works out the next state, this
 // just records it. "none" deletes the row (not studied is the absence of
-// one), anything else upserts.
+// one, so its date goes with it), anything else upserts.
+//
+// Every real change stamps the box with today's date (status_date: the day it
+// reached this state). Saving the state a box is already in changes nothing —
+// not the date, not who or when — so a tap that lands twice, or a retry, can't
+// move a date. The upsert's WHERE does that check in the same statement that
+// writes, so two saves racing can't both think they changed it.
 export async function saveStudyStatus(
   userId: string,
   track: StudyTrackId,
@@ -68,12 +75,14 @@ export async function saveStudyStatus(
       .where(and(eq(studyProgress.personId, personId), eq(studyProgress.track, track), eq(studyProgress.item, item), eq(studyProgress.unit, unit)));
     return;
   }
+  const today = communityToday();
   await db
     .insert(studyProgress)
-    .values({ personId, track, item, unit, status, updatedByUserId: userId })
+    .values({ personId, track, item, unit, status, statusDate: today, updatedByUserId: userId })
     .onConflictDoUpdate({
       target: [studyProgress.personId, studyProgress.track, studyProgress.item, studyProgress.unit],
-      set: { status, updatedByUserId: userId, updatedAt: new Date() },
+      set: { status, statusDate: today, updatedByUserId: userId, updatedAt: new Date() },
+      setWhere: sql`${studyProgress.status} is distinct from excluded.status`,
     });
 }
 
@@ -90,10 +99,13 @@ export async function hasStudyProgress(personId: string): Promise<boolean> {
 // transaction (the neon-http driver has none), but every step is safe to
 // re-run, same as the rest of the merge code.
 export async function mergeStudyProgress(fromPersonId: string, toPersonId: string) {
-  // The survivor only has a box partly, the other person has it done.
+  // The survivor only has a box partly, the other person has it done — so it
+  // takes the other's completion date (today, if that one has none).
   await db.execute(sql`
     UPDATE ruhi_unit_progress AS t
-    SET status = 'complete', updated_at = now()
+    SET status = 'complete',
+        status_date = COALESCE(f.status_date, ${communityToday()}::date),
+        updated_at = now()
     FROM ruhi_unit_progress AS f
     WHERE t.person_id = ${toPersonId}
       AND f.person_id = ${fromPersonId}

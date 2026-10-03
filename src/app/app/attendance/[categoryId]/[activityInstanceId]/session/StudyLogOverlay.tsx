@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CloseButton } from "@/components/CloseButton";
-import { nextStudyStatus, studyCellKey, type StoredStudyStatus, type StudyStatus, type StudyTrack, type StudyTrackId } from "@/lib/studyTracks";
+import { isRegress, nextStudyStatus, studyCellKey, type StoredStudyStatus, type StudyStatus, type StudyTrack, type StudyTrackId } from "@/lib/studyTracks";
 import { StudyLogGrid, studySwatchStyle, type StudyParticipant } from "./StudyLogGrid";
 
 type ProgressRow = { personId: string; item: number; unit: number; status: StoredStudyStatus };
@@ -97,7 +97,7 @@ export function StudyLogOverlay({
   );
 
   const cycle = useCallback(
-    (trackId: StudyTrackId, personId: string, item: number, unit: number) => {
+    (trackId: StudyTrackId, personId: string, item: number, unit: number, what: string) => {
       const key = studyCellKey(personId, item, unit);
       const syncKey = `${trackId}|${key}`;
       let sync = syncRef.current.get(syncKey);
@@ -106,7 +106,12 @@ export function StudyLogOverlay({
         sync = { inFlight: false, desired: current, server: current };
         syncRef.current.set(syncKey, sync);
       }
-      sync.desired = nextStudyStatus(sync.desired);
+      const next = nextStudyStatus(sync.desired);
+      // The last tap in the cycle takes a completed box back to not studied —
+      // ask first, so a stray tap can't quietly undo someone's progress.
+      // Cancel leaves the box exactly as it was.
+      if (isRegress(sync.desired, next) && !window.confirm(`Set ${what} back to not studied?\n\nIt is marked completed.`)) return;
+      sync.desired = next;
       setSaveError(null);
       setCell(trackId, key, sync.desired);
       flush(trackId, personId, item, unit, key);
@@ -117,7 +122,7 @@ export function StudyLogOverlay({
   // One tap handler per log, the same one between renders, so the boxes a tap
   // didn't touch aren't redrawn.
   const cyclers = useMemo(
-    () => Object.fromEntries(tracks.map((t) => [t.id, (personId: string, item: number, unit: number) => cycle(t.id, personId, item, unit)])),
+    () => Object.fromEntries(tracks.map((t) => [t.id, (personId: string, item: number, unit: number, what: string) => cycle(t.id, personId, item, unit, what)])),
     [tracks, cycle],
   );
 

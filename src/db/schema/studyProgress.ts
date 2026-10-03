@@ -1,4 +1,4 @@
-import { pgTable, uuid, smallint, text, timestamp, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, smallint, text, date, timestamp, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
 import { people } from "./people";
 import { user } from "./auth";
 
@@ -31,6 +31,13 @@ export const studyProgress = pgTable(
     item: smallint("book").notNull(),
     unit: smallint("unit").notNull(),
     status: studyStatusEnum("status").notNull(),
+    // The day this box reached its current state (partly done, or completed).
+    // Hidden — no screen shows it; it's kept for analysis later. Set when the
+    // state really changes (never refreshed by saving the same state again),
+    // taken from the SRP reports for the boxes they cover, and estimated or
+    // "today" for the rest. NULL only for a box created before it existed and
+    // not backfilled yet.
+    statusDate: date("status_date"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     updatedByUserId: text("updated_by_user_id").references(() => user.id),
   },

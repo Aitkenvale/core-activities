@@ -122,8 +122,10 @@ const Cell = memo(function Cell({
   who: string;
   showUnits: boolean;
   rowH: number;
-  onCycle: (personId: string, item: number, unit: number) => void;
+  // `what` names the box in words ("Ana, Book 1 Unit 2"), for the question asked before a box goes backwards.
+  onCycle: (personId: string, item: number, unit: number, what: string) => void;
 }) {
+  const what = `${who}, ${label}${showUnits ? ` Unit ${unit}` : ""}`;
   return (
     <td
       style={{
@@ -140,8 +142,8 @@ const Cell = memo(function Cell({
           to completed — from zooming the page. */}
       <button
         type="button"
-        onClick={() => onCycle(personId, item, unit)}
-        aria-label={`${who}, ${label}${showUnits ? ` Unit ${unit}` : ""}: ${STATUS_TEXT[status]}`}
+        onClick={() => onCycle(personId, item, unit, what)}
+        aria-label={`${what}: ${STATUS_TEXT[status]}`}
         style={{
           display: "flex",
           alignItems: "center",
@@ -180,7 +182,8 @@ export function StudyLogGrid({
   track: StudyTrack;
   participants: StudyParticipant[];
   progress: Record<string, StudyStatus>;
-  onCycle: (personId: string, item: number, unit: number) => void;
+  // `what` names the box in words ("Ana, Book 1 Unit 2"), for the question asked before a box goes backwards.
+  onCycle: (personId: string, item: number, unit: number, what: string) => void;
 }) {
   const labels = useMemo(() => shortNames(participants), [participants]);
   const units = useMemo(() => studyUnits(track), [track]);

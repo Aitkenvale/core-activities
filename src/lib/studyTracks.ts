@@ -159,6 +159,15 @@ export function nextStudyStatus(status: StudyStatus): StudyStatus {
   return "none";
 }
 
+const STUDY_RANK: Record<StudyStatus, number> = { none: 0, partial: 1, complete: 2 };
+
+// Whether a change takes a box backwards (completed to partly or not studied,
+// or partly to not studied). In the tap cycle that is only the last step,
+// completed back to not studied. The screens ask before taking one.
+export function isRegress(from: StudyStatus, to: StudyStatus): boolean {
+  return STUDY_RANK[to] < STUDY_RANK[from];
+}
+
 export function studyCellKey(personId: string, item: number, unit: number): string {
   return `${personId}:${item}:${unit}`;
 }

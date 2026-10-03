@@ -6,6 +6,7 @@ import { studySwatchStyle } from "@/app/app/attendance/[categoryId]/[activityIns
 import { CATEGORY_LABELS, formatCategoryLabel, getCategoryLabel } from "@/lib/category";
 import { formatFullName } from "@/lib/formatName";
 import {
+  isRegress,
   nextStudyStatus,
   studyTrackFor,
   studyUnits,
@@ -273,6 +274,8 @@ export function CourseGrid({
     [saveStatus, setCell],
   );
 
+  const displayById = useMemo(() => new Map(rows.map((r) => [r.id, r.display])), [rows]);
+
   const cycle = useCallback(
     (personId: string, col: Column) => {
       const syncKey = `${personId}:${col.key}`;
@@ -282,12 +285,20 @@ export function CourseGrid({
         sync = { inFlight: false, desired: current, server: current };
         syncRef.current.set(syncKey, sync);
       }
-      sync.desired = nextStudyStatus(sync.desired);
+      const next = nextStudyStatus(sync.desired);
+      // The last tap in the cycle takes a completed box back to not studied —
+      // ask first, so a stray click can't quietly undo someone's progress.
+      // Cancel leaves the box exactly as it was.
+      if (isRegress(sync.desired, next)) {
+        const what = `${displayById.get(personId) ?? "this person"}, ${col.item.label}${col.track.units > 1 ? ` Unit ${col.unit}` : ""}`;
+        if (!window.confirm(`Set ${what} back to not studied?\n\nIt is marked completed.`)) return;
+      }
+      sync.desired = next;
       setError(null);
       setCell(personId, col.key, sync.desired);
       void flush(col, personId, syncKey);
     },
-    [flush, setCell],
+    [displayById, flush, setCell],
   );
 
   // One handler for the whole table rather than one per box: each of the
