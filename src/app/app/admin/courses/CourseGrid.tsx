@@ -25,6 +25,10 @@ const TRACK_ORDER: StudyTrackId[] = ["psec", "jysep", "ruhi"];
 const GROUP_TITLE: Record<StudyTrackId, string> = { psec: "Children's Grades", jysep: "Junior Youth Texts", ruhi: "Ruhi Books" };
 const TRACKS = TRACK_ORDER.map(studyTrackFor).filter((t): t is StudyTrack => t !== null);
 
+// The age pills are keyed by category label — plus this one, for people with
+// no date of birth and therefore no category at all.
+const NO_AGE = "no-age";
+
 const STATUS_TEXT: Record<StudyStatus, string> = {
   none: "not studied",
   partial: "partly studied",
@@ -207,11 +211,11 @@ export function CourseGrid({
     [people],
   );
 
-  // No pills selected means everyone (including anyone without a date of
-  // birth); with pills selected, anyone in any of them.
+  // No pills selected means everyone; with pills selected, anyone in any of
+  // them (No Age being the people without a date of birth).
   const visible = useMemo(() => {
     const q = filterText.trim().toLowerCase();
-    return rows.filter((r) => (ageFilter.size === 0 || (r.categoryLabel !== null && ageFilter.has(r.categoryLabel))) && (!q || r.searchText.includes(q)));
+    return rows.filter((r) => (ageFilter.size === 0 || ageFilter.has(r.categoryLabel ?? NO_AGE)) && (!q || r.searchText.includes(q)));
   }, [rows, filterText, ageFilter]);
 
   function toggleAge(label: string) {
@@ -321,6 +325,9 @@ export function CourseGrid({
               {formatCategoryLabel(label)}
             </Pill>
           ))}
+          <Pill active={ageFilter.has(NO_AGE)} onClick={() => toggleAge(NO_AGE)}>
+            No Age
+          </Pill>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginLeft: "auto", fontSize: "0.72rem", color: "var(--muted)", flexWrap: "wrap" }}>
             <LegendItem status="none" text="Not studied" />
             <LegendItem status="partial" text="Partly" />
