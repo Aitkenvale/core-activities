@@ -55,9 +55,9 @@ function formatShort(iso: string) {
   return `${d.getDate()} ${MONTH_ABBR[d.getMonth()]}`;
 }
 
-// Hardcoded for now, matching the category IDs used elsewhere (PSEC/JYSEP/SC
-// abbreviations) — expand this list as more categories come into use.
-const CATEGORY_FILTER_OPTIONS = ["psec", "jysep", "sc"];
+// Hardcoded for now, matching the category IDs used elsewhere (PSEC/JYSEP/SC/
+// RUHI abbreviations) — expand this list as more categories come into use.
+const CATEGORY_FILTER_OPTIONS = ["psec", "jysep", "sc", "ruhi"];
 
 export function BulkAttendanceGrid({ initialActivities }: { initialActivities: ActivityBlock[] }) {
   const [activities, setActivities] = useState(initialActivities);

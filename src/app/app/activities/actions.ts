@@ -9,6 +9,16 @@ import { activityInstances } from "@/db/schema/activityInstances";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { getCategoryLabel, FACILITATOR_INELIGIBLE_CATEGORIES, PARTICIPANT_INELIGIBLE_CATEGORIES } from "@/lib/category";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
+import { lockedCadenceTypeFor } from "@/lib/ruhi";
+
+// Some categories fix the cadence (Ruhi Camps are always ad-hoc). The form
+// already greys the other options out, but this is what actually holds the
+// line — including when an existing activity's category is switched to one
+// of them, which would otherwise leave its old weekly pattern in place.
+function resolveCadence(categoryId: string, cadenceType: CadenceType, cadenceConfig: CadenceConfig) {
+  const locked = lockedCadenceTypeFor(categoryId);
+  return locked ? { cadenceType: locked, cadenceConfig: {} as CadenceConfig } : { cadenceType, cadenceConfig };
+}
 
 async function requireUserId() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -78,6 +88,7 @@ export async function createActivityWithRoster(input: {
   await requireUserId();
   const trimmedName = input.name.trim();
   if (!trimmedName) throw new Error("Name is required");
+  const cadence = resolveCadence(input.categoryId, input.cadenceType, input.cadenceConfig);
 
   const [activity] = await db
     .insert(activityInstances)
@@ -87,8 +98,8 @@ export async function createActivityWithRoster(input: {
       neighbourhoodId: input.neighbourhoodId,
       startDate: input.startDate,
       description: input.notes.trim() || null,
-      cadenceType: input.cadenceType,
-      cadenceConfig: input.cadenceConfig,
+      cadenceType: cadence.cadenceType,
+      cadenceConfig: cadence.cadenceConfig,
     })
     .returning();
 
@@ -218,6 +229,7 @@ export async function updateActivityWithRoster(
   const isAdmin = session.user.role === "admin";
   const trimmedName = input.name.trim();
   if (!trimmedName) throw new Error("Name is required");
+  const cadence = resolveCadence(input.categoryId, input.cadenceType, input.cadenceConfig);
 
   const [current] = await db.select({ status: activityInstances.status }).from(activityInstances).where(eq(activityInstances.id, activityInstanceId));
   const prevStatus: ActivityStatus = (current?.status as ActivityStatus) ?? "active";
@@ -235,8 +247,8 @@ export async function updateActivityWithRoster(
       categoryId: input.categoryId,
       neighbourhoodId: input.neighbourhoodId,
       description: input.notes.trim() || null,
-      cadenceType: input.cadenceType,
-      cadenceConfig: input.cadenceConfig,
+      cadenceType: cadence.cadenceType,
+      cadenceConfig: cadence.cadenceConfig,
       status: nextStatus,
       hidden: nextStatus === "archived",
       // Only stamped the moment a status is newly entered, not re-stamped on

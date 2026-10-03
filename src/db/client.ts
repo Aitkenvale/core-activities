@@ -17,6 +17,7 @@ import * as appSettings from "./schema/appSettings";
 import * as allowedSignups from "./schema/allowedSignups";
 import * as registrationSubmissions from "./schema/registrationSubmissions";
 import * as events from "./schema/events";
+import * as ruhiUnitProgress from "./schema/ruhiUnitProgress";
 
 const schema = {
   ...authSchema,
@@ -36,6 +37,7 @@ const schema = {
   ...allowedSignups,
   ...registrationSubmissions,
   ...events,
+  ...ruhiUnitProgress,
 };
 
 const sql = neon(process.env.DATABASE_URL!);

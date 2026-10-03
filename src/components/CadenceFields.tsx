@@ -46,16 +46,30 @@ export function CadenceFields({
   initialType,
   initialConfig,
   onChange,
+  lockedType,
+  lockedNote,
 }: {
   initialType: CadenceType;
   initialConfig: CadenceConfig;
   onChange: (type: CadenceType, config: CadenceConfig) => void;
+  // When a category fixes the cadence (Ruhi Camps are always ad-hoc), the
+  // other options are greyed out and this one is forced — see
+  // lockedCadenceTypeFor in src/lib/ruhi.ts.
+  lockedType?: CadenceType;
+  lockedNote?: string;
 }) {
-  const [type, setType] = useState<CadenceType>(initialType);
+  const [type, setType] = useState<CadenceType>(lockedType ?? initialType);
   const [weekdays, setWeekdays] = useState<string[]>(initialConfig.weekdays ?? []);
   const [intervalWeeks, setIntervalWeeks] = useState(initialConfig.intervalWeeks ?? 1);
   const [intervalMonths, setIntervalMonths] = useState(initialConfig.intervalMonths ?? 1);
   const [occurrences, setOccurrences] = useState(initialConfig.occurrences ?? [{ occurrence: "first" as Occurrence, weekday: "Monday" }]);
+
+  // The lock can arrive after mount — the Category dropdown above can be
+  // switched to one that fixes the cadence — so snap to it; the effect below
+  // then reports that up to the form like any other change.
+  useEffect(() => {
+    if (lockedType) setType(lockedType);
+  }, [lockedType]);
 
   useEffect(() => {
     onChange(type, computeConfig(type, weekdays, intervalWeeks, intervalMonths, occurrences));
@@ -76,12 +90,27 @@ export function CadenceFields({
             ["every_n_months", "Every N Months"],
             ["ad_hoc", "Ad-hoc (no fixed pattern)"],
           ] as [CadenceType, string][]
-        ).map(([value, label]) => (
-          <label key={value} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", color: "var(--text)", cursor: "pointer" }}>
-            <input type="radio" name="cadenceType" checked={type === value} onChange={() => setType(value)} />
-            {label}
-          </label>
-        ))}
+        ).map(([value, label]) => {
+          const disabled = lockedType !== undefined && lockedType !== value;
+          return (
+            <label
+              key={value}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: "0.85rem",
+                color: disabled ? "var(--muted)" : "var(--text)",
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: disabled ? 0.5 : 1,
+              }}
+            >
+              <input type="radio" name="cadenceType" checked={type === value} disabled={disabled} onChange={() => setType(value)} />
+              {label}
+            </label>
+          );
+        })}
+        {lockedType && lockedNote && <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: "2px 0 0" }}>{lockedNote}</p>}
       </div>
 
       {(type === "school_term" || type === "every_n_weeks") && (

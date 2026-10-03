@@ -10,7 +10,8 @@ async function seed() {
       { id: "psec", label: "Children's Class", defaultAgeMin: null, defaultAgeMax: 11, sortOrder: 1, enabled: true },
       { id: "jysep", label: "Junior Youth Group", defaultAgeMin: 12, defaultAgeMax: null, sortOrder: 2, enabled: true },
       { id: "sc", label: "Study Circle", defaultAgeMin: null, defaultAgeMax: null, sortOrder: 3, enabled: true },
-      { id: "camp", label: "Camp", defaultAgeMin: null, defaultAgeMax: null, sortOrder: 4, enabled: false },
+      { id: "ruhi", label: "Ruhi Camp", defaultAgeMin: null, defaultAgeMax: null, sortOrder: 4, enabled: true },
+      { id: "camp", label: "Camp", defaultAgeMin: null, defaultAgeMax: null, sortOrder: 5, enabled: false },
     ])
     .onConflictDoUpdate({
       target: activityCategories.id,

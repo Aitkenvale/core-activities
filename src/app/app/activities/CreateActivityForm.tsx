@@ -7,6 +7,7 @@ import { CadenceFields } from "@/components/CadenceFields";
 import { StatusPills } from "@/components/StatusPills";
 import { PeoplePicker, type PickedPerson } from "./PeoplePicker";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
+import { lockedCadenceTypeFor } from "@/lib/ruhi";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 type Category = { id: string; label: string };
@@ -376,6 +377,8 @@ export const CreateActivityForm = forwardRef<
             setCadenceType(type);
             setCadenceConfig(config);
           }}
+          lockedType={lockedCadenceTypeFor(categoryId)}
+          lockedNote="Ruhi Camps are always ad-hoc — you pick each date when taking attendance."
         />
       </section>
 
