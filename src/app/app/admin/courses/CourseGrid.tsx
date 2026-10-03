@@ -48,7 +48,7 @@ const STATUS_TEXT: Record<StudyStatus, string> = {
 // The three looks of a box in each fill colour, built once and shared by
 // every box on screen — there are about 17,000 of them, so none gets its own
 // style object. The look itself is the same one the Attendance screens use.
-const TONES: StudyTone[] = ["green", "blue", "mustard"];
+const TONES: StudyTone[] = ["green", "blue", "indigo"];
 const SWATCH = Object.fromEntries(
   TONES.map((tone) => [tone, { none: studySwatchStyle("none", tone), partial: studySwatchStyle("partial", tone), complete: studySwatchStyle("complete", tone) }]),
 ) as Record<StudyTone, Record<StudyStatus, React.CSSProperties>>;
@@ -335,7 +335,7 @@ export function CourseGrid({
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, padding: "0 9px var(--space-3)" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Edit Courses ({visible.length})
+          Edit Courses
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <input

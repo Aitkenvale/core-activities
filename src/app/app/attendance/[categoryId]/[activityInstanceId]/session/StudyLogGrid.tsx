@@ -45,7 +45,7 @@ export const STATUS_TEXT: Record<StudyStatus, string> = {
 const TONES: Record<StudyTone | "neutral", { solid: string; soft: string }> = {
   green: { solid: "var(--green)", soft: "var(--green-soft)" },
   blue: { solid: "var(--blue)", soft: "var(--blue-soft)" },
-  mustard: { solid: "var(--mustard)", soft: "var(--mustard-soft)" },
+  indigo: { solid: "var(--indigo)", soft: "var(--indigo-soft)" },
   neutral: { solid: "var(--muted)", soft: "var(--muted)" },
 };
 

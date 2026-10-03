@@ -19,7 +19,7 @@ export type StudyStatus = "none" | "partial" | "complete";
 export type StoredStudyStatus = Exclude<StudyStatus, "none">;
 
 // The colour a row's boxes fill with once started or finished.
-export type StudyTone = "green" | "blue" | "mustard";
+export type StudyTone = "green" | "blue" | "indigo";
 
 export type StudyItem = {
   // What's stored in the database for this row. Permanent: never renumber or
@@ -49,9 +49,9 @@ export type StudyTrack = {
 
 const range = (count: number) => Array.from({ length: count }, (_, i) => i + 1);
 
-// Books 1 to 7 fill green and Books 8 to 14 blue, so the two stages of the
-// sequence read apart at a glance.
-const RUHI_BOOKS: StudyItem[] = range(14).map((n) => ({ id: n, label: `Book ${n}`, tone: n >= 8 ? "blue" : "green" }));
+// Books 1 to 7 fill green, Books 8 to 12 blue and Books 13 and 14 indigo, so the
+// stages of the sequence read apart at a glance.
+const RUHI_BOOKS: StudyItem[] = range(14).map((n) => ({ id: n, label: `Book ${n}`, tone: n >= 13 ? "indigo" : n >= 8 ? "blue" : "green" }));
 
 // The courses that branch off Ruhi Books 3, 5 and 7 — recorded as one box each,
 // not as units. The id is what's stored — never renumber or reuse one; a later
@@ -84,7 +84,7 @@ const DSA_COURSES: StudyItem[] = [
 // groups. To add a text later, give it the next unused id and slot it in
 // where it belongs; the order here can change freely because the id, not the
 // position, is what's stored.
-const YEAR_TONE: Record<1 | 2 | 3, StudyTone> = { 1: "green", 2: "blue", 3: "mustard" };
+const YEAR_TONE: Record<1 | 2 | 3, StudyTone> = { 1: "green", 2: "blue", 3: "indigo" };
 const jyText = (year: 1 | 2 | 3, id: number, label: string): StudyItem => ({ id, label, tone: YEAR_TONE[year] });
 
 const JY_TEXTS: StudyItem[] = [

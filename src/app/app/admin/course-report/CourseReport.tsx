@@ -60,7 +60,7 @@ const STATUS_TEXT: Record<StudyStatus, string> = {
 
 // The three looks of a box in each fill colour, built once and shared by every
 // box — the same look the Edit Courses grid and the Attendance screens use.
-const TONES: StudyTone[] = ["green", "blue", "mustard"];
+const TONES: StudyTone[] = ["green", "blue", "indigo"];
 const SWATCH = Object.fromEntries(
   TONES.map((tone) => [tone, { none: studySwatchStyle("none", tone), partial: studySwatchStyle("partial", tone), complete: studySwatchStyle("complete", tone) }]),
 ) as Record<StudyTone, Record<StudyStatus, React.CSSProperties>>;
@@ -326,7 +326,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
     <div style={{ maxWidth: `calc(${pageMaxWidth}px + var(--scrollbar-w, 0px))`, margin: "0 auto", paddingTop: "var(--space-3)", height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, padding: "0 9px var(--space-3)" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Course Report ({sorted.length})
+          Course Report
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {VIEWS.map((v) => (

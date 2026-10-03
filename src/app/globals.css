@@ -35,15 +35,14 @@
      border; never as text or a lone outline. */
   --green-soft: #8CC79B;
   /* The same pair for the other fill colours the study logs use — Junior
-     Youth Texts fill green, blue or mustard (by programme year, though the
-     year itself is never shown). Each -soft is the lighter "partly done" half
-     fill and is only ever used like --green-soft: as a fill alongside a
-     full-strength border. --mustard is deliberately neither --gold (a fixed
-     brand accent used across the app) nor --yellow (the "some details
-     missing" warning colour). */
+     Youth Texts fill green, blue or indigo (by programme year, though the
+     year itself is never shown), and the Ruhi books green, blue, then indigo
+     for Books 13 and 14. Each -soft is the lighter "partly done" half fill and
+     is only ever used like --green-soft: as a fill alongside a full-strength
+     border. --indigo leans toward violet so it reads apart from --blue. */
   --blue-soft: #9ABEE8;
-  --mustard: #A9850A;
-  --mustard-soft: #D9BA45;
+  --indigo: #5C3AAA;
+  --indigo-soft: #BCABEA;
   --red: #8B3A2A;
   --blue: #2F5C99;
   --yellow: #B8930C;
@@ -96,8 +95,8 @@
     --green: #7BBE8E;
     --green-soft: #4E8A62;
     --blue-soft: #5480B6;
-    --mustard: #DDC048;
-    --mustard-soft: #8F7A22;
+    --indigo: #A58AF2;
+    --indigo-soft: #6A50BA;
     --red: #E08A72;
     --blue: #7EA8E0;
     --yellow: #EDD152;
@@ -126,8 +125,8 @@
   --green: #7BBE8E;
   --green-soft: #4E8A62;
   --blue-soft: #5480B6;
-  --mustard: #DDC048;
-  --mustard-soft: #8F7A22;
+  --indigo: #A58AF2;
+  --indigo-soft: #6A50BA;
   --red: #E08A72;
   --blue: #7EA8E0;
   --yellow: #EDD152;
