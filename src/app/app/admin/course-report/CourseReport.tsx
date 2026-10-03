@@ -287,12 +287,17 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
   } as React.CSSProperties;
   const headRows = stacked ? 2 : 1;
   const note = NOTE[view.id];
+  // Admin pages stop at 1400px, but the Ruhi table (42 unit boxes) is a little
+  // wider than that, which hid the last book behind a sideways scroll on a big
+  // screen. So the page grows to fit its table (with room for the scroll
+  // bar); a screen narrower than the table still scrolls sideways.
+  const pageMaxWidth = Math.max(1400, tableWidth + 24);
 
   return (
     // Fills the page (main is the scroll container and this is its only child)
     // so the table below can be the thing that scrolls, in both directions,
     // keeping its headings and name column in view.
-    <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", height: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ maxWidth: pageMaxWidth, margin: "0 auto", paddingTop: "var(--space-3)", height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, padding: "0 9px var(--space-3)" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
           Course Report ({sorted.length})
