@@ -66,17 +66,6 @@ export default async function SessionPage({
   const cadenceConfig = activity.cadenceConfig as CadenceConfig;
   const nextExpected = getNextExpectedDate(cadenceType, cadenceConfig, termRanges, activity.startDate);
   const cadenceRecentDates = getRecentExpectedDates(cadenceType, cadenceConfig, termRanges, 3, activity.startDate);
-  const selectedDate = date || nextExpected || new Date().toISOString().slice(0, 10);
-
-  const existingEvent = await db.query.attendanceEvents.findFirst({
-    where: and(eq(attendanceEvents.activityInstanceId, activityInstanceId), eq(attendanceEvents.sessionDate, selectedDate)),
-  });
-
-  const existingRecords = existingEvent
-    ? await db.select().from(attendanceRecords).where(eq(attendanceRecords.attendanceEventId, existingEvent.id))
-    : [];
-
-  const statusByPersonId = Object.fromEntries(existingRecords.map((r) => [r.personId, r.status]));
 
   // "Pick Date" lists dates the activity was actually held (a real
   // attendance_events row), not cadence-computed guesses — scoped to the
@@ -90,16 +79,37 @@ export default async function SessionPage({
     .orderBy(desc(attendanceEvents.sessionDate));
   const heldDates = heldEvents.map((e) => e.sessionDate);
 
+  // With no date in the URL, open on the date the cadence expects — or, for
+  // an activity that has none to suggest (every ad-hoc one), on the most
+  // recent session that really exists: where you left off. Falling straight
+  // through to today's date used to invent one, which then showed up as a
+  // selected date pill every time the activity was reopened, as if someone
+  // had added it. Today is only the last resort, for an activity with no
+  // sessions yet (and the screen then asks for a date — see
+  // needsDateConfirmation below).
+  const selectedDate = date || nextExpected || heldDates[0] || new Date().toISOString().slice(0, 10);
+
+  const existingEvent = await db.query.attendanceEvents.findFirst({
+    where: and(eq(attendanceEvents.activityInstanceId, activityInstanceId), eq(attendanceEvents.sessionDate, selectedDate)),
+  });
+
+  const existingRecords = existingEvent
+    ? await db.select().from(attendanceRecords).where(eq(attendanceRecords.attendanceEventId, existingEvent.id))
+    : [];
+
+  const statusByPersonId = Object.fromEntries(existingRecords.map((r) => [r.personId, r.status]));
+
   // Ad-hoc activities have no cadence, so cadenceRecentDates above is always
   // empty — the most recent real sessions are the natural equivalent of the
   // cadence-predicted quick-pick pills for everyone else.
   const recentDates = cadenceType === "ad_hoc" ? heldDates.slice(0, 3) : cadenceRecentDates;
 
-  // Ad-hoc activities have no cadence, so selectedDate above falls all the
-  // way through to "today" with nothing to signal that's just a guess, not
-  // a deliberate choice. Once any date has actually been picked (?date= is
-  // present) or a session already exists, this stops applying — it's only
-  // for the very first visit to a brand-new ad-hoc activity.
+  // An ad-hoc activity with no sessions yet has no cadence to suggest a date
+  // from, so selectedDate above falls all the way through to "today" with
+  // nothing to signal that's just a guess, not a deliberate choice. Once any
+  // date has actually been picked (?date= is present) or a session already
+  // exists, this stops applying — it's only for the very first visit to a
+  // brand-new ad-hoc activity.
   const needsDateConfirmation = cadenceType === "ad_hoc" && heldDates.length === 0 && !date;
 
   return (
