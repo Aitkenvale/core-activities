@@ -54,7 +54,7 @@ const STATUS_TEXT: Record<StudyStatus, string> = {
 
 // The three looks of a box in each fill colour, built once and shared by every
 // box — the same look the Edit Study grid and the Attendance screens use.
-const TONES: StudyTone[] = ["green", "blue", "indigo"];
+const TONES: StudyTone[] = ["green", "blue", "indigo", "mustard"];
 const SWATCH = Object.fromEntries(
   TONES.map((tone) => [tone, { none: studySwatchStyle("none", tone), partial: studySwatchStyle("partial", tone), complete: studySwatchStyle("complete", tone) }]),
 ) as Record<StudyTone, Record<StudyStatus, React.CSSProperties>>;

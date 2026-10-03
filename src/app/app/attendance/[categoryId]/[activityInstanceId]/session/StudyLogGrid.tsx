@@ -46,6 +46,7 @@ const TONES: Record<StudyTone | "neutral", { solid: string; soft: string }> = {
   green: { solid: "var(--green)", soft: "var(--green-soft)" },
   blue: { solid: "var(--blue)", soft: "var(--blue-soft)" },
   indigo: { solid: "var(--indigo)", soft: "var(--indigo-soft)" },
+  mustard: { solid: "var(--mustard)", soft: "var(--mustard-soft)" },
   neutral: { solid: "var(--muted)", soft: "var(--muted)" },
 };
 

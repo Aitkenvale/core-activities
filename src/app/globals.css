@@ -47,10 +47,15 @@
      for Books 13 and 14. Each -soft is the lighter "partly done" half fill and
      is only ever used like --green-soft: as a fill alongside a full-strength
      border. --indigo is a bright violet-leaning indigo, vivid and (in the dark
-     theme) lighter than --blue, so a check in it reads apart from one in blue. */
+     theme) lighter than --blue, so a check in it reads apart from one in blue.
+     --mustard is the yellow of the Discourse courses' checks: deliberately
+     neither --gold (a fixed brand accent used across the app) nor --yellow (the
+     "some details missing" warning colour). */
   --blue-soft: #9ABEE8;
   --indigo: #7439FF;
   --indigo-soft: #D3B3FE;
+  --mustard: #A9850A;
+  --mustard-soft: #D9BA45;
   --red: #8B3A2A;
   --blue: #2F5C99;
   --yellow: #B8930C;
@@ -105,6 +110,8 @@
     --blue-soft: #5480B6;
     --indigo: #C39BFE;
     --indigo-soft: #8C6DBA;
+    --mustard: #DDC048;
+    --mustard-soft: #8F7A22;
     --red: #E08A72;
     --blue: #7EA8E0;
     --yellow: #EDD152;
@@ -139,6 +146,8 @@
   --blue-soft: #5480B6;
   --indigo: #C39BFE;
   --indigo-soft: #8C6DBA;
+  --mustard: #DDC048;
+  --mustard-soft: #8F7A22;
   --red: #E08A72;
   --blue: #7EA8E0;
   --yellow: #EDD152;

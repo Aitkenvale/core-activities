@@ -19,7 +19,7 @@ export type StudyStatus = "none" | "partial" | "complete";
 export type StoredStudyStatus = Exclude<StudyStatus, "none">;
 
 // The colour a row's boxes fill with once started or finished.
-export type StudyTone = "green" | "blue" | "indigo";
+export type StudyTone = "green" | "blue" | "indigo" | "mustard";
 
 export type StudyItem = {
   // What's stored in the database for this row. Permanent: never renumber or
@@ -54,8 +54,9 @@ const range = (count: number) => Array.from({ length: count }, (_, i) => i + 1);
 const RUHI_BOOKS: StudyItem[] = range(14).map((n) => ({ id: n, label: `Book ${n}`, tone: n >= 13 ? "indigo" : n >= 8 ? "blue" : "green" }));
 
 // The courses that branch off Ruhi Books 3, 5 and 7 — recorded as one box each,
-// not as units. The id is what's stored — never renumber or reuse one; a later
-// branch gets the next unused id.
+// not as units. Book 3's fill green, Book 5's blue and Book 7's indigo, the
+// colours of the main sequence's own stages. The id is what's stored — never
+// renumber or reuse one; a later branch gets the next unused id.
 const RUHI_BRANCHES: StudyItem[] = [
   { id: 1, label: "Book 3 Branch 1 (Grade 2 part A)", tone: "green" },
   { id: 2, label: "Book 3 Branch 2 (Grade 2 part B)", tone: "green" },
@@ -63,19 +64,20 @@ const RUHI_BRANCHES: StudyItem[] = [
   { id: 4, label: "Book 3 Grade 4", tone: "green" },
   { id: 5, label: "Book 3 Grade 5", tone: "green" },
   { id: 6, label: "Book 3 Grade 6", tone: "green" },
-  { id: 7, label: "Book 5 Branch 1", tone: "green" },
-  { id: 8, label: "Book 5 Branch 2", tone: "green" },
-  { id: 9, label: "Book 7 Branch 1", tone: "green" },
-  { id: 10, label: "Book 7 Branch 2", tone: "green" },
+  { id: 7, label: "Book 5 Branch 1", tone: "blue" },
+  { id: 8, label: "Book 5 Branch 2", tone: "blue" },
+  { id: 9, label: "Book 7 Branch 1", tone: "indigo" },
+  { id: 10, label: "Book 7 Branch 2", tone: "indigo" },
 ];
 
 const GRADES: StudyItem[] = range(6).map((n) => ({ id: n, label: `Grade ${n}`, tone: "green" }));
 
-// The Discourse Group courses. The id is what's stored — never renumber or
-// reuse one; a later course gets the next unused id.
+// The Discourse Group courses, filled yellow (the "mustard" tone). The id is
+// what's stored — never renumber or reuse one; a later course gets the next
+// unused id.
 const DSA_COURSES: StudyItem[] = [
-  { id: 1, label: "DSA 1", tone: "green" },
-  { id: 2, label: "DSA 2", tone: "green" },
+  { id: 1, label: "DSA 1", tone: "mustard" },
+  { id: 2, label: "DSA 2", tone: "mustard" },
 ];
 
 // The Junior Youth texts in programme order: seven in the first year, four in
@@ -107,10 +109,10 @@ const JY_TEXTS: StudyItem[] = [
 
 const TRACKS: StudyTrack[] = [
   { id: "ruhi", title: "Ruhi — Main Sequence", cornerLabel: "Book", units: 3, legendTone: "neutral", items: RUHI_BOOKS },
-  { id: "ruhi_branches", title: "Ruhi — Branches", cornerLabel: "Branch", units: 1, longLabels: true, legendTone: "green", items: RUHI_BRANCHES },
+  { id: "ruhi_branches", title: "Ruhi — Branches", cornerLabel: "Branch", units: 1, longLabels: true, legendTone: "neutral", items: RUHI_BRANCHES },
   { id: "psec", title: "Children's Class — Grades", cornerLabel: "Grade", units: 1, legendTone: "green", items: GRADES },
   { id: "jysep", title: "Junior Youth Group — Texts", cornerLabel: "Text", units: 1, longLabels: true, legendTone: "neutral", items: JY_TEXTS },
-  { id: "discourse", title: "Discourse — Courses", cornerLabel: "Course", units: 1, legendTone: "green", items: DSA_COURSES },
+  { id: "discourse", title: "Discourse — Courses", cornerLabel: "Course", units: 1, legendTone: "mustard", items: DSA_COURSES },
 ];
 
 // A track by its own id — what's stored with a log, and passed between the
