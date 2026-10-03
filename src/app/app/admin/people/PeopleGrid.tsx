@@ -16,6 +16,7 @@ import {
 } from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS, formatCategoryLabel } from "@/lib/category";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PersonMergeDialog } from "./PersonMergeDialog";
 import { RegoFormUpload } from "@/components/RegoFormUpload";
 
@@ -107,7 +108,16 @@ const inputStyle: React.CSSProperties = {
   MozAppearance: "none",
 };
 
-export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: Row[]; initialFilter?: string }) {
+export function PeopleGrid({
+  initialRows,
+  initialFilter = "",
+  deleteRow = deletePerson,
+}: {
+  initialRows: Row[];
+  initialFilter?: string;
+  // Passed in only so the screen can be exercised without a login.
+  deleteRow?: (personId: string) => Promise<unknown>;
+}) {
   const [rows, setRows] = useState(initialRows);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
@@ -123,6 +133,10 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
   const [creating, setCreating] = useState(false);
   const [selectedForMerge, setSelectedForMerge] = useState<Set<string>>(new Set());
   const [showMergeDialog, setShowMergeDialog] = useState(false);
+  // Delete Person asks in the app's own dialog, not the browser's (see
+  // ConfirmDialog), and says why in another when the server refuses.
+  const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
+  const [deleteFailed, setDeleteFailed] = useState<{ name: string; message: string } | null>(null);
 
   // Only ever up to MAX_MERGE_SELECTION at a time — a further tap is
   // ignored rather than replacing an existing pick, so clearing one first
@@ -206,12 +220,11 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
   // real attendance records or leave a dangling contact reference. Anyone
   // with real history should be Hidden instead, not deleted.
   async function handleDelete(id: string, name: string) {
-    if (!window.confirm(`Delete ${name}? This can't be undone.`)) return;
     try {
-      await deletePerson(id);
+      await deleteRow(id);
       setRows((rs) => rs.filter((r) => r.id !== id));
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Couldn't delete that person.");
+      setDeleteFailed({ name, message: e instanceof Error ? e.message : "Couldn't delete that person." });
     }
   }
 
@@ -481,7 +494,7 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
                   onDone={() => setEditing(null)}
                 />
                 <td style={{ ...cellStyle, textAlign: "center" }}>
-                  <button onClick={() => handleDelete(r.id, r.name)} title="Delete" style={{ ...iconButtonStyle, width: 24, height: 24 }}>
+                  <button onClick={() => setDeleting({ id: r.id, name: r.name })} title="Delete" style={{ ...iconButtonStyle, width: 24, height: 24 }}>
                     <TrashIcon />
                   </button>
                 </td>
@@ -490,6 +503,27 @@ export function PeopleGrid({ initialRows, initialFilter = "" }: { initialRows: R
           </tbody>
         </table>
       </div>
+
+      {deleting && (
+        <ConfirmDialog
+          title={`Delete ${deleting.name}?`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          onConfirm={() => {
+            const { id, name } = deleting;
+            setDeleting(null);
+            void handleDelete(id, name);
+          }}
+          onCancel={() => setDeleting(null)}
+        >
+          <p style={{ margin: 0 }}>This can&rsquo;t be undone.</p>
+        </ConfirmDialog>
+      )}
+      {deleteFailed && (
+        <ConfirmDialog title={`Couldn't delete ${deleteFailed.name}`} cancelLabel="OK" onCancel={() => setDeleteFailed(null)}>
+          <p style={{ margin: 0 }}>{deleteFailed.message}</p>
+        </ConfirmDialog>
+      )}
 
       {showMergeDialog && selectedForMerge.size >= 2 && (
         <PersonMergeDialog

@@ -9,7 +9,9 @@ import { createPortal } from "react-dom";
 // For a safeguard that has to keep asking, that is no good.
 //
 // It opens on the safe choice (cancel), Escape and a tap outside both cancel,
-// and it is portaled to <body> so it sits above whatever screen asked.
+// and it is portaled to <body> so it sits above whatever screen asked. Leave out
+// confirmLabel/onConfirm and it is a plain notice with one button (cancelLabel,
+// say "OK") — for explaining why something couldn't be done.
 export function ConfirmDialog({
   title,
   children,
@@ -20,9 +22,9 @@ export function ConfirmDialog({
 }: {
   title: string;
   children: ReactNode;
-  confirmLabel: string;
+  confirmLabel?: string;
   cancelLabel: string;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onCancel: () => void;
 }) {
   const safeRef = useRef<HTMLButtonElement>(null);
@@ -83,9 +85,11 @@ export function ConfirmDialog({
           <button ref={safeRef} type="button" onClick={onCancel} style={{ ...buttonStyle, background: "var(--card-bg)", color: "var(--text)" }}>
             {cancelLabel}
           </button>
-          <button type="button" onClick={onConfirm} style={{ ...buttonStyle, background: "var(--deep)", color: "var(--cream)" }}>
-            {confirmLabel}
-          </button>
+          {onConfirm && confirmLabel && (
+            <button type="button" onClick={onConfirm} style={{ ...buttonStyle, background: "var(--deep)", color: "var(--cream)" }}>
+              {confirmLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>,
