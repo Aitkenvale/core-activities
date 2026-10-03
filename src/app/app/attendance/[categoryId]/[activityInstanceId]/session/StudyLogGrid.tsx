@@ -4,7 +4,9 @@ import { memo, useMemo } from "react";
 import { formatFullName } from "@/lib/formatName";
 import { studyCellKey, studyUnits, type StudyStatus, type StudyTone, type StudyTrack } from "@/lib/studyTracks";
 
-export type StudyParticipant = { personId: string; name: string; preferredName: string | null };
+// `active` is false for someone hidden from the activity's roster since — they
+// stay in the grid, with their name greyed, so their log can still be filled in.
+export type StudyParticipant = { personId: string; name: string; preferredName: string | null; active: boolean };
 
 // Fixed sizes rather than content-driven ones: Ruhi's two header rows have to
 // know each other's exact height (the second sticks directly under the
@@ -58,6 +60,18 @@ export function studySwatchStyle(status: StudyStatus, tone: StudyTone | "neutral
     return { border: `1.5px solid ${solid}`, background: `linear-gradient(to top, ${soft} 50%, transparent 50%)` };
   }
   return { border: "1.5px solid var(--muted)", background: "transparent" };
+}
+
+// How faded a former participant's name is — enough to read as "not current",
+// not so much that it looks disabled (their boxes work exactly the same). Still
+// clears 4.5:1 against the header in both themes.
+const INACTIVE_NAME_OPACITY = 0.65;
+
+// What the header tooltip and every box's accessible label call someone. The
+// grey alone isn't enough to say they're no longer active, so it's said in words too.
+function describe(p: StudyParticipant): string {
+  const full = formatFullName(p.name, p.preferredName);
+  return p.active ? full : `${full} (no longer active)`;
 }
 
 function firstName(p: StudyParticipant): string {
@@ -220,7 +234,7 @@ export function StudyLogGrid({
               key={p.personId}
               scope={showUnits ? "colgroup" : "col"}
               colSpan={units.length}
-              title={formatFullName(p.name, p.preferredName)}
+              title={describe(p)}
               style={{ ...headBase, top: 0, zIndex: 3, height: NAME_ROW_H, borderLeft: GROUP_LINE, borderBottom: lastHeaderLine }}
             >
               <span
@@ -233,6 +247,7 @@ export function StudyLogGrid({
                   fontSize: showUnits ? "0.78rem" : "0.72rem",
                   lineHeight: `${NAME_ROW_H}px`,
                   color: "var(--text)",
+                  opacity: p.active ? undefined : INACTIVE_NAME_OPACITY,
                 }}
               >
                 {labels.get(p.personId)}
@@ -302,7 +317,7 @@ export function StudyLogGrid({
                   status={progress[studyCellKey(p.personId, item.id, unit)] ?? "none"}
                   tone={item.tone}
                   label={item.label}
-                  who={formatFullName(p.name, p.preferredName)}
+                  who={describe(p)}
                   showUnits={showUnits}
                   rowH={rowH}
                   onCycle={onCycle}

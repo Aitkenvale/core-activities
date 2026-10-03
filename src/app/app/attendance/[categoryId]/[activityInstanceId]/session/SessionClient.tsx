@@ -214,14 +214,17 @@ export function SessionClient({
   // Co-Animators, and Study Circles don't split the role at all — see
   // activityRoleLabels.ts.
   const roleLabels = getRoleLabels(categoryId);
-  // The study log grid covers whoever is an active participant right now —
-  // not facilitators, and not people hidden from the roster — whether or not
-  // Edit mode happens to be revealing hidden rows on this screen.
+  // The study log grid covers every participant the activity has ever had —
+  // current ones first, then anyone since hidden from the roster, whose log is
+  // still theirs to fill in (the grid greys their names). Not facilitators or
+  // assistants, and independent of whether Edit mode happens to be revealing
+  // hidden rows on this screen.
+  const isActive = (r: RosterRow) => activeByPersonId[r.personId] ?? r.active;
   const studyParticipants = studyTrack
     ? roster
-        .filter((r) => r.role === "participant" && activeByPersonId[r.personId])
-        .sort(byDisplayName)
-        .map((r) => ({ personId: r.personId, name: r.name, preferredName: r.preferredName }))
+        .filter((r) => r.role === "participant")
+        .sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || byDisplayName(a, b))
+        .map((r) => ({ personId: r.personId, name: r.name, preferredName: r.preferredName, active: isActive(r) }))
     : [];
 
   return (

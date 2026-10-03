@@ -23,8 +23,8 @@ function LegendItem({ status, text, tone }: { status: StudyStatus; text: string;
   );
 }
 
-// A study log (Ruhi Units, Grades or Texts) for an activity's active
-// participants, as a whole-screen overlay (same shape as Add Info and
+// A study log (Ruhi Units, Grades or Texts) for an activity's participants —
+// current and former — as a whole-screen overlay (same shape as Add Info and
 // Search). Reading and writing are passed in rather than imported so the
 // screen doesn't care where its data comes from — the Attendance page hands
 // it the real server actions.
@@ -159,7 +159,7 @@ export function StudyLogOverlay({
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
         {participants.length === 0 ? (
           <p style={{ padding: "var(--space-4) 5%", color: "var(--muted)", fontSize: "0.9rem" }}>
-            No active participants in this activity yet — add some from the roster first.
+            No participants in this activity yet — add some from the roster first.
           </p>
         ) : !loaded ? (
           !loadError && <p style={{ padding: "var(--space-4) 5%", color: "var(--muted)", fontSize: "0.9rem" }}>Loading…</p>
