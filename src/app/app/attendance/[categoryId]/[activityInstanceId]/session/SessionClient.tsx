@@ -95,8 +95,8 @@ export function SessionClient({
   editWindowMonths: number;
   needsDateConfirmation: boolean;
   // The study log this activity keeps for its participants, if any (the Ruhi
-  // Units / Grades / Texts button) — decided from the activity's own category
-  // server-side, not the URL.
+  // Units / Grades / Texts / DSA Courses button) — decided from the
+  // activity's own category server-side, not the URL.
   studyTrackId: string | null;
 }) {
   const router = useRouter();

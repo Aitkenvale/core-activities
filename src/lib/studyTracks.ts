@@ -3,10 +3,12 @@
 // constants and helpers only, safe to import from client components; the
 // database side lives in studyProgress.ts, which must stay server-only.
 //
-// A track is keyed by the activity category it belongs to, and every log is
-// per person: Ruhi Camps log books x units, Children's Classes log Grades,
-// Junior Youth Groups log Texts, Discourse Groups log their DSA courses.
-// Study Circles don't keep one.
+// A track is one study log, and every log is per person: the Ruhi books x
+// units (kept by Ruhi Camps and Study Circles alike — they work through the
+// same books, so it's one record per person whichever kind of activity it's
+// updated from), Children's Grades, Junior Youth Texts, and the Discourse
+// Group's DSA courses. Which categories keep which log is
+// studyTrackForCategory, below.
 
 export type StudyTrackId = "ruhi" | "psec" | "jysep" | "discourse";
 
@@ -26,7 +28,7 @@ export type StudyItem = {
 };
 
 export type StudyTrack = {
-  // Same as the id of the activity category it belongs to.
+  // What's stored with each log row.
   id: StudyTrackId;
   // The button on the Attendance screen, and the title of the screen it opens.
   title: string;
@@ -89,9 +91,27 @@ const TRACKS: StudyTrack[] = [
   { id: "discourse", title: "DSA Courses", cornerLabel: "Course", units: 1, legendTone: "green", items: DSA_COURSES },
 ];
 
-// The study log an activity category keeps, if any.
-export function studyTrackFor(categoryId: string): StudyTrack | null {
-  return TRACKS.find((t) => t.id === categoryId) ?? null;
+// A track by its own id — what's stored with a log, and passed between the
+// screens and the server. Not a category id: see studyTrackForCategory.
+export function studyTrackFor(trackId: string): StudyTrack | null {
+  return TRACKS.find((t) => t.id === trackId) ?? null;
+}
+
+// The study log an activity category keeps, if any. Mostly a category has its
+// own, but Study Circles work through the same Ruhi books as Ruhi Camps, so
+// they share that log: a person's progress through the books is one record,
+// not one per kind of activity.
+const TRACK_OF_CATEGORY = new Map<string, StudyTrackId>([
+  ["psec", "psec"],
+  ["jysep", "jysep"],
+  ["ruhi", "ruhi"],
+  ["sc", "ruhi"],
+  ["discourse", "discourse"],
+]);
+
+export function studyTrackForCategory(categoryId: string): StudyTrack | null {
+  const trackId = TRACK_OF_CATEGORY.get(categoryId);
+  return trackId ? studyTrackFor(trackId) : null;
 }
 
 export function studyUnits(track: StudyTrack): number[] {

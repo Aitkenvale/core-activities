@@ -12,7 +12,7 @@ import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { getNextExpectedDate, getRecentExpectedDates, type CadenceConfig, type CadenceType } from "@/lib/cadence";
 import { getEditWindowMonths } from "@/lib/settings";
-import { studyTrackFor } from "@/lib/studyTracks";
+import { studyTrackForCategory } from "@/lib/studyTracks";
 import { SessionClient } from "./SessionClient";
 
 export default async function SessionPage({
@@ -125,7 +125,7 @@ export default async function SessionPage({
       isAdmin={isAdmin}
       editWindowMonths={editWindowMonths}
       needsDateConfirmation={needsDateConfirmation}
-      studyTrackId={studyTrackFor(activity.categoryId)?.id ?? null}
+      studyTrackId={studyTrackForCategory(activity.categoryId)?.id ?? null}
     />
   );
 }
