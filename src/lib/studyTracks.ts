@@ -6,11 +6,12 @@
 // A track is one study log, and every log is per person: the Ruhi books x
 // units (kept by Ruhi Camps and Study Circles alike — they work through the
 // same books, so it's one record per person whichever kind of activity it's
-// updated from), Children's Grades, Junior Youth Texts, and the Discourse
-// Group's DSA courses. Which categories keep which log is
-// studyTrackForCategory, below.
+// updated from), the Ruhi Branches (the same two kinds of activity, one box
+// each rather than units), Children's Grades, Junior Youth Texts, and the
+// Discourse Group's DSA courses. Which categories keep which logs is
+// studyLogsForCategory, below.
 
-export type StudyTrackId = "ruhi" | "psec" | "jysep" | "discourse";
+export type StudyTrackId = "ruhi" | "ruhi_branches" | "psec" | "jysep" | "discourse";
 
 // "none" (not studied) is the in-app name for the absence of a stored row.
 export type StudyStatus = "none" | "partial" | "complete";
@@ -47,6 +48,22 @@ export type StudyTrack = {
 const range = (count: number) => Array.from({ length: count }, (_, i) => i + 1);
 
 const RUHI_BOOKS: StudyItem[] = range(14).map((n) => ({ id: n, label: `Book ${n}`, tone: "green" }));
+
+// The courses that branch off Ruhi Books 3, 5 and 7 — recorded as one box each,
+// not as units. The id is what's stored — never renumber or reuse one; a later
+// branch gets the next unused id.
+const RUHI_BRANCHES: StudyItem[] = [
+  { id: 1, label: "Book 3 Branch 1 (Grade 2 part A)", tone: "green" },
+  { id: 2, label: "Book 3 Branch 2 (Grade 2 part B)", tone: "green" },
+  { id: 3, label: "Book 3 Grade 3", tone: "green" },
+  { id: 4, label: "Book 3 Grade 4", tone: "green" },
+  { id: 5, label: "Book 3 Grade 5", tone: "green" },
+  { id: 6, label: "Book 3 Grade 6", tone: "green" },
+  { id: 7, label: "Book 5 Branch 1", tone: "green" },
+  { id: 8, label: "Book 5 Branch 2", tone: "green" },
+  { id: 9, label: "Book 7 Branch 1", tone: "green" },
+  { id: 10, label: "Book 7 Branch 2", tone: "green" },
+];
 
 const GRADES: StudyItem[] = range(6).map((n) => ({ id: n, label: `Grade ${n}`, tone: "green" }));
 
@@ -86,32 +103,44 @@ const JY_TEXTS: StudyItem[] = [
 
 const TRACKS: StudyTrack[] = [
   { id: "ruhi", title: "Ruhi Units", cornerLabel: "Book", units: 3, legendTone: "green", items: RUHI_BOOKS },
+  { id: "ruhi_branches", title: "Ruhi Branches", cornerLabel: "Branch", units: 1, longLabels: true, legendTone: "green", items: RUHI_BRANCHES },
   { id: "psec", title: "Grades", cornerLabel: "Grade", units: 1, legendTone: "green", items: GRADES },
   { id: "jysep", title: "Texts", cornerLabel: "Text", units: 1, longLabels: true, legendTone: "neutral", items: JY_TEXTS },
   { id: "discourse", title: "DSA Courses", cornerLabel: "Course", units: 1, legendTone: "green", items: DSA_COURSES },
 ];
 
 // A track by its own id — what's stored with a log, and passed between the
-// screens and the server. Not a category id: see studyTrackForCategory.
+// screens and the server. Not a category id: see studyLogsForCategory.
 export function studyTrackFor(trackId: string): StudyTrack | null {
   return TRACKS.find((t) => t.id === trackId) ?? null;
 }
 
-// The study log an activity category keeps, if any. Mostly a category has its
-// own, but Study Circles work through the same Ruhi books as Ruhi Camps, so
-// they share that log: a person's progress through the books is one record,
-// not one per kind of activity.
-const TRACK_OF_CATEGORY = new Map<string, StudyTrackId>([
-  ["psec", "psec"],
-  ["jysep", "jysep"],
-  ["ruhi", "ruhi"],
-  ["sc", "ruhi"],
-  ["discourse", "discourse"],
+// The study logs an activity category keeps, in the order they are shown, and
+// what to call them together. Mostly a category has one log of its own, but
+// Study Circles work through the same Ruhi books and branches as Ruhi Camps,
+// so they share those logs: a person's progress is one record, not one per
+// kind of activity.
+const LOGS_OF_CATEGORY = new Map<string, { trackIds: StudyTrackId[]; title?: string }>([
+  ["psec", { trackIds: ["psec"] }],
+  ["jysep", { trackIds: ["jysep"] }],
+  ["ruhi", { trackIds: ["ruhi", "ruhi_branches"], title: "Ruhi Units & Branches" }],
+  ["sc", { trackIds: ["ruhi", "ruhi_branches"], title: "Ruhi Units & Branches" }],
+  ["discourse", { trackIds: ["discourse"] }],
 ]);
 
-export function studyTrackForCategory(categoryId: string): StudyTrack | null {
-  const trackId = TRACK_OF_CATEGORY.get(categoryId);
-  return trackId ? studyTrackFor(trackId) : null;
+// What the Attendance screen opens for a category: one screen holding a grid
+// for each of its logs, under a single title (the log's own when there is
+// just the one).
+export type StudyLogs = { title: string; tracks: StudyTrack[] };
+
+export function studyLogsForCategory(categoryId: string): StudyLogs | null {
+  const entry = LOGS_OF_CATEGORY.get(categoryId);
+  if (!entry) return null;
+  const tracks = entry.trackIds.flatMap((id) => {
+    const track = studyTrackFor(id);
+    return track ? [track] : [];
+  });
+  return tracks.length > 0 ? { title: entry.title ?? tracks[0].title, tracks } : null;
 }
 
 export function studyUnits(track: StudyTrack): number[] {

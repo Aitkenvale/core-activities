@@ -5,7 +5,7 @@ import { studySwatchStyle } from "@/app/app/attendance/[categoryId]/[activityIns
 import { formatCategoryLabel, getCategoryLabel } from "@/lib/category";
 import { formatFullName } from "@/lib/formatName";
 import {
-  studyTrackForCategory,
+  studyTrackFor,
   studyUnits,
   type StoredStudyStatus,
   type StudyItem,
@@ -20,25 +20,35 @@ export type ReportProgressRow = { personId: string; track: string; item: number;
 
 // One pill per course, youngest programme first. Ruhi Camps has no pill of its
 // own: it works through the same Ruhi units as Study Circles and shares their
-// one log (see studyTrackForCategory), so the Study Circles pill already lists
-// everyone with Ruhi progress.
-const CATEGORIES = [
-  { id: "psec", label: "Children's Classes" },
-  { id: "jysep", label: "Junior Youth Groups" },
-  { id: "sc", label: "Study Circles" },
-  { id: "discourse", label: "Discourse Groups" },
+// one log, so the Study Circles pill already lists everyone with Ruhi progress.
+// The Ruhi Branches, which Study Circles and Ruhi Camps keep alike, have a pill
+// of their own after it.
+const PILLS = [
+  { id: "psec", label: "Children's Classes", trackId: "psec" },
+  { id: "jysep", label: "Junior Youth Groups", trackId: "jysep" },
+  { id: "sc", label: "Study Circles", trackId: "ruhi" },
+  { id: "ruhi_branches", label: "Ruhi Branches", trackId: "ruhi_branches" },
+  { id: "discourse", label: "Discourse Groups", trackId: "discourse" },
 ];
-const VIEWS = CATEGORIES.flatMap((c) => {
-  const track = studyTrackForCategory(c.id);
-  return track ? [{ ...c, track }] : [];
+const VIEWS = PILLS.flatMap((p) => {
+  const track = studyTrackFor(p.trackId);
+  return track ? [{ ...p, track }] : [];
 });
 
-// What "a study item" is in each course: one Grade, one Text, one DSA course —
-// and for Ruhi one unit, each of a book's three boxes counting on its own.
+// A line under the pills where a pill's list needs explaining.
+const NOTE: Record<string, string> = {
+  sc: "Study Circles and Ruhi Camps keep one shared record of Ruhi units, so this lists everyone with Ruhi progress from either.",
+  ruhi_branches: "Ruhi Branches are kept for Study Circles and Ruhi Camps alike, one box each rather than units.",
+};
+
+// What "a study item" is in each course: one Grade, one Text, one Branch, one
+// DSA course — and for Ruhi one unit, each of a book's three boxes counting on
+// its own.
 const COMPLETED_HEAD: Record<StudyTrackId, string> = {
   psec: "Grades completed",
   jysep: "Texts completed",
   ruhi: "Units completed",
+  ruhi_branches: "Branches completed",
   discourse: "Courses completed",
 };
 
@@ -184,11 +194,11 @@ function SortButton({
 // partly or fully done, biggest tally first, with the same boxes as the Edit
 // Courses grid — but nothing to click except the headings, which re-sort.
 export function CourseReport({ people, progress }: { people: ReportPerson[]; progress: ReportProgressRow[] }) {
-  const [categoryId, setCategoryId] = useState(VIEWS[0].id);
+  const [pillId, setPillId] = useState(VIEWS[0].id);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const view = VIEWS.find((v) => v.id === categoryId) ?? VIEWS[0];
+  const view = VIEWS.find((v) => v.id === pillId) ?? VIEWS[0];
   const track = view.track;
   const stacked = track.units > 1;
 
@@ -250,9 +260,9 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
 
   const sorted = useMemo(() => [...rows].sort(compareFor(sort)), [rows, sort]);
 
-  function pickCategory(id: string) {
-    if (id === categoryId) return;
-    setCategoryId(id);
+  function pickPill(id: string) {
+    if (id === pillId) return;
+    setPillId(id);
     // Another course has other columns, so the old sort means nothing there.
     setSort(DEFAULT_SORT);
     scrollRef.current?.scrollTo({ top: 0, left: 0 });
@@ -276,7 +286,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
     "--cg-unit-h": stacked ? "22px" : "0px",
   } as React.CSSProperties;
   const headRows = stacked ? 2 : 1;
-  const sharedLog = view.id === "sc";
+  const note = NOTE[view.id];
 
   return (
     // Fills the page (main is the scroll container and this is its only child)
@@ -289,7 +299,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {VIEWS.map((v) => (
-            <Pill key={v.id} active={v.id === view.id} onClick={() => pickCategory(v.id)}>
+            <Pill key={v.id} active={v.id === view.id} onClick={() => pickPill(v.id)}>
               {v.label}
             </Pill>
           ))}
@@ -299,11 +309,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
             <LegendItem status="complete" text="Completed" />
           </div>
         </div>
-        {sharedLog && (
-          <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--muted)" }}>
-            Study Circles and Ruhi Camps keep one shared record of Ruhi units, so this lists everyone with Ruhi progress from either.
-          </p>
-        )}
+        {note && <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--muted)" }}>{note}</p>}
       </div>
 
       <div className="cg-scroll" ref={scrollRef}>

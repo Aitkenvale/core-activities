@@ -258,6 +258,21 @@ input[type="radio"] {
   display: none;
 }
 
+/* The heading above each grid when the overlay holds more than one log (Ruhi
+   Units, then Ruhi Branches). It sticks to the left edge so it stays in view
+   while the grids scroll sideways. */
+.study-section-title {
+  position: sticky;
+  left: 0;
+  width: fit-content;
+  padding: 14px 8px 6px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 @media (orientation: portrait) and (max-width: 639px) {
   .study-rotate-hint {
     display: inline;

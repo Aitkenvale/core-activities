@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
@@ -81,7 +81,7 @@ export function SessionClient({
   isAdmin,
   editWindowMonths,
   needsDateConfirmation,
-  studyTrackId,
+  studyLog,
 }: {
   categoryId: string;
   activityInstanceId: string;
@@ -94,10 +94,11 @@ export function SessionClient({
   isAdmin: boolean;
   editWindowMonths: number;
   needsDateConfirmation: boolean;
-  // The study log this activity keeps for its participants, if any (the Ruhi
-  // Units / Grades / Texts / DSA Courses button) — decided from the
-  // activity's own category server-side, not the URL.
-  studyTrackId: string | null;
+  // The study logs this activity keeps for its participants, if any, and what
+  // the one button into them is called (Ruhi Units & Branches / Grades /
+  // Texts / DSA Courses) — decided from the activity's own category
+  // server-side, not the URL.
+  studyLog: { title: string; trackIds: string[] } | null;
 }) {
   const router = useRouter();
   const [statuses, setStatuses] = useState<Record<string, Status>>(statusByPersonId);
@@ -111,7 +112,17 @@ export function SessionClient({
   const [pillSlot, setPillSlot] = useState<HTMLElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [studyOpen, setStudyOpen] = useState(false);
-  const studyTrack = studyTrackId ? studyTrackFor(studyTrackId) : null;
+  // Memoised so the study screen, which keys its tap handlers on these, isn't
+  // handed a fresh array every time this screen re-renders.
+  const studyTracks = useMemo(
+    () =>
+      (studyLog?.trackIds ?? []).flatMap((id) => {
+        const track = studyTrackFor(id);
+        return track ? [track] : [];
+      }),
+    [studyLog],
+  );
+  const hasStudyLog = studyLog !== null && studyTracks.length > 0;
 
   // Facilitators can't edit sessions past the window at all, regardless of
   // the locked flag (locked can still be toggled off by an admin later).
@@ -220,7 +231,7 @@ export function SessionClient({
   // assistants, and independent of whether Edit mode happens to be revealing
   // hidden rows on this screen.
   const isActive = (r: RosterRow) => activeByPersonId[r.personId] ?? r.active;
-  const studyParticipants = studyTrack
+  const studyParticipants = hasStudyLog
     ? roster
         .filter((r) => r.role === "participant")
         .sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || byDisplayName(a, b))
@@ -257,9 +268,9 @@ export function SessionClient({
           {/* Every Ruhi Camp is ad-hoc, so every new one starts in this
               state — and a study log doesn't depend on a session
               existing, so it shouldn't wait for one. */}
-          {studyTrack && (
+          {studyLog && hasStudyLog && (
             <div style={{ marginTop: "var(--space-2)" }}>
-              <StudyLogButton label={studyTrack.title} onClick={() => setStudyOpen(true)} />
+              <StudyLogButton label={studyLog.title} onClick={() => setStudyOpen(true)} />
             </div>
           )}
         </>
@@ -364,7 +375,7 @@ export function SessionClient({
               >
                 {cancelled ? "Cancelled" : "Cancel Class"}
               </button>
-              {studyTrack && <StudyLogButton label={studyTrack.title} onClick={() => setStudyOpen(true)} />}
+              {studyLog && hasStudyLog && <StudyLogButton label={studyLog.title} onClick={() => setStudyOpen(true)} />}
             </div>
             <button
               onClick={() => setEditMode((v) => !v)}
@@ -389,9 +400,10 @@ export function SessionClient({
       {pending && <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: 12 }}>Saving…</p>}
       {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 12 }}>{error}</p>}
 
-      {studyTrack && studyOpen && (
+      {studyLog && hasStudyLog && studyOpen && (
         <StudyLogOverlay
-          track={studyTrack}
+          title={studyLog.title}
+          tracks={studyTracks}
           participants={studyParticipants}
           onClose={() => setStudyOpen(false)}
           loadProgress={getStudyProgress}
