@@ -23,6 +23,11 @@
   --disabled-bg: #D9C9A8;
   --text: #2C1F0E;
   --muted: #8B7355;
+  /* The outline of a study-log box that hasn't been started — quieter than
+     --muted so the started boxes stand out. It still clears about 3:1
+     against the card (and the hovered row), the least an outline needs
+     to be seen. */
+  --box-empty: #978166;
   --green: #3D6B4A;
   /* The "partly done" fill (the study logs' half-filled boxes) — lighter than
      --green so a half box and a full one read as different amounts, not
@@ -87,6 +92,7 @@
     --disabled-bg: #423D2C;
     --text: #F2ECDD;
     --muted: #C8B79A;
+    --box-empty: #7C7260;
     --green: #7BBE8E;
     --green-soft: #4E8A62;
     --blue-soft: #5480B6;
@@ -116,6 +122,7 @@
   --disabled-bg: #423D2C;
   --text: #F2ECDD;
   --muted: #C8B79A;
+  --box-empty: #7C7260;
   --green: #7BBE8E;
   --green-soft: #4E8A62;
   --blue-soft: #5480B6;

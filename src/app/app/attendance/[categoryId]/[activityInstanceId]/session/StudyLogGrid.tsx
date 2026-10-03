@@ -52,14 +52,16 @@ const TONES: Record<StudyTone | "neutral", { solid: string; soft: string }> = {
 // The three looks of a box. Partly and completed both get the full-colour
 // border, so what separates the three states is how full the box is, not
 // just which colour it is — and the light half fill alone wouldn't clear 3:1
-// against a white card.
+// against a white card. A box that hasn't been started is only a quiet outline
+// (--box-empty, still about 3:1 against the card), so the ones that have been
+// stand out. Every study-log screen draws its boxes through this.
 export function studySwatchStyle(status: StudyStatus, tone: StudyTone | "neutral" = "green"): React.CSSProperties {
   const { solid, soft } = TONES[tone];
   if (status === "complete") return { border: `1.5px solid ${solid}`, background: solid };
   if (status === "partial") {
     return { border: `1.5px solid ${solid}`, background: `linear-gradient(to top, ${soft} 50%, transparent 50%)` };
   }
-  return { border: "1.5px solid var(--muted)", background: "transparent" };
+  return { border: "1.5px solid var(--box-empty)", background: "transparent" };
 }
 
 // How faded a former participant's name is — enough to read as "not current",

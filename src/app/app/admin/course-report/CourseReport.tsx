@@ -18,14 +18,14 @@ import {
 export type ReportPerson = { id: string; name: string; preferredName: string | null; dob: string | null };
 export type ReportProgressRow = { personId: string; track: string; item: number; unit: number; status: StoredStudyStatus };
 
-// One pill per kind of activity that keeps a study log, youngest programme
-// first. Study Circles and Ruhi Camps work through the same Ruhi units and
-// share one log (see studyTrackForCategory), so those two list the same people.
+// One pill per course, youngest programme first. Ruhi Camps has no pill of its
+// own: it works through the same Ruhi units as Study Circles and shares their
+// one log (see studyTrackForCategory), so the Study Circles pill already lists
+// everyone with Ruhi progress.
 const CATEGORIES = [
   { id: "psec", label: "Children's Classes" },
   { id: "jysep", label: "Junior Youth Groups" },
   { id: "sc", label: "Study Circles" },
-  { id: "ruhi", label: "Ruhi Camps" },
   { id: "discourse", label: "Discourse Groups" },
 ];
 const VIEWS = CATEGORIES.flatMap((c) => {
@@ -276,7 +276,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
     "--cg-unit-h": stacked ? "22px" : "0px",
   } as React.CSSProperties;
   const headRows = stacked ? 2 : 1;
-  const sharedLog = view.id === "sc" || view.id === "ruhi";
+  const sharedLog = view.id === "sc";
 
   return (
     // Fills the page (main is the scroll container and this is its only child)
@@ -301,7 +301,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
         </div>
         {sharedLog && (
           <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--muted)" }}>
-            Study Circles and Ruhi Camps keep one shared record of Ruhi units, so both show the same people.
+            Study Circles and Ruhi Camps keep one shared record of Ruhi units, so this lists everyone with Ruhi progress from either.
           </p>
         )}
       </div>
