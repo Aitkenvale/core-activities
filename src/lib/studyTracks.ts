@@ -47,7 +47,9 @@ export type StudyTrack = {
 
 const range = (count: number) => Array.from({ length: count }, (_, i) => i + 1);
 
-const RUHI_BOOKS: StudyItem[] = range(14).map((n) => ({ id: n, label: `Book ${n}`, tone: "green" }));
+// Books 1 to 7 fill green and Books 8 to 14 blue, so the two stages of the
+// sequence read apart at a glance.
+const RUHI_BOOKS: StudyItem[] = range(14).map((n) => ({ id: n, label: `Book ${n}`, tone: n >= 8 ? "blue" : "green" }));
 
 // The courses that branch off Ruhi Books 3, 5 and 7 — recorded as one box each,
 // not as units. The id is what's stored — never renumber or reuse one; a later
@@ -102,7 +104,7 @@ const JY_TEXTS: StudyItem[] = [
 ];
 
 const TRACKS: StudyTrack[] = [
-  { id: "ruhi", title: "Ruhi Units", cornerLabel: "Book", units: 3, legendTone: "green", items: RUHI_BOOKS },
+  { id: "ruhi", title: "Ruhi Units", cornerLabel: "Book", units: 3, legendTone: "neutral", items: RUHI_BOOKS },
   { id: "ruhi_branches", title: "Ruhi Branches", cornerLabel: "Branch", units: 1, longLabels: true, legendTone: "green", items: RUHI_BRANCHES },
   { id: "psec", title: "Grades", cornerLabel: "Grade", units: 1, legendTone: "green", items: GRADES },
   { id: "jysep", title: "Texts", cornerLabel: "Text", units: 1, longLabels: true, legendTone: "neutral", items: JY_TEXTS },
@@ -167,6 +169,17 @@ const STUDY_RANK: Record<StudyStatus, number> = { none: 0, partial: 1, complete:
 export function isRegress(from: StudyStatus, to: StudyStatus): boolean {
   return STUDY_RANK[to] < STUDY_RANK[from];
 }
+
+// One box to put back exactly as it was — its state and the hidden day it
+// reached it (null: none was recorded) — for the Attendance study screen's Cancel.
+export type StudyRestoreBox = {
+  trackId: string;
+  personId: string;
+  item: number;
+  unit: number;
+  status: StudyStatus;
+  statusDate: string | null;
+};
 
 export function studyCellKey(personId: string, item: number, unit: number): string {
   return `${personId}:${item}:${unit}`;

@@ -15,6 +15,9 @@ import { getEditWindowMonths } from "@/lib/settings";
 import { studyLogsForCategory } from "@/lib/studyTracks";
 import { SessionClient } from "./SessionClient";
 
+// How many date pills the row holds. It scrolls sideways when they don't all fit.
+const PILL_COUNT = 6;
+
 export default async function SessionPage({
   params,
   searchParams,
@@ -65,7 +68,7 @@ export default async function SessionPage({
   const cadenceType = activity.cadenceType as CadenceType;
   const cadenceConfig = activity.cadenceConfig as CadenceConfig;
   const nextExpected = getNextExpectedDate(cadenceType, cadenceConfig, termRanges, activity.startDate);
-  const cadenceRecentDates = getRecentExpectedDates(cadenceType, cadenceConfig, termRanges, 3, activity.startDate);
+  const cadenceRecentDates = getRecentExpectedDates(cadenceType, cadenceConfig, termRanges, PILL_COUNT, activity.startDate);
 
   // "Pick Date" lists dates the activity was actually held (a real
   // attendance_events row), not cadence-computed guesses — scoped to the
@@ -99,10 +102,14 @@ export default async function SessionPage({
 
   const statusByPersonId = Object.fromEntries(existingRecords.map((r) => [r.personId, r.status]));
 
-  // Ad-hoc activities have no cadence, so cadenceRecentDates above is always
-  // empty — the most recent real sessions are the natural equivalent of the
-  // cadence-predicted quick-pick pills for everyone else.
-  const recentDates = cadenceType === "ad_hoc" ? heldDates.slice(0, 3) : cadenceRecentDates;
+  // The quick-pick pills: the most recent dates the activity has, newest first.
+  // That is every session that really exists — whether the cadence made it or
+  // someone added it with "Or add new event date" — plus the dates the cadence
+  // expects, even where nobody has taken attendance yet (so a forgotten week can
+  // still be caught up). Before, only the cadence's dates were offered, so a date
+  // added outside it never showed. An ad-hoc activity has no cadence, so its
+  // pills are just its real sessions.
+  const recentDates = [...new Set([...heldDates, ...cadenceRecentDates])].sort().reverse().slice(0, PILL_COUNT);
 
   // An ad-hoc activity with no sessions yet has no cadence to suggest a date
   // from, so selectedDate above falls all the way through to "today" with

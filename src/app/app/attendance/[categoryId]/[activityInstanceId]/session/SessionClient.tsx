@@ -25,7 +25,7 @@ import {
   changeEnrollmentRole,
   uploadRegoForm,
 } from "./actions";
-import { getStudyProgress, setStudyStatus } from "./studyActions";
+import { getStudyProgress, restoreStudyStatuses, setStudyStatus } from "./studyActions";
 import { StudyLogOverlay } from "./StudyLogOverlay";
 import { formatFullName } from "@/lib/formatName";
 import { studyTrackFor } from "@/lib/studyTracks";
@@ -408,6 +408,7 @@ export function SessionClient({
           onClose={() => setStudyOpen(false)}
           loadProgress={getStudyProgress}
           saveStatus={setStudyStatus}
+          restoreStatuses={restoreStudyStatuses}
         />
       )}
     </>
@@ -540,6 +541,22 @@ function DatePicker({
   // real pick, so it shouldn't look chosen.
   const pillDates = awaitingConfirmation || recentDates.includes(selectedDate) ? recentDates : [selectedDate, ...recentDates];
 
+  // With up to six pills the row scrolls sideways, and the date in use can be
+  // past the edge (the screen opens on the date the cadence expects, which may
+  // sit behind newer ones added by hand) — so bring its pill into view, now and
+  // whenever the date or the pills change. Scrolls only this row, never the page.
+  const pillRowRef = useRef<HTMLDivElement>(null);
+  const pillKey = pillDates.join(",");
+  useEffect(() => {
+    const row = pillRowRef.current;
+    const pill = row?.querySelector<HTMLElement>('[data-selected="true"]');
+    if (!row || !pill) return;
+    const rowBox = row.getBoundingClientRect();
+    const pillBox = pill.getBoundingClientRect();
+    if (pillBox.left < rowBox.left) row.scrollLeft -= rowBox.left - pillBox.left + 8;
+    else if (pillBox.right > rowBox.right) row.scrollLeft += pillBox.right - rowBox.right + 8;
+  }, [selectedDate, pillKey]);
+
   return (
     <div style={{ marginBottom: "var(--space-4)", display: "flex", alignItems: "stretch", gap: "var(--space-2)" }}>
       {/* overscrollBehaviorX + touchAction stop a horizontal swipe here from
@@ -547,6 +564,7 @@ function DatePicker({
           swipe that isn't perfectly horizontal reads as a visible wobble on
           mobile as the two scrolls fight each other. */}
       <div
+        ref={pillRowRef}
         style={{
           display: "flex",
           gap: "var(--space-2)",
@@ -559,6 +577,7 @@ function DatePicker({
         {pillDates.map((d) => (
           <button
             key={d}
+            data-selected={d === selectedDate}
             onClick={() => onPick(d)}
             style={{
               ...pillStyle,

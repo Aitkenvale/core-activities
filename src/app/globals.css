@@ -239,8 +239,34 @@ input[type="radio"] {
 }
 
 .study-head-title {
-  flex: 1 1 auto;
+  /* A basis of 0, so a title too long for the room beside the buttons wraps
+     onto a second line rather than pushing the buttons down. */
+  flex: 1 1 0;
   min-width: 0;
+}
+
+/* Cancel and Close, kept together at the right of the heading. */
+.study-head-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.study-cancel {
+  min-height: var(--tap-min);
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.study-cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .study-legend {
