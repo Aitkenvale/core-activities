@@ -1,4 +1,11 @@
 :root {
+  /* Tells the browser which scheme the app is in, so scroll bars and native
+     controls (date pickers, checkboxes, ...) are drawn to match instead of in
+     the browser's light default. It follows the OS exactly as the tokens below
+     do (see the prefers-color-scheme block), and "Enforce dark mode" pins it to
+     dark (see :root[data-theme="dark"]). Inherited by everything on the page. */
+  color-scheme: light dark;
+
   /* Fixed brand accents — used as filled chip/button backgrounds paired with
      --cream text on top, so they stay constant across light/dark themes
      rather than flipping with the page. */
@@ -39,10 +46,11 @@
      year itself is never shown), and the Ruhi books green, blue, then indigo
      for Books 13 and 14. Each -soft is the lighter "partly done" half fill and
      is only ever used like --green-soft: as a fill alongside a full-strength
-     border. --indigo leans toward violet so it reads apart from --blue. */
+     border. --indigo is a bright violet-leaning indigo, vivid and (in the dark
+     theme) lighter than --blue, so a check in it reads apart from one in blue. */
   --blue-soft: #9ABEE8;
-  --indigo: #5C3AAA;
-  --indigo-soft: #BCABEA;
+  --indigo: #7439FF;
+  --indigo-soft: #D3B3FE;
   --red: #8B3A2A;
   --blue: #2F5C99;
   --yellow: #B8930C;
@@ -95,8 +103,8 @@
     --green: #7BBE8E;
     --green-soft: #4E8A62;
     --blue-soft: #5480B6;
-    --indigo: #A58AF2;
-    --indigo-soft: #6A50BA;
+    --indigo: #C39BFE;
+    --indigo-soft: #8C6DBA;
     --red: #E08A72;
     --blue: #7EA8E0;
     --yellow: #EDD152;
@@ -114,6 +122,10 @@
    attribute — duplicating this fixed, short list of tokens is simpler than
    trying to share it across the two without a preprocessor. */
 :root[data-theme="dark"] {
+  /* Enforce dark mode makes the app dark whatever the OS is set to; say so to the
+     browser as well, or it draws scroll bars and native controls (date pickers,
+     etc.) in the OS's light style on top of the dark page. */
+  color-scheme: dark;
   --page-bg: #1B1915;
   --card-bg: #201D18;
   --heading: #EDCB8E;
@@ -125,8 +137,8 @@
   --green: #7BBE8E;
   --green-soft: #4E8A62;
   --blue-soft: #5480B6;
-  --indigo: #A58AF2;
-  --indigo-soft: #6A50BA;
+  --indigo: #C39BFE;
+  --indigo-soft: #8C6DBA;
   --red: #E08A72;
   --blue: #7EA8E0;
   --yellow: #EDD152;
@@ -169,11 +181,8 @@ a {
 
 /* Native date inputs otherwise render their calendar-picker icon dark
    regardless of page theme — near-invisible against a dark card background.
-   This tells the browser to use its own dark-themed form chrome (icon
-   included) when the OS is in dark mode, matching our own --page-bg switch. */
-input[type="date"] {
-  color-scheme: light dark;
-}
+   They use the browser's dark-themed form chrome (icon included) whenever the
+   app is dark, because the root's color-scheme is inherited (see :root). */
 
 /* iOS Safari centers a date input's visible text via an internal shadow
    pseudo-element that a plain text-align on the input itself doesn't reach —
@@ -189,13 +198,11 @@ input[type="date"] {
   min-width: 0;
 }
 
-/* Same issue for checkboxes and radios — the browser renders a plain white
-   control regardless of page theme unless told to use its own dark form
-   chrome, and accent-color themes the checked-fill/dot to match our palette
+/* Same issue for checkboxes and radios — they follow the root's color-scheme
+   too — and accent-color themes the checked-fill/dot to match our palette
    instead of the browser's default blue. */
 input[type="checkbox"],
 input[type="radio"] {
-  color-scheme: light dark;
   accent-color: var(--deep);
 }
 
