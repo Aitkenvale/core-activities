@@ -3,8 +3,9 @@
 // Co-Animators, and Study Circles don't split the role at all (facilitating
 // a study circle doesn't carry the same child-protection-training
 // requirement, so there's nothing to split off). Ruhi Camps are led by
-// Tutors and don't split the role either. Keyed by activityCategories.id
-// (see src/db/seed.ts) — "psec" | "jysep" | "sc" | "ruhi" | "camp" today.
+// Tutors and don't split the role either, and neither do Discourse Groups.
+// Keyed by activityCategories.id (see src/db/seed.ts) — "psec" | "jysep" |
+// "sc" | "ruhi" | "discourse" | "camp" today.
 export type RoleLabels = {
   facilitator: string;
   assistant: string;
@@ -21,6 +22,7 @@ const CATEGORY_ROLE_LABELS: Record<string, RoleLabels> = {
   jysep: { facilitator: "Animators", assistant: "Co-Animators", showAssistants: true },
   sc: { facilitator: "Facilitators", assistant: "Assistants", showAssistants: false },
   ruhi: { facilitator: "Tutors", assistant: "Assistants", showAssistants: false },
+  discourse: { facilitator: "Facilitators", assistant: "Assistants", showAssistants: false },
 };
 
 export function getRoleLabels(categoryId: string): RoleLabels {

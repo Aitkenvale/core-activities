@@ -21,8 +21,10 @@ export type CoursePerson = { id: string; name: string; preferredName: string | n
 export type CourseProgressRow = { personId: string; track: string; item: number; unit: number; status: StoredStudyStatus };
 
 // Youngest programme first, left to right.
-const TRACK_ORDER: StudyTrackId[] = ["psec", "jysep", "ruhi"];
-const GROUP_TITLE: Record<StudyTrackId, string> = { psec: "Children's Grades", jysep: "Junior Youth Texts", ruhi: "Ruhi Books" };
+const TRACK_ORDER: StudyTrackId[] = ["psec", "jysep", "ruhi", "discourse"];
+// "DSA" rather than something longer: the group is only two columns wide, and
+// its title has to fit inside that.
+const GROUP_TITLE: Record<StudyTrackId, string> = { psec: "Children's Grades", jysep: "Junior Youth Texts", ruhi: "Ruhi Books", discourse: "DSA" };
 const TRACKS = TRACK_ORDER.map(studyTrackFor).filter((t): t is StudyTrack => t !== null);
 
 // The age pills are keyed by category label — plus this one, for people with

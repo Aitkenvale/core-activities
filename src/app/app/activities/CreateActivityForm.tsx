@@ -340,8 +340,11 @@ export const CreateActivityForm = forwardRef<
         <FieldLabel>Category</FieldLabel>
         <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} style={inputStyle}>
           {categories.map((c) => (
+            // The category's own label — the same wording the Attendance
+            // screen shows — not its internal code (PSEC, JYSEP, ...), which
+            // means nothing to most people picking one.
             <option key={c.id} value={c.id}>
-              {c.id.toUpperCase()}
+              {c.label}
             </option>
           ))}
         </select>

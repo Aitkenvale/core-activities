@@ -5,9 +5,10 @@
 //
 // A track is keyed by the activity category it belongs to, and every log is
 // per person: Ruhi Camps log books x units, Children's Classes log Grades,
-// Junior Youth Groups log Texts. Study Circles don't keep one.
+// Junior Youth Groups log Texts, Discourse Groups log their DSA courses.
+// Study Circles don't keep one.
 
-export type StudyTrackId = "ruhi" | "psec" | "jysep";
+export type StudyTrackId = "ruhi" | "psec" | "jysep" | "discourse";
 
 // "none" (not studied) is the in-app name for the absence of a stored row.
 export type StudyStatus = "none" | "partial" | "complete";
@@ -47,6 +48,13 @@ const RUHI_BOOKS: StudyItem[] = range(14).map((n) => ({ id: n, label: `Book ${n}
 
 const GRADES: StudyItem[] = range(6).map((n) => ({ id: n, label: `Grade ${n}`, tone: "green" }));
 
+// The Discourse Group courses. The id is what's stored — never renumber or
+// reuse one; a later course gets the next unused id.
+const DSA_COURSES: StudyItem[] = [
+  { id: 1, label: "DSA 1", tone: "green" },
+  { id: 2, label: "DSA 2", tone: "green" },
+];
+
 // The Junior Youth texts in programme order: seven in the first year, four in
 // each of the next two. The year only picks the fill colour — it is never
 // shown anywhere, since which text a group is on varies so much between
@@ -78,6 +86,7 @@ const TRACKS: StudyTrack[] = [
   { id: "ruhi", title: "Ruhi Units", cornerLabel: "Book", units: 3, legendTone: "green", items: RUHI_BOOKS },
   { id: "psec", title: "Grades", cornerLabel: "Grade", units: 1, legendTone: "green", items: GRADES },
   { id: "jysep", title: "Texts", cornerLabel: "Text", units: 1, longLabels: true, legendTone: "neutral", items: JY_TEXTS },
+  { id: "discourse", title: "DSA Courses", cornerLabel: "Course", units: 1, legendTone: "green", items: DSA_COURSES },
 ];
 
 // The study log an activity category keeps, if any.

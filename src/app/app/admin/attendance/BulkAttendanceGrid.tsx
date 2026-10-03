@@ -56,8 +56,9 @@ function formatShort(iso: string) {
 }
 
 // Hardcoded for now, matching the category IDs used elsewhere (PSEC/JYSEP/SC/
-// RUHI abbreviations) — expand this list as more categories come into use.
-const CATEGORY_FILTER_OPTIONS = ["psec", "jysep", "sc", "ruhi"];
+// RUHI/DISCOURSE abbreviations) — expand this list as more categories come
+// into use.
+const CATEGORY_FILTER_OPTIONS = ["psec", "jysep", "sc", "ruhi", "discourse"];
 
 export function BulkAttendanceGrid({ initialActivities }: { initialActivities: ActivityBlock[] }) {
   const [activities, setActivities] = useState(initialActivities);
