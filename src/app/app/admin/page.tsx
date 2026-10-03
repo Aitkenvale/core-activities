@@ -12,7 +12,7 @@ const SECTIONS = [
       { href: "/app/admin/activities", label: "Edit Activities" },
       { href: "/app/admin/roles", label: "Teacher / Co-Teacher Roles" },
       { href: "/app/admin/attendance", label: "Edit Attendance" },
-      { href: "/app/admin/courses", label: "Edit Courses" },
+      { href: "/app/admin/courses", label: "Edit Study" },
     ],
   },
   {
@@ -23,7 +23,7 @@ const SECTIONS = [
       { href: "/app/admin/family-report", label: "Family Visit Planner" },
       { href: "/app/admin/missing-data", label: "Missing Data" },
       { href: "/app/admin/registrations", label: "Registrations" },
-      { href: "/app/admin/course-report", label: "Course Report" },
+      { href: "/app/admin/course-report", label: "Study Report" },
     ],
   },
   {

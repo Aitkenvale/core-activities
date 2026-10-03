@@ -335,7 +335,7 @@ export function CourseGrid({
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, padding: "0 9px var(--space-3)" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Edit Courses
+          Edit Study
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <input

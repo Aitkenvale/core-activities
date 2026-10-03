@@ -34,7 +34,7 @@ export async function listStudyProgress(track: StudyTrackId, personIds: string[]
 
 export type StudyProgressRow = StudyProgressEntry & { track: string };
 
-// Everyone's log across every track at once, for the admin Edit Courses grid.
+// Everyone's log across every track at once, for the admin Edit Study grid.
 export async function listAllStudyProgress(): Promise<StudyProgressRow[]> {
   return db
     .select({
@@ -48,7 +48,7 @@ export async function listAllStudyProgress(): Promise<StudyProgressRow[]> {
 }
 
 // Everyone who isn't hidden and has at least one box in any study log, for the
-// admin Course Report — the people the report can possibly list, so the page
+// admin Study Report — the people the report can possibly list, so the page
 // doesn't ship the whole directory to the browser.
 export async function listPeopleWithStudyProgress() {
   return db

@@ -59,13 +59,13 @@ const STATUS_TEXT: Record<StudyStatus, string> = {
 };
 
 // The three looks of a box in each fill colour, built once and shared by every
-// box — the same look the Edit Courses grid and the Attendance screens use.
+// box — the same look the Edit Study grid and the Attendance screens use.
 const TONES: StudyTone[] = ["green", "blue", "indigo"];
 const SWATCH = Object.fromEntries(
   TONES.map((tone) => [tone, { none: studySwatchStyle("none", tone), partial: studySwatchStyle("partial", tone), complete: studySwatchStyle("complete", tone) }]),
 ) as Record<StudyTone, Record<StudyStatus, React.CSSProperties>>;
 
-// Same sizes as the Edit Courses grid; the Completed count gets a column of
+// Same sizes as the Edit Study grid; the Completed count gets a column of
 // its own that sticks beside the name.
 const NAME_COL_W = 230;
 const COUNT_COL_W = 104;
@@ -210,7 +210,7 @@ function SortButton({
 
 // Who has got how far in one kind of course: everyone with at least one box
 // partly or fully done, biggest tally first, with the same boxes as the Edit
-// Courses grid — but nothing to click except the headings, which re-sort.
+// Study grid — but nothing to click except the headings, which re-sort.
 export function CourseReport({ people, progress }: { people: ReportPerson[]; progress: ReportProgressRow[] }) {
   const [pillId, setPillId] = useState(VIEWS[0].id);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
@@ -299,7 +299,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
   const ariaSort = (key: SortKey) => (sort.key !== key ? undefined : sort.dir === "asc" ? ("ascending" as const) : ("descending" as const));
 
   const tableWidth = NAME_COL_W + COUNT_COL_W + 2 * GUTTER_W + columns.length * (stacked ? UNIT_COL_W : SINGLE_COL_W);
-  // The Edit Courses header sizes, minus its group row; a course with one box
+  // The Edit Study header sizes, minus its group row; a course with one box
   // per person gets the whole header height for its labels to run up.
   const tableStyle = {
     width: tableWidth,
@@ -326,7 +326,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
     <div style={{ maxWidth: `calc(${pageMaxWidth}px + var(--scrollbar-w, 0px))`, margin: "0 auto", paddingTop: "var(--space-3)", height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, padding: "0 9px var(--space-3)" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Course Report
+          Study Report
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {VIEWS.map((v) => (

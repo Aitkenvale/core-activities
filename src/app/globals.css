@@ -452,7 +452,7 @@ input[type="radio"] {
   }
 }
 
-/* Edit Courses grid (admin/courses/CourseGrid.tsx): every person down the
+/* Edit Study grid (admin/courses/CourseGrid.tsx): every person down the
    side, every course across the top. There are ~17,000 boxes, so a box's
    static look lives here rather than in per-element inline styles — only its
    fill colour and state (shared style objects) are inline. .cg-scroll is the
@@ -465,7 +465,7 @@ input[type="radio"] {
   overflow: auto;
   /* Where scroll bars are always shown, keep the room for the vertical one
      even when a short list doesn't need it, so the width doesn't change with
-     the list (the Course Report counts on it). */
+     the list (the Study Report counts on it). */
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   border: 1px solid var(--border);
@@ -656,8 +656,8 @@ input[type="radio"] {
   cursor: pointer;
 }
 
-/* Course Report (admin/course-report/CourseReport.tsx) reuses the Edit
-   Courses grid above, read-only: its boxes are plain spans, its headings are
+/* Study Report (admin/course-report/CourseReport.tsx) reuses the Edit
+   Study grid above, read-only: its boxes are plain spans, its headings are
    sort buttons, and the Completed count sticks beside the name column
    (--cr-name-w is that column's width, set by the component). */
 .cg-box--static {
