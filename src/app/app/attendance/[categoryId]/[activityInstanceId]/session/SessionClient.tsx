@@ -25,9 +25,10 @@ import {
   changeEnrollmentRole,
   uploadRegoForm,
 } from "./actions";
-import { getRuhiProgress, setRuhiUnitStatus } from "./ruhiActions";
-import { RuhiUnitsOverlay } from "./RuhiUnitsOverlay";
+import { getStudyProgress, setStudyStatus } from "./studyActions";
+import { StudyLogOverlay } from "./StudyLogOverlay";
 import { formatFullName } from "@/lib/formatName";
+import { studyTrackFor } from "@/lib/studyTracks";
 import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/personCompleteness";
 import { calculateAge } from "@/lib/category";
 import { getRoleLabels } from "@/lib/activityRoleLabels";
@@ -80,7 +81,7 @@ export function SessionClient({
   isAdmin,
   editWindowMonths,
   needsDateConfirmation,
-  isRuhi,
+  studyTrackId,
 }: {
   categoryId: string;
   activityInstanceId: string;
@@ -93,9 +94,10 @@ export function SessionClient({
   isAdmin: boolean;
   editWindowMonths: number;
   needsDateConfirmation: boolean;
-  // Ruhi Camps keep a per-participant study log (the Ruhi Units button) —
-  // decided from the activity's own category server-side, not the URL.
-  isRuhi: boolean;
+  // The study log this activity keeps for its participants, if any (the Ruhi
+  // Units / Grades / Texts button) — decided from the activity's own category
+  // server-side, not the URL.
+  studyTrackId: string | null;
 }) {
   const router = useRouter();
   const [statuses, setStatuses] = useState<Record<string, Status>>(statusByPersonId);
@@ -108,7 +110,8 @@ export function SessionClient({
   const [pending, startTransition] = useTransition();
   const [pillSlot, setPillSlot] = useState<HTMLElement | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ruhiOpen, setRuhiOpen] = useState(false);
+  const [studyOpen, setStudyOpen] = useState(false);
+  const studyTrack = studyTrackId ? studyTrackFor(studyTrackId) : null;
 
   // Facilitators can't edit sessions past the window at all, regardless of
   // the locked flag (locked can still be toggled off by an admin later).
@@ -211,10 +214,10 @@ export function SessionClient({
   // Co-Animators, and Study Circles don't split the role at all — see
   // activityRoleLabels.ts.
   const roleLabels = getRoleLabels(categoryId);
-  // The Ruhi Units grid covers whoever is an active participant right now —
+  // The study log grid covers whoever is an active participant right now —
   // not facilitators, and not people hidden from the roster — whether or not
   // Edit mode happens to be revealing hidden rows on this screen.
-  const ruhiParticipants = isRuhi
+  const studyParticipants = studyTrack
     ? roster
         .filter((r) => r.role === "participant" && activeByPersonId[r.personId])
         .sort(byDisplayName)
@@ -249,11 +252,11 @@ export function SessionClient({
             This activity has no cadence, so there&rsquo;s no date to suggest — choose a date above to begin taking attendance.
           </p>
           {/* Every Ruhi Camp is ad-hoc, so every new one starts in this
-              state — and the study log doesn't depend on a session
+              state — and a study log doesn't depend on a session
               existing, so it shouldn't wait for one. */}
-          {isRuhi && (
+          {studyTrack && (
             <div style={{ marginTop: "var(--space-2)" }}>
-              <RuhiUnitsButton onClick={() => setRuhiOpen(true)} />
+              <StudyLogButton label={studyTrack.title} onClick={() => setStudyOpen(true)} />
             </div>
           )}
         </>
@@ -358,7 +361,7 @@ export function SessionClient({
               >
                 {cancelled ? "Cancelled" : "Cancel Class"}
               </button>
-              {isRuhi && <RuhiUnitsButton onClick={() => setRuhiOpen(true)} />}
+              {studyTrack && <StudyLogButton label={studyTrack.title} onClick={() => setStudyOpen(true)} />}
             </div>
             <button
               onClick={() => setEditMode((v) => !v)}
@@ -383,12 +386,13 @@ export function SessionClient({
       {pending && <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: 12 }}>Saving…</p>}
       {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 12 }}>{error}</p>}
 
-      {isRuhi && ruhiOpen && (
-        <RuhiUnitsOverlay
-          participants={ruhiParticipants}
-          onClose={() => setRuhiOpen(false)}
-          loadProgress={getRuhiProgress}
-          saveStatus={setRuhiUnitStatus}
+      {studyTrack && studyOpen && (
+        <StudyLogOverlay
+          track={studyTrack}
+          participants={studyParticipants}
+          onClose={() => setStudyOpen(false)}
+          loadProgress={getStudyProgress}
+          saveStatus={setStudyStatus}
         />
       )}
     </>
@@ -397,7 +401,7 @@ export function SessionClient({
 
 // Blue rather than the green/red the buttons beside it use, since those two
 // carry meaning (confirm / cancel) and this one is just a way into the log.
-function RuhiUnitsButton({ onClick }: { onClick: () => void }) {
+function StudyLogButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -413,7 +417,7 @@ function RuhiUnitsButton({ onClick }: { onClick: () => void }) {
         whiteSpace: "nowrap",
       }}
     >
-      Ruhi Units
+      {label}
     </button>
   );
 }

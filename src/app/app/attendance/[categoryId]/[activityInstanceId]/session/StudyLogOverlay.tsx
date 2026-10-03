@@ -2,54 +2,56 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CloseButton } from "@/components/CloseButton";
-import { nextRuhiStatus, ruhiCellKey, type RuhiUnitStatus, type StoredRuhiUnitStatus } from "@/lib/ruhi";
-import { RuhiUnitsGrid, ruhiSwatchStyle, type RuhiParticipant } from "./RuhiUnitsGrid";
+import { nextStudyStatus, studyCellKey, type StoredStudyStatus, type StudyStatus, type StudyTrack, type StudyTrackId } from "@/lib/studyTracks";
+import { StudyLogGrid, studySwatchStyle, type StudyParticipant } from "./StudyLogGrid";
 
-type ProgressRow = { personId: string; book: number; unit: number; status: StoredRuhiUnitStatus };
+type ProgressRow = { personId: string; item: number; unit: number; status: StoredStudyStatus };
 
 // Where a box stands with the server. A box has at most one save in flight;
 // taps that land meanwhile just move `desired`, and one follow-up request
 // sends the final state once the first finishes — so rapid taps can't reach
 // the database out of order, and `server` is always what it last confirmed
 // (the value a failed save falls back to).
-type CellSync = { inFlight: boolean; desired: RuhiUnitStatus; server: RuhiUnitStatus };
+type CellSync = { inFlight: boolean; desired: StudyStatus; server: StudyStatus };
 
-function LegendItem({ status, text }: { status: RuhiUnitStatus; text: string }) {
+function LegendItem({ status, text, tone }: { status: StudyStatus; text: string; tone: StudyTrack["legendTone"] }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-      <span aria-hidden style={{ width: 14, height: 14, borderRadius: 4, boxSizing: "border-box", ...ruhiSwatchStyle(status) }} />
+      <span aria-hidden style={{ width: 14, height: 14, borderRadius: 4, boxSizing: "border-box", ...studySwatchStyle(status, tone) }} />
       {text}
     </span>
   );
 }
 
-// The Ruhi study log for an activity's active participants, as a
-// whole-screen overlay (same shape as Add Info and Search). Reading and
-// writing are passed in rather than imported so the screen doesn't care
-// where its data comes from — the Attendance page hands it the real server
-// actions.
-export function RuhiUnitsOverlay({
+// A study log (Ruhi Units, Grades or Texts) for an activity's active
+// participants, as a whole-screen overlay (same shape as Add Info and
+// Search). Reading and writing are passed in rather than imported so the
+// screen doesn't care where its data comes from — the Attendance page hands
+// it the real server actions.
+export function StudyLogOverlay({
+  track,
   participants,
   onClose,
   loadProgress,
   saveStatus,
 }: {
-  participants: RuhiParticipant[];
+  track: StudyTrack;
+  participants: StudyParticipant[];
   onClose: () => void;
-  loadProgress: (personIds: string[]) => Promise<ProgressRow[]>;
-  saveStatus: (personId: string, book: number, unit: number, status: RuhiUnitStatus) => Promise<unknown>;
+  loadProgress: (trackId: StudyTrackId, personIds: string[]) => Promise<ProgressRow[]>;
+  saveStatus: (trackId: StudyTrackId, personId: string, item: number, unit: number, status: StudyStatus) => Promise<unknown>;
 }) {
-  const [progress, setProgress] = useState<Record<string, RuhiUnitStatus>>({});
+  const [progress, setProgress] = useState<Record<string, StudyStatus>>({});
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // The latest map, readable synchronously — a tap needs "what is this box
   // showing right now" even when two taps land before React re-renders.
-  const progressRef = useRef<Record<string, RuhiUnitStatus>>({});
+  const progressRef = useRef<Record<string, StudyStatus>>({});
   const syncRef = useRef(new Map<string, CellSync>());
 
-  const setCell = useCallback((key: string, status: RuhiUnitStatus) => {
+  const setCell = useCallback((key: string, status: StudyStatus) => {
     const next = { ...progressRef.current };
     if (status === "none") delete next[key];
     else next[key] = status;
@@ -58,12 +60,12 @@ export function RuhiUnitsOverlay({
   }, []);
 
   const flush = useCallback(
-    (personId: string, book: number, unit: number, key: string) => {
+    (personId: string, item: number, unit: number, key: string) => {
       const sync = syncRef.current.get(key);
       if (!sync || sync.inFlight || sync.desired === sync.server) return;
       sync.inFlight = true;
       const sending = sync.desired;
-      saveStatus(personId, book, unit, sending)
+      saveStatus(track.id, personId, item, unit, sending)
         .then(() => {
           sync.server = sending;
         })
@@ -76,25 +78,25 @@ export function RuhiUnitsOverlay({
         })
         .finally(() => {
           sync.inFlight = false;
-          flush(personId, book, unit, key);
+          flush(personId, item, unit, key);
         });
     },
-    [saveStatus, setCell],
+    [saveStatus, setCell, track.id],
   );
 
   const cycle = useCallback(
-    (personId: string, book: number, unit: number) => {
-      const key = ruhiCellKey(personId, book, unit);
+    (personId: string, item: number, unit: number) => {
+      const key = studyCellKey(personId, item, unit);
       let sync = syncRef.current.get(key);
       if (!sync) {
         const current = progressRef.current[key] ?? "none";
         sync = { inFlight: false, desired: current, server: current };
         syncRef.current.set(key, sync);
       }
-      sync.desired = nextRuhiStatus(sync.desired);
+      sync.desired = nextStudyStatus(sync.desired);
       setSaveError(null);
       setCell(key, sync.desired);
-      flush(personId, book, unit, key);
+      flush(personId, item, unit, key);
     },
     [flush, setCell],
   );
@@ -102,17 +104,17 @@ export function RuhiUnitsOverlay({
   const load = useCallback(() => {
     setLoadError(null);
     setLoaded(false);
-    loadProgress(participants.map((p) => p.personId))
+    loadProgress(track.id, participants.map((p) => p.personId))
       .then((rows) => {
-        const map: Record<string, RuhiUnitStatus> = {};
-        for (const r of rows) map[ruhiCellKey(r.personId, r.book, r.unit)] = r.status;
+        const map: Record<string, StudyStatus> = {};
+        for (const r of rows) map[studyCellKey(r.personId, r.item, r.unit)] = r.status;
         progressRef.current = map;
         syncRef.current.clear();
         setProgress(map);
         setLoaded(true);
       })
-      .catch(() => setLoadError("Couldn't load the Ruhi log."));
-  }, [participants, loadProgress]);
+      .catch(() => setLoadError(`Couldn't load ${track.title}.`));
+  }, [participants, loadProgress, track.id, track.title]);
 
   useEffect(() => {
     load();
@@ -125,16 +127,16 @@ export function RuhiUnitsOverlay({
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "var(--page-bg)", display: "flex", flexDirection: "column" }}>
-      <div className="ruhi-head">
-        <h3 className="ruhi-head-title" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)" }}>
-          Ruhi Units
+      <div className="study-head">
+        <h3 className="study-head-title" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)" }}>
+          {track.title}
         </h3>
-        <div className="ruhi-legend">
-          <LegendItem status="none" text="Not studied" />
-          <LegendItem status="partial" text="Partly" />
-          <LegendItem status="complete" text="Completed" />
+        <div className="study-legend">
+          <LegendItem status="none" text="Not studied" tone={track.legendTone} />
+          <LegendItem status="partial" text="Partly" tone={track.legendTone} />
+          <LegendItem status="complete" text="Completed" tone={track.legendTone} />
           <span>Tap a box to cycle</span>
-          <span className="ruhi-rotate-hint">Rotate for a wider view</span>
+          <span className="study-rotate-hint">Rotate for a wider view</span>
         </div>
         <CloseButton onClick={onClose} />
       </div>
@@ -150,7 +152,7 @@ export function RuhiUnitsOverlay({
         </p>
       )}
 
-      {/* The one scroll area — the grid's sticky header and Book column
+      {/* The one scroll area — the grid's sticky header and label column
           stick to this, in whichever direction it's scrolled.
           overscroll-behavior stops the end of a scroll from carrying on
           into the page underneath. */}
@@ -162,7 +164,7 @@ export function RuhiUnitsOverlay({
         ) : !loaded ? (
           !loadError && <p style={{ padding: "var(--space-4) 5%", color: "var(--muted)", fontSize: "0.9rem" }}>Loading…</p>
         ) : (
-          <RuhiUnitsGrid participants={participants} progress={progress} onCycle={cycle} />
+          <StudyLogGrid track={track} participants={participants} progress={progress} onCycle={cycle} />
         )}
       </div>
     </div>

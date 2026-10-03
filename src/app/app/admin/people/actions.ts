@@ -11,7 +11,7 @@ import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { getCategoryLabel, CONTACT_INELIGIBLE_CATEGORIES } from "@/lib/category";
 import { uploadPersonRegoForm } from "@/lib/blobUpload";
-import { hasRuhiProgress, mergeRuhiProgress } from "@/lib/ruhiProgress";
+import { hasStudyProgress, mergeStudyProgress } from "@/lib/studyProgress";
 
 async function requireAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -123,8 +123,8 @@ export async function mergePeople(survivorId: string, loserIds: string[], fieldV
     // Anything left is a duplicate mark for a session the survivor already has a record for.
     await db.delete(attendanceRecords).where(eq(attendanceRecords.personId, loserId));
 
-    // Their Ruhi study log too — per cell, whichever of the two has got further.
-    await mergeRuhiProgress(loserId, survivorId);
+    // Their study logs too (Ruhi Units, Grades, Texts) — per box, whichever of the two has got further.
+    await mergeStudyProgress(loserId, survivorId);
 
     await db.update(households).set({ contactPersonId: survivorId }).where(eq(households.contactPersonId, loserId));
 
@@ -134,7 +134,7 @@ export async function mergePeople(survivorId: string, loserIds: string[], fieldV
 
 // A real hard delete — but only when nothing would be lost. People are
 // normally soft-hidden (see mergePeople above) because activityEnrollments,
-// attendanceRecords and the Ruhi study log cascade-delete when their person
+// attendanceRecords and the study logs cascade-delete when their person
 // row goes, which would silently wipe real history; households.contactPersonId
 // has no FK at all, so deleting someone's contact would leave a dangling
 // reference. This only allows deleting a person with none of that — a
@@ -152,8 +152,8 @@ export async function deletePerson(personId: string) {
   if (hasAttendance) throw new Error("This person has attendance history — use Hide instead of Delete.");
 
   // Same cascade as attendance: deleting the person would silently erase
-  // their Ruhi study log.
-  if (await hasRuhiProgress(personId)) throw new Error("This person has a Ruhi study log — use Hide instead of Delete.");
+  // their study logs (Ruhi Units, Grades, Texts).
+  if (await hasStudyProgress(personId)) throw new Error("This person has a study log — use Hide instead of Delete.");
 
   await db.delete(people).where(eq(people.id, personId));
 }

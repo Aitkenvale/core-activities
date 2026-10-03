@@ -14,7 +14,7 @@ import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { getEditWindowMonths } from "@/lib/settings";
 import { getCategoryLabel, CONTACT_INELIGIBLE_CATEGORIES } from "@/lib/category";
 import { uploadPersonRegoForm } from "@/lib/blobUpload";
-import { mergeRuhiProgress } from "@/lib/ruhiProgress";
+import { mergeStudyProgress } from "@/lib/studyProgress";
 
 async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -398,8 +398,8 @@ export async function mergePendingPerson(pendingPersonId: string, targetPersonId
   // Anything left is a duplicate mark for a session the target already has a record for.
   await db.delete(attendanceRecords).where(eq(attendanceRecords.personId, pendingPersonId));
 
-  // Any Ruhi study log they'd started goes across too.
-  await mergeRuhiProgress(pendingPersonId, targetPersonId);
+  // Any study logs they'd started (Ruhi Units, Grades, Texts) go across too.
+  await mergeStudyProgress(pendingPersonId, targetPersonId);
 
   // The duplicate is now empty — hide it so it stops surfacing anywhere
   // (Find Person, quick-add search, etc.).

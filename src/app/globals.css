@@ -24,11 +24,21 @@
   --text: #2C1F0E;
   --muted: #8B7355;
   --green: #3D6B4A;
-  /* The "partly done" fill (Ruhi Units' half-filled boxes) — lighter than
+  /* The "partly done" fill (the study logs' half-filled boxes) — lighter than
      --green so a half box and a full one read as different amounts, not
      just different shades. Only ever used as a fill alongside a --green
      border; never as text or a lone outline. */
   --green-soft: #8CC79B;
+  /* The same pair for the other fill colours the study logs use — Junior
+     Youth Texts fill green, blue or mustard (by programme year, though the
+     year itself is never shown). Each -soft is the lighter "partly done" half
+     fill and is only ever used like --green-soft: as a fill alongside a
+     full-strength border. --mustard is deliberately neither --gold (a fixed
+     brand accent used across the app) nor --yellow (the "some details
+     missing" warning colour). */
+  --blue-soft: #9ABEE8;
+  --mustard: #A9850A;
+  --mustard-soft: #D9BA45;
   --red: #8B3A2A;
   --blue: #2F5C99;
   --yellow: #B8930C;
@@ -79,6 +89,9 @@
     --muted: #C8B79A;
     --green: #7BBE8E;
     --green-soft: #4E8A62;
+    --blue-soft: #5480B6;
+    --mustard: #DDC048;
+    --mustard-soft: #8F7A22;
     --red: #E08A72;
     --blue: #7EA8E0;
     --yellow: #EDD152;
@@ -105,6 +118,9 @@
   --muted: #C8B79A;
   --green: #7BBE8E;
   --green-soft: #4E8A62;
+  --blue-soft: #5480B6;
+  --mustard: #DDC048;
+  --mustard-soft: #8F7A22;
   --red: #E08A72;
   --blue: #7EA8E0;
   --yellow: #EDD152;
@@ -199,13 +215,13 @@ input[type="radio"] {
   }
 }
 
-/* Ruhi Units overlay header (RuhiUnitsOverlay.tsx). Title and close button
+/* Study log overlay header (StudyLogOverlay.tsx — Ruhi Units, Grades, Texts). Title and close button
    share the first line, with the legend wrapping onto its own line below in
    portrait. In landscape, width is plentiful and height is the scarce thing
    (a phone on its side has well under 400px), so the legend slides up
    inline between them and the padding tightens — leaving the room for the
    grid itself. The "rotate" hint only appears on a portrait phone. */
-.ruhi-head {
+.study-head {
   flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
@@ -215,12 +231,12 @@ input[type="radio"] {
   padding: 16px 5% 8px;
 }
 
-.ruhi-head-title {
+.study-head-title {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.ruhi-legend {
+.study-legend {
   order: 3;
   flex: 1 1 100%;
   display: flex;
@@ -231,26 +247,26 @@ input[type="radio"] {
   color: var(--muted);
 }
 
-.ruhi-rotate-hint {
+.study-rotate-hint {
   display: none;
 }
 
 @media (orientation: portrait) and (max-width: 639px) {
-  .ruhi-rotate-hint {
+  .study-rotate-hint {
     display: inline;
   }
 }
 
 @media (orientation: landscape) and (max-height: 520px) {
-  .ruhi-head {
+  .study-head {
     flex-wrap: nowrap;
     padding-top: 8px;
     padding-bottom: 6px;
   }
-  .ruhi-head-title {
+  .study-head-title {
     flex: 0 0 auto;
   }
-  .ruhi-legend {
+  .study-legend {
     order: 0;
     flex: 1 1 auto;
     justify-content: center;
