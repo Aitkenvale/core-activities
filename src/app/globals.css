@@ -221,6 +221,20 @@ input[type="radio"] {
   }
 }
 
+/* Everything under /app scrolls inside one <main> (see app/layout.tsx). Its scroll
+   bar is hidden: on a desktop the thin bar that shows while scrolling grows into
+   a full-width light-grey one when the mouse goes near it, which looks wrong on
+   the dark theme and isn't needed — the wheel, a trackpad, touch and the
+   keyboard all still scroll. (Scrollers inside a screen, like the grids, keep
+   theirs.) */
+.app-main {
+  scrollbar-width: none;
+}
+
+.app-main::-webkit-scrollbar {
+  display: none;
+}
+
 /* Study log overlay header (StudyLogOverlay.tsx — Ruhi Units, Grades, Texts). Title and close button
    share the first line, with the legend wrapping onto its own line below in
    portrait. In landscape, width is plentiful and height is the scarce thing

@@ -11,7 +11,7 @@ import { SearchOverlay } from "@/components/SearchOverlay";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <main style={{ flex: 1, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", padding: "0 5% 24px" }}>
+      <main className="app-main" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", padding: "0 5% 24px" }}>
         <AppHeader />
         {children}
       </main>
