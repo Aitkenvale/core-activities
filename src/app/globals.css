@@ -245,6 +245,84 @@ input[type="radio"] {
   min-width: 0;
 }
 
+/* The heading is a button that opens a menu of the sections of study history
+   (SectionPicker in StudyLogOverlay.tsx): the section's name and a triangle. */
+.study-picker {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.study-picker-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: var(--tap-min);
+  padding: 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.1rem;
+  color: var(--heading);
+  cursor: pointer;
+}
+
+.study-picker-button:disabled {
+  cursor: default;
+}
+
+.study-picker-triangle {
+  flex-shrink: 0;
+}
+
+.study-picker-menu {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 20;
+  display: grid;
+  min-width: max-content;
+  padding: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevated);
+}
+
+.study-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap-min);
+  padding: 0 14px 0 8px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* A tick marks the section being edited; the others keep the space so the names line up. */
+.study-picker-item::before {
+  content: "";
+  width: 1em;
+  flex-shrink: 0;
+  color: var(--heading);
+}
+
+.study-picker-item[aria-checked="true"]::before {
+  content: "✓";
+}
+
+.study-picker-item[aria-checked="true"] {
+  background: var(--table-header-bg);
+}
+
 /* Cancel and Close, kept together at the right of the heading. */
 .study-head-actions {
   flex-shrink: 0;
@@ -284,22 +362,42 @@ input[type="radio"] {
   display: none;
 }
 
-/* The grids inside the study overlay. On a phone each keeps its natural width
-   (--study-w, set by the grid) and scrolls sideways if that is wider than the
-   screen. On a desktop-sized window — not a phone on its side, which is wide
-   but short — they grow to fill it, held in from the edges by the same 5% as
-   the heading above so everything lines up. Either way the wrapper is never
-   narrower than the widest grid (--study-min, set by the overlay), so nothing
-   is cut off; the 10% is the two side gaps, which are a share of the scroll
-   area's width just as this min-width is. (A percentage-wide table inside a
-   shrink-to-fit wrapper sizes itself in a loop, hence the explicit width.) */
+/* The activity's name at the top of the Attendance screen is a button that looks
+   exactly like the heading text (clicking it turns it into a box to rename it). */
+.activity-title-button {
+  all: unset;
+  cursor: text;
+}
+
+.activity-title-button:focus-visible {
+  outline: 2px solid var(--heading);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* The row of date pills scrolls sideways when there are more than fit, but
+   without a scroll bar — on a desktop it drew a grey bar over the pills. A
+   swipe or trackpad scroll still works, and a pill cut off at the edge shows
+   there is more. */
+.date-pill-row {
+  scrollbar-width: none;
+}
+
+.date-pill-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* The grid inside the study overlay keeps one fixed width — the spacing between
+   people never stretches with the window. On a phone it sits against the left
+   edge and scrolls sideways if it is wider than the screen. On a desktop-sized
+   window (not a phone on its side, which is wide but short) it is centred,
+   held in from the edges by the same 5% as the heading above. Either way the
+   wrapper is never narrower than the grid (--study-min, set by the overlay), so
+   nothing is cut off; the 10% is the two side gaps, which are a share of the
+   scroll area's width just as this min-width is. */
 .study-sections {
   width: 100%;
   min-width: var(--study-min);
-}
-
-.study-table {
-  width: var(--study-w);
 }
 
 @media (min-width: 640px) and (min-height: 521px) {
@@ -308,23 +406,8 @@ input[type="radio"] {
     min-width: calc(var(--study-min) + 10%);
   }
   .study-table {
-    width: 100%;
+    margin: 0 auto;
   }
-}
-
-/* The heading above each grid when the overlay holds more than one log (Ruhi
-   Units, then Ruhi Branches). It sticks to the left edge so it stays in view
-   while the grids scroll sideways. */
-.study-section-title {
-  position: sticky;
-  left: 0;
-  width: fit-content;
-  padding: 14px 8px 6px;
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
 }
 
 @media (orientation: portrait) and (max-width: 639px) {

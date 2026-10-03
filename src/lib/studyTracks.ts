@@ -8,8 +8,9 @@
 // same books, so it's one record per person whichever kind of activity it's
 // updated from), the Ruhi Branches (the same two kinds of activity, one box
 // each rather than units), Children's Grades, Junior Youth Texts, and the
-// Discourse Group's DSA courses. Which categories keep which logs is
-// studyLogsForCategory, below.
+// Discourse Group's DSA courses. The Attendance study screen can edit any of
+// them for an activity's participants (STUDY_SECTIONS, below); which one it
+// opens on is the activity's own category (defaultStudySection).
 
 export type StudyTrackId = "ruhi" | "ruhi_branches" | "psec" | "jysep" | "discourse";
 
@@ -31,7 +32,8 @@ export type StudyItem = {
 export type StudyTrack = {
   // What's stored with each log row.
   id: StudyTrackId;
-  // The button on the Attendance screen, and the title of the screen it opens.
+  // What this log is called where you pick which one to edit: the programme,
+  // then the part of it ("Ruhi — Branches").
   title: string;
   // Heads the column of row labels.
   cornerLabel: string;
@@ -104,45 +106,41 @@ const JY_TEXTS: StudyItem[] = [
 ];
 
 const TRACKS: StudyTrack[] = [
-  { id: "ruhi", title: "Ruhi Units", cornerLabel: "Book", units: 3, legendTone: "neutral", items: RUHI_BOOKS },
-  { id: "ruhi_branches", title: "Ruhi Branches", cornerLabel: "Branch", units: 1, longLabels: true, legendTone: "green", items: RUHI_BRANCHES },
-  { id: "psec", title: "Grades", cornerLabel: "Grade", units: 1, legendTone: "green", items: GRADES },
-  { id: "jysep", title: "Texts", cornerLabel: "Text", units: 1, longLabels: true, legendTone: "neutral", items: JY_TEXTS },
-  { id: "discourse", title: "DSA Courses", cornerLabel: "Course", units: 1, legendTone: "green", items: DSA_COURSES },
+  { id: "ruhi", title: "Ruhi — Main Sequence", cornerLabel: "Book", units: 3, legendTone: "neutral", items: RUHI_BOOKS },
+  { id: "ruhi_branches", title: "Ruhi — Branches", cornerLabel: "Branch", units: 1, longLabels: true, legendTone: "green", items: RUHI_BRANCHES },
+  { id: "psec", title: "Children's Class — Grades", cornerLabel: "Grade", units: 1, legendTone: "green", items: GRADES },
+  { id: "jysep", title: "Junior Youth Group — Texts", cornerLabel: "Text", units: 1, longLabels: true, legendTone: "neutral", items: JY_TEXTS },
+  { id: "discourse", title: "Discourse — Courses", cornerLabel: "Course", units: 1, legendTone: "green", items: DSA_COURSES },
 ];
 
 // A track by its own id — what's stored with a log, and passed between the
-// screens and the server. Not a category id: see studyLogsForCategory.
+// screens and the server. Not a category id: see defaultStudySection.
 export function studyTrackFor(trackId: string): StudyTrack | null {
   return TRACKS.find((t) => t.id === trackId) ?? null;
 }
 
-// The study logs an activity category keeps, in the order they are shown, and
-// what to call them together. Mostly a category has one log of its own, but
-// Study Circles work through the same Ruhi books and branches as Ruhi Camps,
-// so they share those logs: a person's progress is one record, not one per
-// kind of activity.
-const LOGS_OF_CATEGORY = new Map<string, { trackIds: StudyTrackId[]; title?: string }>([
-  ["psec", { trackIds: ["psec"] }],
-  ["jysep", { trackIds: ["jysep"] }],
-  ["ruhi", { trackIds: ["ruhi", "ruhi_branches"], title: "Ruhi Units & Branches" }],
-  ["sc", { trackIds: ["ruhi", "ruhi_branches"], title: "Ruhi Units & Branches" }],
-  ["discourse", { trackIds: ["discourse"] }],
+// The sections of study history the Attendance study screen can edit for an
+// activity's participants, in the order its title menu lists them. Any activity
+// can edit any of them — a Children's Class's participants may well be on the
+// Ruhi books too.
+const SECTION_ORDER: StudyTrackId[] = ["psec", "jysep", "ruhi", "ruhi_branches", "discourse"];
+export const STUDY_SECTIONS: readonly StudyTrack[] = SECTION_ORDER.flatMap((id) => {
+  const track = studyTrackFor(id);
+  return track ? [track] : [];
+});
+
+// The section the study screen opens on: the one that belongs to the activity's
+// own category. Study Circles and Ruhi Camps share the Ruhi books.
+const DEFAULT_SECTION = new Map<string, StudyTrackId>([
+  ["psec", "psec"],
+  ["jysep", "jysep"],
+  ["sc", "ruhi"],
+  ["ruhi", "ruhi"],
+  ["discourse", "discourse"],
 ]);
 
-// What the Attendance screen opens for a category: one screen holding a grid
-// for each of its logs, under a single title (the log's own when there is
-// just the one).
-export type StudyLogs = { title: string; tracks: StudyTrack[] };
-
-export function studyLogsForCategory(categoryId: string): StudyLogs | null {
-  const entry = LOGS_OF_CATEGORY.get(categoryId);
-  if (!entry) return null;
-  const tracks = entry.trackIds.flatMap((id) => {
-    const track = studyTrackFor(id);
-    return track ? [track] : [];
-  });
-  return tracks.length > 0 ? { title: entry.title ?? tracks[0].title, tracks } : null;
+export function defaultStudySection(categoryId: string): StudyTrackId {
+  return DEFAULT_SECTION.get(categoryId) ?? "ruhi";
 }
 
 export function studyUnits(track: StudyTrack): number[] {

@@ -213,19 +213,17 @@ export function StudyLogGrid({
         borderCollapse: "separate",
         borderSpacing: 0,
         tableLayout: "fixed",
-        // Never narrower than its columns need; --study-w is the width it has on a phone
-        // (see .study-table in globals.css, which lets it fill the window on a desktop).
-        minWidth: tableWidth,
-        ["--study-w" as string]: `${tableWidth}px`,
+        // Always exactly as wide as its columns — the spacing between people
+        // doesn't stretch with the window. On a desktop it is centred instead
+        // (see .study-table in globals.css).
+        width: tableWidth,
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
       }}
     >
-      {/* Only the label column has a width of its own: on a phone the table is
-          exactly as wide as the columns need, so the others come out at colW
-          each; on a desktop, where it grows to fill the window, the extra width
-          is shared equally between them and the labels stay as they were. */}
+      {/* Only the label column has a width of its own; the table is exactly as
+          wide as the columns need, so the others come out at colW each. */}
       <colgroup>
         <col style={{ width: labelW }} />
         {participants.flatMap((p) => units.map((u) => <col key={`${p.personId}-${u}`} />))}

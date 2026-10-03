@@ -10,6 +10,7 @@ import { activityEnrollments } from "@/db/schema/activityEnrollments";
 import { getCategoryLabel, FACILITATOR_INELIGIBLE_CATEGORIES, PARTICIPANT_INELIGIBLE_CATEGORIES } from "@/lib/category";
 import type { CadenceType, CadenceConfig } from "@/lib/cadence";
 import { lockedCadenceTypeFor } from "@/lib/ruhi";
+import { renameActivityInstance } from "@/lib/activityName";
 
 // Some categories fix the cadence (Ruhi Camps are always ad-hoc). The form
 // already greys the other options out, but this is what actually holds the
@@ -306,6 +307,14 @@ export async function updateActivityWithRoster(
   await reconcile(input.participants, "participant");
 
   return { createdPeople };
+}
+
+// The name on its own, for renaming from the Attendance screen's title — the
+// same open-to-any-signed-in-user rule as editing an activity above. Returns
+// the name as saved.
+export async function renameActivity(activityInstanceId: string, name: string): Promise<string> {
+  await requireUserId();
+  return renameActivityInstance(activityInstanceId, name);
 }
 
 // Only ever called by Create Activity's Cancel button, to undo an activity

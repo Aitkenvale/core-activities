@@ -12,7 +12,7 @@ import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { getNextExpectedDate, getRecentExpectedDates, type CadenceConfig, type CadenceType } from "@/lib/cadence";
 import { getEditWindowMonths } from "@/lib/settings";
-import { studyLogsForCategory } from "@/lib/studyTracks";
+import { defaultStudySection } from "@/lib/studyTracks";
 import { SessionClient } from "./SessionClient";
 
 // How many date pills the row holds. It scrolls sideways when they don't all fit.
@@ -119,9 +119,6 @@ export default async function SessionPage({
   // brand-new ad-hoc activity.
   const needsDateConfirmation = cadenceType === "ad_hoc" && heldDates.length === 0 && !date;
 
-  // The study logs this kind of activity keeps (Ruhi: units and branches on one screen).
-  const studyLogs = studyLogsForCategory(activity.categoryId);
-
   return (
     <SessionClient
       categoryId={categoryId}
@@ -135,7 +132,7 @@ export default async function SessionPage({
       isAdmin={isAdmin}
       editWindowMonths={editWindowMonths}
       needsDateConfirmation={needsDateConfirmation}
-      studyLog={studyLogs ? { title: studyLogs.title, trackIds: studyLogs.tracks.map((t) => t.id) } : null}
+      defaultStudySection={defaultStudySection(activity.categoryId)}
     />
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useMemo, useRef } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
@@ -28,7 +28,9 @@ import {
 import { getStudyProgress, restoreStudyStatuses, setStudyStatus } from "./studyActions";
 import { StudyLogOverlay } from "./StudyLogOverlay";
 import { formatFullName } from "@/lib/formatName";
-import { studyTrackFor } from "@/lib/studyTracks";
+import type { StudyTrackId } from "@/lib/studyTracks";
+import { actionButtonStyle, buttonRowStyle, toggleButtonStyle } from "./statusButtons";
+import { ActivityTitle } from "./ActivityTitle";
 import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/personCompleteness";
 import { calculateAge } from "@/lib/category";
 import { getRoleLabels } from "@/lib/activityRoleLabels";
@@ -81,7 +83,7 @@ export function SessionClient({
   isAdmin,
   editWindowMonths,
   needsDateConfirmation,
-  studyLog,
+  defaultStudySection,
 }: {
   categoryId: string;
   activityInstanceId: string;
@@ -94,11 +96,10 @@ export function SessionClient({
   isAdmin: boolean;
   editWindowMonths: number;
   needsDateConfirmation: boolean;
-  // The study logs this activity keeps for its participants, if any, and what
-  // the one button into them is called (Ruhi Units & Branches / Grades /
-  // Texts / DSA Courses) — decided from the activity's own category
-  // server-side, not the URL.
-  studyLog: { title: string; trackIds: string[] } | null;
+  // The section of study history the study screen opens on — the one that
+  // belongs to the activity's own category, decided server-side, not from the
+  // URL. The screen can switch to any other section from its title.
+  defaultStudySection: StudyTrackId;
 }) {
   const router = useRouter();
   const [statuses, setStatuses] = useState<Record<string, Status>>(statusByPersonId);
@@ -112,17 +113,6 @@ export function SessionClient({
   const [pillSlot, setPillSlot] = useState<HTMLElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [studyOpen, setStudyOpen] = useState(false);
-  // Memoised so the study screen, which keys its tap handlers on these, isn't
-  // handed a fresh array every time this screen re-renders.
-  const studyTracks = useMemo(
-    () =>
-      (studyLog?.trackIds ?? []).flatMap((id) => {
-        const track = studyTrackFor(id);
-        return track ? [track] : [];
-      }),
-    [studyLog],
-  );
-  const hasStudyLog = studyLog !== null && studyTracks.length > 0;
 
   // Facilitators can't edit sessions past the window at all, regardless of
   // the locked flag (locked can still be toggled off by an admin later).
@@ -191,7 +181,7 @@ export function SessionClient({
   }
 
   function toggleLocked() {
-    if (!canToggleLock) return;
+    if (!canToggleLock || (cancelled && !locked)) return;
     setError(null);
     const next = !locked;
     setLocked(next);
@@ -204,7 +194,7 @@ export function SessionClient({
   }
 
   function toggleCancelled() {
-    if (!canToggleLock) return;
+    if (!canToggleLock || (locked && !cancelled)) return;
     setError(null);
     const next = !cancelled;
     setCancelled(next);
@@ -231,7 +221,7 @@ export function SessionClient({
   // assistants, and independent of whether Edit mode happens to be revealing
   // hidden rows on this screen.
   const isActive = (r: RosterRow) => activeByPersonId[r.personId] ?? r.active;
-  const studyParticipants = hasStudyLog
+  const studyParticipants = studyOpen
     ? roster
         .filter((r) => r.role === "participant")
         .sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || byDisplayName(a, b))
@@ -246,9 +236,7 @@ export function SessionClient({
           underneath this instead of the title/date pills scrolling away
           with everything else. */}
       <div style={{ position: "sticky", top: "var(--app-header-height)", zIndex: 30, background: "var(--page-bg)", paddingTop: "var(--space-2)" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", textAlign: "center", margin: "0 0 var(--space-4)" }}>
-          {activityName}
-        </h2>
+        <ActivityTitle activityInstanceId={activityInstanceId} name={activityName} onRenamed={() => router.refresh()} />
 
         <DatePicker
           activityInstanceId={activityInstanceId}
@@ -266,13 +254,11 @@ export function SessionClient({
             This activity has no cadence, so there&rsquo;s no date to suggest — choose a date above to begin taking attendance.
           </p>
           {/* Every Ruhi Camp is ad-hoc, so every new one starts in this
-              state — and a study log doesn't depend on a session
+              state — and study history doesn't depend on a session
               existing, so it shouldn't wait for one. */}
-          {studyLog && hasStudyLog && (
-            <div style={{ marginTop: "var(--space-2)" }}>
-              <StudyLogButton label={studyLog.title} onClick={() => setStudyOpen(true)} />
-            </div>
-          )}
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "var(--space-4)" }}>
+            <StudyLogButton onClick={() => setStudyOpen(true)} />
+          </div>
         </>
       ) : (
         <>
@@ -334,65 +320,51 @@ export function SessionClient({
             />
           )}
 
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+          {/* Two centred rows: what happens to this session (confirm it, or
+              call it off), then what is being edited (who is in the activity,
+              and their study history). */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+            <div style={buttonRowStyle}>
+              {/* Pressing it again takes the confirmation back. Greyed while
+                  the class is cancelled: a class that didn't happen has no
+                  attendance to confirm. */}
               <button
                 onClick={toggleLocked}
-                disabled={locked || !canToggleLock || cancelled}
-                style={{
-                  minHeight: "var(--tap-min)",
-                  padding: "0 16px",
-                  borderRadius: "var(--radius-pill)",
-                  border: "1px solid var(--green)",
-                  background: locked ? "var(--disabled-bg)" : "var(--card-bg)",
-                  color: locked ? "var(--muted)" : "var(--green)",
-                  fontSize: "0.85rem",
-                  cursor: locked || !canToggleLock || cancelled ? "default" : "pointer",
-                  opacity: canToggleLock && !cancelled ? 1 : 0.6,
-                  whiteSpace: "nowrap",
-                }}
+                disabled={!canToggleLock || (cancelled && !locked)}
+                aria-pressed={locked}
+                style={toggleButtonStyle({ tone: "green", on: locked, blocked: cancelled, noPermission: !canToggleLock })}
               >
-                {locked ? "Confirmed" : "Confirm"}
+                {locked ? "Attendance Confirmed" : "Confirm Attendance"}
               </button>
               {/* An admin-editable, no-checkbox state: the facilitator is
                   saying no session happened at all, distinct from marking
-                  everyone absent. */}
+                  everyone absent. Pressing it again reinstates the class;
+                  it can't overrule confirmed attendance, so it is greyed
+                  while that is on. */}
               <button
                 onClick={toggleCancelled}
-                disabled={!canToggleLock}
+                disabled={!canToggleLock || (locked && !cancelled)}
+                aria-pressed={cancelled}
+                style={toggleButtonStyle({ tone: "red", on: cancelled, blocked: locked, noPermission: !canToggleLock })}
+              >
+                {cancelled ? "Class Cancelled" : "Cancel Class"}
+              </button>
+            </div>
+            <div style={buttonRowStyle}>
+              <button
+                onClick={() => setEditMode((v) => !v)}
                 style={{
-                  minHeight: "var(--tap-min)",
-                  padding: "0 16px",
-                  borderRadius: "var(--radius-pill)",
-                  border: "1px solid var(--red)",
-                  background: cancelled ? "var(--red)" : "var(--card-bg)",
-                  color: cancelled ? "var(--card-bg)" : "var(--red)",
-                  fontSize: "0.85rem",
-                  cursor: !canToggleLock ? "default" : "pointer",
-                  opacity: canToggleLock ? 1 : 0.6,
-                  whiteSpace: "nowrap",
+                  ...actionButtonStyle,
+                  border: "1px solid var(--border)",
+                  background: editMode ? "var(--deep)" : "var(--card-bg)",
+                  color: editMode ? "var(--cream)" : "var(--text)",
+                  cursor: "pointer",
                 }}
               >
-                {cancelled ? "Cancelled" : "Cancel Class"}
+                {editMode ? "Done Editing" : "Edit Participants"}
               </button>
-              {studyLog && hasStudyLog && <StudyLogButton label={studyLog.title} onClick={() => setStudyOpen(true)} />}
+              <StudyLogButton onClick={() => setStudyOpen(true)} />
             </div>
-            <button
-              onClick={() => setEditMode((v) => !v)}
-              style={{
-                minHeight: "var(--tap-min)",
-                padding: "0 16px",
-                borderRadius: "var(--radius-pill)",
-                border: "1px solid var(--border)",
-                background: editMode ? "var(--deep)" : "var(--card-bg)",
-                color: editMode ? "var(--cream)" : "var(--text)",
-                fontSize: "0.85rem",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {editMode ? "Done" : "Edit"}
-            </button>
           </div>
         </>
       )}
@@ -400,10 +372,9 @@ export function SessionClient({
       {pending && <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: 12 }}>Saving…</p>}
       {error && <p style={{ color: "var(--red)", fontSize: "0.75rem", marginTop: 12 }}>{error}</p>}
 
-      {studyLog && hasStudyLog && studyOpen && (
+      {studyOpen && (
         <StudyLogOverlay
-          title={studyLog.title}
-          tracks={studyTracks}
+          initialSection={defaultStudySection}
           participants={studyParticipants}
           onClose={() => setStudyOpen(false)}
           loadProgress={getStudyProgress}
@@ -416,24 +387,11 @@ export function SessionClient({
 }
 
 // Blue rather than the green/red the buttons beside it use, since those two
-// carry meaning (confirm / cancel) and this one is just a way into the log.
-function StudyLogButton({ label, onClick }: { label: string; onClick: () => void }) {
+// carry meaning (confirm / cancel) and this one is just a way into the history.
+function StudyLogButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        minHeight: "var(--tap-min)",
-        padding: "0 16px",
-        borderRadius: "var(--radius-pill)",
-        border: "1px solid var(--blue)",
-        background: "var(--card-bg)",
-        color: "var(--blue)",
-        fontSize: "0.85rem",
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {label}
+    <button onClick={onClick} style={{ ...actionButtonStyle, border: "1px solid var(--blue)", background: "var(--card-bg)", color: "var(--blue)", cursor: "pointer" }}>
+      Edit Study History
     </button>
   );
 }
@@ -457,8 +415,8 @@ function LockStatusPill({
       style={{
         padding: "6px 14px",
         borderRadius: "var(--radius-pill)",
-        border: `1px solid ${cancelled ? "var(--muted)" : locked ? "var(--red)" : "var(--green)"}`,
-        background: cancelled ? "var(--disabled-bg)" : locked ? "var(--red)" : "var(--card-bg)",
+        border: `1px solid ${cancelled ? "var(--muted)" : "var(--green)"}`,
+        background: cancelled ? "var(--disabled-bg)" : locked ? "var(--green)" : "var(--card-bg)",
         color: cancelled ? "var(--muted)" : locked ? "var(--card-bg)" : "var(--green)",
         fontSize: "0.7rem",
         letterSpacing: "0.04em",
@@ -565,6 +523,7 @@ function DatePicker({
           mobile as the two scrolls fight each other. */}
       <div
         ref={pillRowRef}
+        className="date-pill-row"
         style={{
           display: "flex",
           gap: "var(--space-2)",
@@ -578,12 +537,17 @@ function DatePicker({
           <button
             key={d}
             data-selected={d === selectedDate}
+            aria-current={d === selectedDate ? "date" : undefined}
             onClick={() => onPick(d)}
             style={{
               ...pillStyle,
-              border: "1px solid var(--border)",
-              background: d === selectedDate ? "var(--deep)" : "var(--card-bg)",
-              color: d === selectedDate ? "var(--cream)" : "var(--text)",
+              // The date in use is solid in the heading colour (gold on the dark
+              // theme) with the card's colour for its text — the old dark-brown
+              // fill was all but invisible against the dark page.
+              border: d === selectedDate ? "1px solid var(--heading)" : "1px solid var(--border)",
+              background: d === selectedDate ? "var(--heading)" : "var(--card-bg)",
+              color: d === selectedDate ? "var(--card-bg)" : "var(--text)",
+              fontWeight: d === selectedDate ? 500 : 400,
             }}
           >
             {formatShort(d)}
@@ -660,9 +624,10 @@ function DatePicker({
                       textAlign: "left",
                       padding: "6px 8px",
                       borderRadius: "var(--radius-sm)",
-                      border: "1px solid var(--border)",
-                      background: d === selectedDate ? "var(--deep)" : "var(--card-bg)",
-                      color: d === selectedDate ? "var(--cream)" : "var(--text)",
+                      border: d === selectedDate ? "1px solid var(--heading)" : "1px solid var(--border)",
+                      background: d === selectedDate ? "var(--heading)" : "var(--card-bg)",
+                      color: d === selectedDate ? "var(--card-bg)" : "var(--text)",
+                      fontWeight: d === selectedDate ? 500 : 400,
                       fontSize: "0.8rem",
                       cursor: "pointer",
                     }}

@@ -15,6 +15,7 @@ import { getEditWindowMonths } from "@/lib/settings";
 import { getCategoryLabel, CONTACT_INELIGIBLE_CATEGORIES } from "@/lib/category";
 import { uploadPersonRegoForm } from "@/lib/blobUpload";
 import { mergeStudyProgress } from "@/lib/studyProgress";
+import { setEventCancelled, setEventLocked } from "@/lib/sessionStatus";
 
 async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -97,12 +98,13 @@ export async function getLockStatus(activityInstanceId: string, sessionDate: str
 // Confirm = lock (attendance becomes read-only). Clicking the status pill
 // while locked unlocks it again so edits can be made — gated the same as
 // setAttendance, otherwise a facilitator could just unlock an old session
-// to get around the edit window.
+// to get around the edit window. A cancelled class can't be confirmed: it
+// has to be reinstated first.
 export async function setLockStatus(activityInstanceId: string, sessionDate: string, locked: boolean) {
   const session = await requireSession();
   await assertWithinEditWindow(sessionDate, session.user.role);
   const eventId = await getOrCreateEventId(activityInstanceId, sessionDate, session.user.id);
-  await db.update(attendanceEvents).set({ locked }).where(eq(attendanceEvents.id, eventId));
+  if (!(await setEventLocked(eventId, locked))) throw new Error("This class is cancelled — reinstate it before confirming attendance.");
 }
 
 export async function getCancelledStatus(activityInstanceId: string, sessionDate: string): Promise<boolean> {
@@ -115,12 +117,13 @@ export async function getCancelledStatus(activityInstanceId: string, sessionDate
 
 // "Class Cancelled" — the facilitator is saying no session happened at all
 // (holiday, facilitator away, etc.), not that attendance is all-absent.
-// Same edit-window gating as setLockStatus.
+// Same edit-window gating as setLockStatus. Attendance that has been
+// confirmed can't be overruled by cancelling: it has to be un-confirmed first.
 export async function setCancelledStatus(activityInstanceId: string, sessionDate: string, cancelled: boolean) {
   const session = await requireSession();
   await assertWithinEditWindow(sessionDate, session.user.role);
   const eventId = await getOrCreateEventId(activityInstanceId, sessionDate, session.user.id);
-  await db.update(attendanceEvents).set({ cancelled }).where(eq(attendanceEvents.id, eventId));
+  if (!(await setEventCancelled(eventId, cancelled))) throw new Error("Attendance is confirmed — un-confirm it before cancelling the class.");
 }
 
 // Hidden people ARE included here (unlike most searches elsewhere in the

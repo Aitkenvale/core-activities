@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CloseButton } from "@/components/CloseButton";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
+  STUDY_SECTIONS,
   isRegress,
   nextStudyStatus,
   studyCellKey,
+  studyTrackFor,
   type StoredStudyStatus,
   type StudyRestoreBox,
   type StudyStatus,
@@ -18,13 +21,14 @@ import { STATUS_TEXT, StudyLogGrid, studyGridWidth, studySwatchStyle, type Study
 // but Cancel needs it to put a box back exactly as it was.
 type ProgressRow = { personId: string; item: number; unit: number; status: StoredStudyStatus; statusDate: string | null };
 
-// One map of box states per log: a box's key (person, item, unit) is only
-// unique within its own log — Ruhi's Book 1 unit 1 and Branch 1 share one.
+// One map of box states per section: a box's key (person, item, unit) is only
+// unique within its own section — Ruhi's Book 1 unit 1 and Branch 1 share one.
 type ProgressByTrack = Record<string, Record<string, StudyStatus>>;
 const NO_PROGRESS: Record<string, StudyStatus> = {};
 
-// A box as this screen found it when it opened — what Cancel puts back, and
-// what the check on the way out compares against. A box with no entry had no row.
+// A box as this screen found it when its section was first opened — what Cancel
+// puts back, and what the check on the way out compares against. A box with no
+// entry had no row.
 type Opened = { status: StudyStatus; date: string | null };
 const NOT_STUDIED: Opened = { status: "none", date: null };
 
@@ -49,16 +53,12 @@ type CellSync = {
   sent: boolean;
 };
 
+// A box that went backwards, as the question on the way out lists it.
+type SetBack = { what: string; from: StudyStatus; to: StudyStatus };
+const SET_BACK_SHOWN = 6;
+
 // How long Cancel waits for saves still on their way before giving up.
 const IDLE_TIMEOUT_MS = 10_000;
-
-// What the check on the way out says when boxes have gone backwards.
-function setBackMessage(boxes: CellSync[], openedStatus: (sync: CellSync) => StudyStatus): string {
-  const shown = boxes.slice(0, 6).map((s) => `• ${s.what}: ${STATUS_TEXT[openedStatus(s)]} → ${STATUS_TEXT[s.desired]}`);
-  const more = boxes.length > shown.length ? `\n…and ${boxes.length - shown.length} more` : "";
-  const count = boxes.length === 1 ? "1 box has" : `${boxes.length} boxes have`;
-  return `${count} been set back since you opened this screen:\n\n${shown.join("\n")}${more}\n\nLeave with these changes?`;
-}
 
 function LegendItem({ status, text, tone }: { status: StudyStatus; text: string; tone: StudyTrack["legendTone"] }) {
   return (
@@ -69,24 +69,82 @@ function LegendItem({ status, text, tone }: { status: StudyStatus; text: string;
   );
 }
 
-// The study log (Ruhi Units and Ruhi Branches, Grades, Texts or DSA Courses)
-// for an activity's participants — current and former — as a whole-screen
-// overlay (same shape as Add Info and Search). An activity that keeps more
-// than one log shows a grid for each, one under the other, on this one screen.
-// Reading and writing are passed in rather than imported so the screen doesn't
-// care where its data comes from — the Attendance page hands it the real
-// server actions.
+// The screen's title, which is also where you choose which section of study
+// history to edit for the participants: any of them, whatever kind of activity
+// this is. A menu of our own rather than a native <select>, so it looks like
+// the heading it replaces and matches the app in both themes.
+function SectionPicker({ value, onChange, disabled }: { value: StudyTrackId; onChange: (id: StudyTrackId) => void; disabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const current = STUDY_SECTIONS.find((s) => s.id === value) ?? STUDY_SECTIONS[0];
+
+  // A tap anywhere else, or Escape, closes the menu.
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="study-picker">
+      <button type="button" className="study-picker-button" aria-haspopup="menu" aria-expanded={open} disabled={disabled} onClick={() => setOpen((v) => !v)}>
+        <span>{current.title}</span>
+        <svg className="study-picker-triangle" aria-hidden width="11" height="7" viewBox="0 0 11 7">
+          <path d="M0 0h11L5.5 7z" fill="currentColor" />
+        </svg>
+      </button>
+      {open && (
+        <div role="menu" aria-label="Section of study history to edit" className="study-picker-menu">
+          {STUDY_SECTIONS.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={section.id === value}
+              className="study-picker-item"
+              onClick={() => {
+                setOpen(false);
+                onChange(section.id);
+              }}
+            >
+              {section.title}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// One section of study history (Children's Grades, Junior Youth Texts, the Ruhi
+// main sequence or branches, Discourse courses) for an activity's participants
+// — current and former — as a whole-screen overlay (same shape as Add Info and
+// Search). It opens on the section that belongs to the activity's category, and
+// the title is a menu for switching to any other. Reading and writing are
+// passed in rather than imported so the screen doesn't care where its data
+// comes from — the Attendance page hands it the real server actions.
+//
+// Taps are saved as they are made. Close keeps them; Cancel puts everything
+// done since the screen opened back as it was.
 export function StudyLogOverlay({
-  title,
-  tracks,
+  initialSection,
   participants,
   onClose,
   loadProgress,
   saveStatus,
   restoreStatuses,
 }: {
-  title: string;
-  tracks: StudyTrack[];
+  initialSection: StudyTrackId;
   participants: StudyParticipant[];
   onClose: () => void;
   loadProgress: (trackId: StudyTrackId, personIds: string[]) => Promise<ProgressRow[]>;
@@ -94,18 +152,23 @@ export function StudyLogOverlay({
   // Puts boxes back exactly as they were, date and all — all or nothing.
   restoreStatuses: (boxes: StudyRestoreBox[]) => Promise<unknown>;
 }) {
+  const [sectionId, setSectionId] = useState<StudyTrackId>(initialSection);
   const [progress, setProgress] = useState<ProgressByTrack>({});
-  const [loaded, setLoaded] = useState(false);
+  // The sections whose boxes have arrived — a section is fetched the first time it is shown.
+  const [loadedIds, setLoadedIds] = useState<StudyTrackId[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   // Putting boxes back: taps and the buttons wait until it's done.
   const [busy, setBusy] = useState(false);
+  // The question on the way out, while it is open: which boxes went backwards.
+  const [asking, setAsking] = useState<SetBack[] | null>(null);
 
   // The latest maps, readable synchronously — a tap needs "what is this box
   // showing right now" even when two taps land before React re-renders.
   const progressRef = useRef<ProgressByTrack>({});
   const syncRef = useRef(new Map<string, CellSync>());
   const openedRef = useRef<Record<string, Record<string, Opened>>>({});
+  const loadingRef = useRef(new Set<StudyTrackId>());
   const busyRef = useRef(false);
   // How many saves are on their way, and who is waiting for that to reach none.
   const inFlightRef = useRef(0);
@@ -115,8 +178,8 @@ export function StudyLogOverlay({
     const cells = { ...progressRef.current[trackId] };
     if (status === "none") delete cells[key];
     else cells[key] = status;
-    // Only the edited log's map is replaced, so the other log's boxes keep
-    // the props they had.
+    // Only the edited section's map is replaced, so the others keep the props
+    // they had.
     const next = { ...progressRef.current, [trackId]: cells };
     progressRef.current = next;
     setProgress(next);
@@ -176,7 +239,7 @@ export function StudyLogOverlay({
         syncRef.current.set(syncKey, sync);
       }
       // No question asked here, however far a box is taken: the one check is
-      // on the way out (finish), against how things stood when this opened.
+      // on the way out (requestClose), against how things stood when this opened.
       sync.desired = nextStudyStatus(sync.desired);
       setSaveError(null);
       setCell(trackId, key, sync.desired);
@@ -185,47 +248,53 @@ export function StudyLogOverlay({
     [flush, setCell],
   );
 
-  // One tap handler per log, the same one between renders, so the boxes a tap
-  // didn't touch aren't redrawn.
-  const cyclers = useMemo(
-    () => Object.fromEntries(tracks.map((t) => [t.id, (personId: string, item: number, unit: number, what: string) => cycle(t.id, personId, item, unit, what)])),
-    [tracks, cycle],
-  );
-
-  const load = useCallback(() => {
-    setLoadError(null);
-    setLoaded(false);
-    const personIds = participants.map((p) => p.personId);
-    Promise.all(tracks.map((t) => loadProgress(t.id, personIds)))
-      .then((results) => {
-        const maps: ProgressByTrack = {};
-        const found: Record<string, Record<string, Opened>> = {};
-        tracks.forEach((t, i) => {
+  // Fetches a section's boxes, and remembers how they were found. Only one
+  // section is on screen at a time, so there is one tap handler, the same
+  // between renders, and the boxes a tap didn't touch aren't redrawn.
+  const load = useCallback(
+    (trackId: StudyTrackId) => {
+      if (loadingRef.current.has(trackId)) return;
+      loadingRef.current.add(trackId);
+      loadProgress(
+        trackId,
+        participants.map((p) => p.personId),
+      )
+        .then((rows) => {
           const map: Record<string, StudyStatus> = {};
           const was: Record<string, Opened> = {};
-          for (const r of results[i]) {
+          for (const r of rows) {
             const key = studyCellKey(r.personId, r.item, r.unit);
             map[key] = r.status;
             was[key] = { status: r.status, date: r.statusDate };
           }
-          maps[t.id] = map;
-          found[t.id] = was;
-        });
-        progressRef.current = maps;
-        openedRef.current = found;
-        syncRef.current.clear();
-        setProgress(maps);
-        setLoaded(true);
-      })
-      .catch(() => setLoadError(`Couldn't load ${title}.`));
-  }, [participants, loadProgress, tracks, title]);
+          progressRef.current = { ...progressRef.current, [trackId]: map };
+          openedRef.current = { ...openedRef.current, [trackId]: was };
+          setProgress(progressRef.current);
+          setLoadedIds((ids) => (ids.includes(trackId) ? ids : [...ids, trackId]));
+        })
+        .catch(() => setLoadError(`Couldn't load ${studyTrackFor(trackId)?.title ?? "this section"}.`))
+        .finally(() => loadingRef.current.delete(trackId));
+    },
+    [participants, loadProgress],
+  );
 
   useEffect(() => {
-    load();
+    load(initialSection);
     // Once, on open — the participants list is whoever was active when this
     // was opened, and nothing can change it while this covers the screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function selectSection(id: StudyTrackId) {
+    setSectionId(id);
+    setLoadError(null);
+    if (!progressRef.current[id]) load(id);
+  }
+
+  const onCycle = useCallback(
+    (personId: string, item: number, unit: number, what: string) => cycle(sectionId, personId, item, unit, what),
+    [cycle, sectionId],
+  );
 
   const opened = useCallback(
     (sync: CellSync): Opened => openedRef.current[sync.trackId]?.[studyCellKey(sync.personId, sync.item, sync.unit)] ?? NOT_STUDIED,
@@ -255,21 +324,26 @@ export function StudyLogOverlay({
     [onClose, opened, restoreStatuses, whenIdle],
   );
 
-  // Leaving with the changes kept. Every tap has already been saved; the one
-  // question is if any box ended up behind where it started — judged on the
-  // whole visit, not tap by tap, so tapping a box round the cycle and back to
-  // where it began asks nothing.
-  const finish = useCallback(async () => {
-    if (busyRef.current) return;
-    const touched = [...syncRef.current.values()];
-    const setBack = touched.filter((s) => isRegress(opened(s).status, s.desired));
-    if (setBack.length > 0 && !window.confirm(setBackMessage(setBack, (s) => opened(s).status))) return;
-    // A box tapped away and back was dated today on the way, though it has
-    // not moved: give it its own date again.
-    const tappedRound = touched.filter((s) => s.sent && s.desired === opened(s).status && s.desired !== "none");
+  // Leaving with the changes kept. A box tapped away and back was dated today
+  // on the way, though it has not moved: give it its own date again.
+  const closeKeeping = useCallback(async () => {
+    const tappedRound = [...syncRef.current.values()].filter((s) => s.sent && s.desired === opened(s).status && s.desired !== "none");
     if (tappedRound.length === 0) return onClose();
     await putBack(tappedRound, "Couldn't finish up — your changes are saved, but a date couldn't be put back. Try closing again.");
   }, [onClose, opened, putBack]);
+
+  // Close. Every tap has already been saved; the one question is whether any
+  // box ended up behind where it started — judged on the whole visit, not tap
+  // by tap, so tapping a box round the cycle and back to where it began asks
+  // nothing. Asked in the app's own dialog, not the browser's (see ConfirmDialog).
+  const requestClose = useCallback(() => {
+    if (busyRef.current) return;
+    const setBack = [...syncRef.current.values()]
+      .filter((s) => isRegress(opened(s).status, s.desired))
+      .map((s): SetBack => ({ what: s.what, from: opened(s).status, to: s.desired }));
+    if (setBack.length > 0) setAsking(setBack);
+    else void closeKeeping();
+  }, [closeKeeping, opened]);
 
   // Cancel: everything done since this opened goes back as it was.
   const cancelEdits = useCallback(async () => {
@@ -279,22 +353,20 @@ export function StudyLogOverlay({
     await putBack(sent, "Couldn't undo your changes — they're still as you left them. Try Cancel again.");
   }, [onClose, putBack]);
 
+  const track = studyTrackFor(sectionId) ?? STUDY_SECTIONS[0];
+  const loaded = loadedIds.includes(sectionId);
   const error = loadError ?? saveError;
-  // One example colour for the legend when every log fills the same way.
-  const legendTone = tracks.every((t) => t.legendTone === tracks[0].legendTone) ? tracks[0].legendTone : "neutral";
-  // How wide the widest grid needs to be (see .study-sections in globals.css).
-  const gridMinWidth = Math.max(...tracks.map((t) => studyGridWidth(t, participants.length)));
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "var(--page-bg)", display: "flex", flexDirection: "column" }}>
       <div className="study-head">
-        <h3 className="study-head-title" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "var(--heading)" }}>
-          {title}
+        <h3 className="study-head-title">
+          <SectionPicker value={sectionId} onChange={selectSection} disabled={busy} />
         </h3>
         <div className="study-legend">
-          <LegendItem status="none" text="Not studied" tone={legendTone} />
-          <LegendItem status="partial" text="Partly" tone={legendTone} />
-          <LegendItem status="complete" text="Completed" tone={legendTone} />
+          <LegendItem status="none" text="Not studied" tone={track.legendTone} />
+          <LegendItem status="partial" text="Partly" tone={track.legendTone} />
+          <LegendItem status="complete" text="Completed" tone={track.legendTone} />
           <span>Tap a box to cycle</span>
           <span className="study-rotate-hint">Rotate for a wider view</span>
         </div>
@@ -304,7 +376,7 @@ export function StudyLogOverlay({
           <button type="button" className="study-cancel" onClick={() => void cancelEdits()} disabled={busy} title="Undo everything changed since this was opened">
             Cancel
           </button>
-          <CloseButton onClick={() => void finish()} />
+          <CloseButton onClick={requestClose} />
         </div>
       </div>
 
@@ -312,21 +384,26 @@ export function StudyLogOverlay({
         <p role="alert" style={{ flexShrink: 0, margin: 0, padding: "0 5% 6px", fontSize: "0.78rem", color: "var(--red)" }}>
           {error}{" "}
           {loadError && (
-            <button onClick={load} style={{ background: "none", border: "none", padding: 0, color: "var(--heading)", textDecoration: "underline", cursor: "pointer", fontSize: "inherit" }}>
+            <button
+              onClick={() => {
+                setLoadError(null);
+                load(sectionId);
+              }}
+              style={{ background: "none", border: "none", padding: 0, color: "var(--heading)", textDecoration: "underline", cursor: "pointer", fontSize: "inherit" }}
+            >
               Retry
             </button>
           )}
         </p>
       )}
 
-      {/* The one scroll area — each grid's sticky header and label column
-          stick to this, in whichever direction it's scrolled. The grids' wrapper
-          is never narrower than the widest grid (so a heading that sticks to the
-          left edge stays there however far you scroll sideways); on a desktop
-          screen it also fills the window, with the grids centred and lined up
-          with the heading above (.study-sections in globals.css).
-          overscroll-behavior stops the end of a scroll from carrying on into
-          the page underneath. */}
+      {/* The one scroll area — the grid's sticky header and label column
+          stick to this, in whichever direction it's scrolled. The grid's wrapper
+          is never narrower than the grid (so nothing is cut off however far you
+          scroll sideways); on a desktop screen it also fills the window, with the
+          grid centred and lined up with the heading above (.study-sections in
+          globals.css). overscroll-behavior stops the end of a scroll from
+          carrying on into the page underneath. */}
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
         {participants.length === 0 ? (
           <p style={{ padding: "var(--space-4) 5%", color: "var(--muted)", fontSize: "0.9rem" }}>
@@ -335,16 +412,36 @@ export function StudyLogOverlay({
         ) : !loaded ? (
           !loadError && <p style={{ padding: "var(--space-4) 5%", color: "var(--muted)", fontSize: "0.9rem" }}>Loading…</p>
         ) : (
-          <div className="study-sections" style={{ ["--study-min" as string]: `${gridMinWidth}px` }}>
-            {tracks.map((track) => (
-              <section key={track.id}>
-                {tracks.length > 1 && <h4 className="study-section-title">{track.title}</h4>}
-                <StudyLogGrid track={track} participants={participants} progress={progress[track.id] ?? NO_PROGRESS} onCycle={cyclers[track.id]} />
-              </section>
-            ))}
+          <div className="study-sections" style={{ ["--study-min" as string]: `${studyGridWidth(track, participants.length)}px` }}>
+            <StudyLogGrid track={track} participants={participants} progress={progress[sectionId] ?? NO_PROGRESS} onCycle={onCycle} />
           </div>
         )}
       </div>
+
+      {asking && (
+        <ConfirmDialog
+          title="Leave with these changes?"
+          confirmLabel="Leave"
+          cancelLabel="Keep editing"
+          onConfirm={() => {
+            setAsking(null);
+            void closeKeeping();
+          }}
+          onCancel={() => setAsking(null)}
+        >
+          <p style={{ margin: 0 }}>
+            {asking.length === 1 ? "1 box has" : `${asking.length} boxes have`} been set back since you opened this screen:
+          </p>
+          <ul style={{ listStyle: "none", margin: "var(--space-2) 0 0", padding: 0 }}>
+            {asking.slice(0, SET_BACK_SHOWN).map((box, i) => (
+              <li key={`${i}:${box.what}`} style={{ margin: "4px 0" }}>
+                {box.what}: {STATUS_TEXT[box.from]} → {STATUS_TEXT[box.to]}
+              </li>
+            ))}
+          </ul>
+          {asking.length > SET_BACK_SHOWN && <p style={{ margin: "var(--space-2) 0 0" }}>…and {asking.length - SET_BACK_SHOWN} more</p>}
+        </ConfirmDialog>
+      )}
     </div>
   );
 }
