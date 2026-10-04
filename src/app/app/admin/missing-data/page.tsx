@@ -25,7 +25,7 @@ export default async function MissingDataPage() {
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
-      <div style={{ maxWidth: 640, padding: "0 9px" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 9px" }}>
         <AdminPageHeader title="Missing Data" marginBottom="var(--space-3)" />
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: "0 0 var(--space-5)" }}>
           Current participants aged 4+ who&rsquo;ve attended twice or more in the last 4 weeks, grouped by activity,

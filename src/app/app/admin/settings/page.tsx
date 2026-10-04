@@ -38,7 +38,7 @@ export default async function AdminSettingsPage() {
     // Content itself stays at a readable card width rather than
     // stretching to the full 1400px like a spreadsheet would.
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
-      <div style={{ maxWidth: 640, padding: "0 9px" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 9px" }}>
         <AdminPageHeader title="Settings" marginBottom="var(--space-6)" />
 
         <SecurityCard initialMonths={editWindowMonths} />

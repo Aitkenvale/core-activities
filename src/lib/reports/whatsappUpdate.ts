@@ -1,8 +1,8 @@
 // Server-only reads for the admin WhatsApp Update report: everyone who has
-// attended one of the chosen PSEC or JYSEP groups in the last 4 weeks, as one row
-// per household contact with their participants alongside, ready to become a CSV.
-// A plain module (not a "use server" file) so it can be tested without a login.
-import { and, eq, exists, gte, inArray, lte, sql } from "drizzle-orm";
+// attended one of the last 4 lessons held by each chosen PSEC or JYSEP group, as
+// one row per household contact with their participants alongside, ready to become
+// a CSV. A plain module (not a "use server" file) so it can be tested without a login.
+import { and, desc, eq, exists, inArray, lte, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
@@ -15,8 +15,8 @@ import { households } from "@/db/schema/households";
 // the helper's name comes from the study logs, which needed it first.
 import { communityToday } from "@/lib/studyDate";
 
-// "The last 4 weeks": a session held on or after this many days before today.
-const WINDOW_DAYS = 28;
+// How many of each group's most recent held lessons count as "recent".
+const LESSON_COUNT = 4;
 
 // The kinds of group the report's popup offers (Children's Class and Junior
 // Youth Group), whatever ids a download asks for.
@@ -44,18 +44,6 @@ export type WhatsappRow = {
   contactMobile: string;
   participants: string[];
 };
-
-function daysBefore(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
-// The days the report covers: the first one counted, and today (YYYY-MM-DD).
-export function whatsappWindow(): { from: string; to: string } {
-  const to = communityToday();
-  return { from: daysBefore(to, WINDOW_DAYS), to };
-}
 
 // A person as the rosters show them: the AKA when there is one, otherwise the
 // full name.
@@ -150,16 +138,61 @@ export function parseActivityIds(raw: string | null): string[] | null {
   return [...new Set(ids.map((id) => id.toLowerCase()))];
 }
 
-// Participants (a roster entry as a participant, not a facilitator or
-// assistant, still active) of the chosen groups who were marked present at that
-// group within the last 4 weeks: the same "actually attended, not just
-// enrolled" rule as the Family Visit Planner and Missing Data reports, with the
-// cut-off taken from the Brisbane date rather than the server's UTC one. Only
-// PSEC and JYSEP groups can be chosen, and hidden people and groups don't count.
-// A separate EXISTS rather than a join, so someone who came several times doesn't
-// fan out into duplicate rows.
+// A session of a group.
+type Lesson = { id: string; activityInstanceId: string };
+
+// From sessions already sorted newest first, the ids of each group's latest few.
+export function latestLessonIds(lessons: Lesson[], perGroup: number): string[] {
+  const counts = new Map<string, number>();
+  const ids: string[] = [];
+  for (const lesson of lessons) {
+    const n = counts.get(lesson.activityInstanceId) ?? 0;
+    if (n >= perGroup) continue;
+    counts.set(lesson.activityInstanceId, n + 1);
+    ids.push(lesson.id);
+  }
+  return ids;
+}
+
+// The lessons that count: each chosen group's last 4 that were actually held, that
+// is sessions on or before today that were not cancelled and where someone was
+// marked present. A date that was only added to the calendar, or that nobody came
+// to, isn't a lesson, so a break between terms doesn't empty the report: a class
+// that last met five weeks ago still has its last 4 lessons.
+async function recentLessonIds(activityIds: string[]): Promise<string[]> {
+  const lessons = await db
+    .select({ id: attendanceEvents.id, activityInstanceId: attendanceEvents.activityInstanceId })
+    .from(attendanceEvents)
+    .innerJoin(activityInstances, eq(activityInstances.id, attendanceEvents.activityInstanceId))
+    .where(
+      and(
+        inArray(attendanceEvents.activityInstanceId, activityIds),
+        inArray(activityInstances.categoryId, GROUP_CATEGORIES),
+        eq(activityInstances.hidden, false),
+        eq(attendanceEvents.cancelled, false),
+        lte(attendanceEvents.sessionDate, communityToday()),
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(attendanceRecords)
+            .where(and(eq(attendanceRecords.attendanceEventId, attendanceEvents.id), eq(attendanceRecords.status, "present"))),
+        ),
+      ),
+    )
+    .orderBy(desc(attendanceEvents.sessionDate));
+  return latestLessonIds(lessons, LESSON_COUNT);
+}
+
+// Participants (a roster entry as a participant, not a facilitator or assistant,
+// still active) of the chosen groups who were marked present at one of that group's
+// last 4 held lessons: "actually attended, not just enrolled", as in the Family
+// Visit Planner and Missing Data reports, but counted in lessons rather than days.
+// Only PSEC and JYSEP groups can be chosen, and hidden people and groups don't
+// count. A separate EXISTS rather than a join, so someone who came to several
+// lessons doesn't fan out into duplicate rows.
 export async function getWhatsappRows(activityIds: string[]): Promise<WhatsappRow[]> {
-  const { from, to } = whatsappWindow();
+  const lessonIds = await recentLessonIds(activityIds);
+  if (lessonIds.length === 0) return [];
   const householdContacts = alias(people, "household_contacts");
 
   const attended = await db
@@ -196,8 +229,7 @@ export async function getWhatsappRows(activityIds: string[]): Promise<WhatsappRo
                 eq(attendanceRecords.personId, people.id),
                 eq(attendanceEvents.activityInstanceId, activityInstances.id),
                 eq(attendanceRecords.status, "present"),
-                gte(attendanceEvents.sessionDate, from),
-                lte(attendanceEvents.sessionDate, to),
+                inArray(attendanceEvents.id, lessonIds),
               ),
             ),
         ),

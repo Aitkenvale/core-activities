@@ -25,7 +25,7 @@ export default async function FamilyReportPage() {
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
-      <div style={{ maxWidth: 640, padding: "0 9px" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 9px" }}>
         <AdminPageHeader title="Family Visit Planner" marginBottom="var(--space-3)" />
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: "0 0 var(--space-5)" }}>
           Households with a participant who&rsquo;s attended in the last 3 months, grouped by suburb — participant

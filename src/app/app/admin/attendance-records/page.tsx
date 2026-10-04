@@ -17,7 +17,7 @@ export default async function AttendanceRecordsPage() {
     // Admin function edited on a computer — full desktop width like the
     // other Edit screens (see isAdminWidePage), not the mobile phone-frame.
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
-      <div style={{ maxWidth: 640, padding: "0 9px" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 9px" }}>
         <AdminPageHeader title="Attendance Records" marginBottom="var(--space-3)" />
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: "0 0 var(--space-5)" }}>
           One PDF per term — a page per activity listing everyone who actually attended that term (participants and

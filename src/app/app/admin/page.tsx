@@ -66,7 +66,7 @@ export default async function AdminMenuPage() {
     // isAdminWidePage) — AppHeader no longer renders here, so this needs
     // its own heading instead of relying on the sticky title bar.
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
-      <div style={{ maxWidth: 640, padding: "0 9px" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 9px" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: "var(--space-4)" }}>
           Admin Functions
         </h2>

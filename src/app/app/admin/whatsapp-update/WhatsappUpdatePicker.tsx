@@ -38,7 +38,7 @@ const buttonStyle: React.CSSProperties = {
 // The report's download, behind a popup that lists every PSEC and JYSEP group to
 // tick: the file then covers the participants of just those groups. What is ticked
 // is kept while the popup is closed, so it is still there when it is opened again.
-export function WhatsappUpdatePicker({ options, since }: { options: SchoolActivityOption[]; since: string }) {
+export function WhatsappUpdatePicker({ options }: { options: SchoolActivityOption[] }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -144,7 +144,7 @@ export function WhatsappUpdatePicker({ options, since }: { options: SchoolActivi
                 Choose groups
               </h3>
               <p style={{ flexShrink: 0, fontSize: "0.85rem", color: "var(--muted)", marginBottom: "var(--space-4)" }}>
-                Tick the groups to include. The file lists everyone who&rsquo;s attended one of them in the last 4 weeks (since {since}).
+                Tick the groups to include. The file lists everyone who&rsquo;s been to one of each group&rsquo;s last 4 lessons.
               </p>
 
               {sections.length === 0 ? (
