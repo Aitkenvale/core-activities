@@ -11,6 +11,7 @@ import {
   mergeHouseholds,
   type HouseholdPatch,
 } from "./actions";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 type Row = {
@@ -197,9 +198,7 @@ export function HouseholdsGrid({ initialRows, initialFilter = "" }: { initialRow
           (both var(--space-3)) so the gap above the title equals the gap
           below the search row. */}
       <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px var(--space-3)" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Edit Households
-        </h2>
+        <AdminPageHeader title="Edit Households" />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

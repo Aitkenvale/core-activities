@@ -15,6 +15,7 @@ import {
   type PersonPatch,
 } from "./actions";
 import { getCategoryLabel, CATEGORY_LABELS, formatCategoryLabel } from "@/lib/category";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PersonMergeDialog } from "./PersonMergeDialog";
@@ -277,9 +278,7 @@ export function PeopleGrid({
           (both var(--space-3)) so the gap above the title equals the gap
           below the search row. */}
       <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px var(--space-3)" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Edit All People
-        </h2>
+        <AdminPageHeader title="Edit All People" />
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <input
             placeholder="Search by name, household, category…"

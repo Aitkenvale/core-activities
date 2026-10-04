@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 import { getAvailableTerms } from "@/lib/pdf/attendanceReport";
 
 export const metadata: Metadata = { title: "Attendance Records" };
@@ -17,9 +18,7 @@ export default async function AttendanceRecordsPage() {
     // other Edit screens (see isAdminWidePage), not the mobile phone-frame.
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
       <div style={{ maxWidth: 640, padding: "0 9px" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-3)" }}>
-          Attendance Records
-        </h2>
+        <AdminPageHeader title="Attendance Records" marginBottom="var(--space-3)" />
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: "0 0 var(--space-5)" }}>
           One PDF per term — a page per activity listing everyone who actually attended that term (participants and
           facilitators alike), with a column per session date held.

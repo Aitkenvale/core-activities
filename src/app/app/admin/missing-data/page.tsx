@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 
 export const metadata: Metadata = { title: "Missing Data" };
 
@@ -25,9 +26,7 @@ export default async function MissingDataPage() {
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
       <div style={{ maxWidth: 640, padding: "0 9px" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-3)" }}>
-          Missing Data
-        </h2>
+        <AdminPageHeader title="Missing Data" marginBottom="var(--space-3)" />
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: "0 0 var(--space-5)" }}>
           Current participants aged 4+ who&rsquo;ve attended twice or more in the last 4 weeks, grouped by activity,
           with any missing essential information — surname, rego, household, household contact, household contact

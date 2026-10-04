@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { asc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 import { db } from "@/db/client";
 import { termDates } from "@/db/schema/termDates";
 import { neighbourhoods } from "@/db/schema/neighbourhoods";
@@ -38,9 +39,7 @@ export default async function AdminSettingsPage() {
     // stretching to the full 1400px like a spreadsheet would.
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
       <div style={{ maxWidth: 640, padding: "0 9px" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-6)" }}>
-          Settings
-        </h2>
+        <AdminPageHeader title="Settings" marginBottom="var(--space-6)" />
 
         <SecurityCard initialMonths={editWindowMonths} />
 

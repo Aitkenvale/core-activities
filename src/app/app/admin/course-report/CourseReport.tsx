@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { studySwatchStyle } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/StudyLogGrid";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 import { formatCategoryLabel, getCategoryLabel } from "@/lib/category";
 import { formatFullName } from "@/lib/formatName";
 import {
@@ -318,9 +319,7 @@ export function CourseReport({ people, progress }: { people: ReportPerson[]; pro
     // keeping its headings and name column in view.
     <div style={{ maxWidth: `calc(${pageMaxWidth}px + var(--scrollbar-w, 0px))`, margin: "0 auto", paddingTop: "var(--space-3)", height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, padding: "0 9px var(--space-3)" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Study Report
-        </h2>
+        <AdminPageHeader title="Study Report" />
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {VIEWS.map((v) => (
             <Pill key={v.id} active={v.id === view.id} onClick={() => pickPill(v.id)}>

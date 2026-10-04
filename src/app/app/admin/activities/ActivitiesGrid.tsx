@@ -6,6 +6,7 @@ import { getActivityForEdit, type ActivityForEdit, type ActivityStatus } from "@
 import { CreateActivityForm, type CreateActivityFormHandle } from "@/app/app/activities/CreateActivityForm";
 import { EnrolAttendeesModal } from "@/components/EnrolAttendeesModal";
 import { StatusBadge } from "@/components/StatusPills";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 type Category = { id: string; label: string };
@@ -155,9 +156,7 @@ export function ActivitiesGrid({
           (both var(--space-3)) so the gap above the title equals the gap
           below the search row. */}
       <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px var(--space-3)" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Edit Activities
-        </h2>
+        <AdminPageHeader title="Edit Activities" />
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <input
             placeholder="Search by name…"

@@ -1,8 +1,10 @@
 "use client";
 
 import { memo, useCallback, useMemo, useRef, useState } from "react";
-import { setStudyStatus } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/studyActions";
+import { useRouter } from "next/navigation";
+import { restoreStudyStatuses, setStudyStatus } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/studyActions";
 import { studySwatchStyle } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/StudyLogGrid";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 import { CATEGORY_LABELS, formatCategoryLabel, getCategoryLabel } from "@/lib/category";
 import { formatFullName } from "@/lib/formatName";
 import {
@@ -11,6 +13,7 @@ import {
   studyUnits,
   type StoredStudyStatus,
   type StudyItem,
+  type StudyRestoreBox,
   type StudyStatus,
   type StudyTone,
   type StudyTrack,
@@ -18,7 +21,9 @@ import {
 } from "@/lib/studyTracks";
 
 export type CoursePerson = { id: string; name: string; preferredName: string | null; dob: string | null };
-export type CourseProgressRow = { personId: string; track: string; item: number; unit: number; status: StoredStudyStatus };
+// statusDate is the hidden day the box reached its state: no screen shows it,
+// but Cancel needs it to put a box back exactly as it was.
+export type CourseProgressRow = { personId: string; track: string; item: number; unit: number; status: StoredStudyStatus; statusDate: string | null };
 
 // Youngest programme first, left to right.
 const TRACK_ORDER: StudyTrackId[] = ["psec", "jysep", "ruhi", "ruhi_branches", "discourse"];
@@ -109,13 +114,42 @@ function buildProgress(rows: CourseProgressRow[]): Record<string, PersonProgress
   return out;
 }
 
+// A box as this screen found it when it opened — what Cancel puts back. A box
+// with no entry had no row.
+type Opened = { status: StudyStatus; date: string | null };
+const NOT_STUDIED: Opened = { status: "none", date: null };
+
+function buildOpened(rows: CourseProgressRow[]): Map<string, Opened> {
+  const out = new Map<string, Opened>();
+  for (const r of rows) {
+    if (!studyTrackFor(r.track)) continue;
+    // The same key a box's CellSync has: its person, then its column's key.
+    out.set(`${r.personId}:${r.track}:${r.item}:${r.unit}`, { status: r.status, date: r.statusDate });
+  }
+  return out;
+}
+
+// How long Cancel waits for saves still on their way before giving up.
+const IDLE_TIMEOUT_MS = 10_000;
+
 // Where a box stands with the server. A box has at most one save in flight;
 // clicks that land meanwhile just move `desired`, and the same loop sends the
 // final state once the first save finishes — so rapid clicks can't reach the
 // database out of order, and `server` is always what it last confirmed (the
 // value a failed save falls back to). Same rule as the Attendance screens'
 // study logs.
-type CellSync = { inFlight: boolean; desired: StudyStatus; server: StudyStatus };
+type CellSync = {
+  inFlight: boolean;
+  desired: StudyStatus;
+  server: StudyStatus;
+  // Which box this is, for putting it back.
+  key: string;
+  personId: string;
+  col: Column;
+  // Whether anything has been sent to the server for it — if so, the server's
+  // copy (its date, too) may no longer be how it was found.
+  sent: boolean;
+};
 
 type PersonRow = {
   id: string;
@@ -188,25 +222,43 @@ function LegendItem({ status, text }: { status: StudyStatus; text: string }) {
 // Grades, Junior Youth Texts, then Ruhi Books with their three units — so an
 // admin can fill in or correct anyone's log without going through an
 // activity's roster. Clicking a box cycles it: not studied, partly, completed.
+//
+// Clicks are saved as they are made. The X keeps them; Cancel puts everything
+// done since the screen opened back as it was. Both go back to Admin Functions.
 export function CourseGrid({
   people,
   initialProgress,
   saveStatus = setStudyStatus,
+  restoreStatuses = restoreStudyStatuses,
+  onLeave,
 }: {
   people: CoursePerson[];
   initialProgress: CourseProgressRow[];
   // Passed in only so the screen can be exercised without a login.
   saveStatus?: (trackId: string, personId: string, item: number, unit: number, status: StudyStatus) => Promise<unknown>;
+  // Puts boxes back exactly as they were, date and all — all or nothing.
+  restoreStatuses?: (boxes: StudyRestoreBox[]) => Promise<unknown>;
+  // Replaces going back to Admin Functions.
+  onLeave?: () => void;
 }) {
+  const router = useRouter();
   const [filterText, setFilterText] = useState("");
   const [ageFilter, setAgeFilter] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState(() => buildProgress(initialProgress));
   const [error, setError] = useState<string | null>(null);
+  // Putting boxes back: clicks and the buttons wait until it's done.
+  const [busy, setBusy] = useState(false);
+  // The boxes as they were when this opened — what Cancel puts back.
+  const [opened] = useState(() => buildOpened(initialProgress));
 
   // The latest map, readable synchronously — a click needs "what is this box
   // showing right now" even when two clicks land before React re-renders.
   const progressRef = useRef(progress);
   const syncRef = useRef(new Map<string, CellSync>());
+  const busyRef = useRef(false);
+  // How many saves are on their way, and who is waiting for that to reach none.
+  const inFlightRef = useRef(0);
+  const idleWaitersRef = useRef<Array<() => void>>([]);
 
   const rows = useMemo<PersonRow[]>(
     () =>
@@ -258,9 +310,11 @@ export function CourseGrid({
       const sync = syncRef.current.get(syncKey);
       if (!sync || sync.inFlight) return;
       sync.inFlight = true;
+      inFlightRef.current += 1;
       try {
         while (sync.desired !== sync.server) {
           const sending = sync.desired;
+          sync.sent = true;
           try {
             await saveStatus(col.track.id, personId, col.item.id, col.unit, sending);
             sync.server = sending;
@@ -275,6 +329,8 @@ export function CourseGrid({
         }
       } finally {
         sync.inFlight = false;
+        inFlightRef.current -= 1;
+        if (inFlightRef.current === 0) for (const resolve of idleWaitersRef.current.splice(0)) resolve();
       }
     },
     [saveStatus, setCell],
@@ -285,11 +341,12 @@ export function CourseGrid({
   // far a click takes a box.
   const cycle = useCallback(
     (personId: string, col: Column) => {
+      if (busyRef.current) return;
       const syncKey = `${personId}:${col.key}`;
       let sync = syncRef.current.get(syncKey);
       if (!sync) {
         const current = progressRef.current[personId]?.[col.key] ?? "none";
-        sync = { inFlight: false, desired: current, server: current };
+        sync = { inFlight: false, desired: current, server: current, key: syncKey, personId, col, sent: false };
         syncRef.current.set(syncKey, sync);
       }
       sync.desired = nextStudyStatus(sync.desired);
@@ -299,6 +356,72 @@ export function CourseGrid({
     },
     [flush, setCell],
   );
+
+  // Resolves once no save is on its way; rejects if that takes too long.
+  const whenIdle = useCallback(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        if (inFlightRef.current === 0) return resolve();
+        const timer = setTimeout(() => reject(new Error("Still saving")), IDLE_TIMEOUT_MS);
+        idleWaitersRef.current.push(() => {
+          clearTimeout(timer);
+          resolve();
+        });
+      }),
+    [],
+  );
+
+  const openedOf = useCallback((sync: CellSync): Opened => opened.get(sync.key) ?? NOT_STUDIED, [opened]);
+
+  // Both buttons end the same way: back to Admin Functions.
+  const leave = useCallback(() => {
+    if (onLeave) onLeave();
+    else router.push("/app/admin");
+  }, [onLeave, router]);
+
+  // Puts boxes back as they were found, then leaves. All or nothing: if it
+  // fails, nothing was changed and the screen stays as it is.
+  const putBack = useCallback(
+    async (boxes: CellSync[], failure: string) => {
+      busyRef.current = true;
+      setBusy(true);
+      setError(null);
+      try {
+        // Saves still on their way have to land first, or one could land on top of this.
+        await whenIdle();
+        await restoreStatuses(
+          boxes.map((s): StudyRestoreBox => {
+            const was = openedOf(s);
+            return { trackId: s.col.track.id, personId: s.personId, item: s.col.item.id, unit: s.col.unit, status: was.status, statusDate: was.date };
+          }),
+        );
+        leave();
+      } catch {
+        busyRef.current = false;
+        setBusy(false);
+        setError(failure);
+      }
+    },
+    [leave, openedOf, restoreStatuses, whenIdle],
+  );
+
+  // X: leaves with the changes kept, and asks nothing. A box clicked away and
+  // back was dated today on the way, though it has not moved: give it its own
+  // date again.
+  const close = useCallback(async () => {
+    if (busyRef.current) return;
+    const clickedRound = [...syncRef.current.values()].filter((s) => s.sent && s.desired === openedOf(s).status && s.desired !== "none");
+    if (clickedRound.length === 0) return leave();
+    await putBack(clickedRound, "Couldn't finish up — your changes are saved, but a date couldn't be put back. Try closing again.");
+  }, [leave, openedOf, putBack]);
+
+  // Cancel: everything done since this opened goes back as it was.
+  const cancelEdits = useCallback(async () => {
+    if (busyRef.current) return;
+    const sent = [...syncRef.current.values()].filter((s) => s.sent);
+    if (sent.length === 0) return leave();
+    await putBack(sent, "Couldn't undo your changes — they're still as you left them. Try Cancel again.");
+  }, [leave, putBack]);
 
   // One handler for the whole table rather than one per box: each of the
   // thousands of boxes just carries its column's index, and its row carries
@@ -317,9 +440,8 @@ export function CourseGrid({
     // keeping its course headings and name column in view.
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, padding: "0 9px var(--space-3)" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Edit Study
-        </h2>
+        {/* The X keeps what's been done; Cancel undoes all of it. */}
+        <AdminPageHeader title="Edit Study" onClose={() => void close()} onCancel={() => void cancelEdits()} busy={busy} />
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <input
             aria-label="Search people"

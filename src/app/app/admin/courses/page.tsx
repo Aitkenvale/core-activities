@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { people } from "@/db/schema/people";
-import { listAllStudyProgress } from "@/lib/studyProgress";
+import { listAllStudyProgressWithDates } from "@/lib/studyProgress";
 import { CourseGrid } from "./CourseGrid";
 
 export default async function AdminCoursesPage() {
@@ -19,7 +19,8 @@ export default async function AdminCoursesPage() {
       .select({ id: people.id, name: people.name, preferredName: people.preferredName, dob: people.dob })
       .from(people)
       .where(eq(people.hidden, false)),
-    listAllStudyProgress(),
+    // With each box's hidden date: Cancel puts boxes back exactly as found.
+    listAllStudyProgressWithDates(),
   ]);
 
   return <CourseGrid people={peopleRows} initialProgress={progress} />;

@@ -34,7 +34,7 @@ export async function listStudyProgress(track: StudyTrackId, personIds: string[]
 
 export type StudyProgressRow = StudyProgressEntry & { track: string };
 
-// Everyone's log across every track at once, for the admin Edit Study grid.
+// Everyone's log across every track at once, for the admin Study Report.
 export async function listAllStudyProgress(): Promise<StudyProgressRow[]> {
   return db
     .select({
@@ -43,6 +43,25 @@ export async function listAllStudyProgress(): Promise<StudyProgressRow[]> {
       item: studyProgress.item,
       unit: studyProgress.unit,
       status: studyProgress.status,
+    })
+    .from(studyProgress);
+}
+
+// The same, each box with the hidden day it reached its state — for the admin
+// Edit Study grid, whose Cancel puts boxes back exactly as it found them (see
+// restoreStudyBoxes). The Study Report has no use for the dates, so it doesn't
+// get them.
+export type StudyProgressRowWithDate = StudyProgressRow & { statusDate: string | null };
+
+export async function listAllStudyProgressWithDates(): Promise<StudyProgressRowWithDate[]> {
+  return db
+    .select({
+      personId: studyProgress.personId,
+      track: studyProgress.track,
+      item: studyProgress.item,
+      unit: studyProgress.unit,
+      status: studyProgress.status,
+      statusDate: studyProgress.statusDate,
     })
     .from(studyProgress);
 }

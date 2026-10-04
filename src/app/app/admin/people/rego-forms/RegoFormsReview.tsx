@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { updatePerson } from "../actions";
 import { formatFullName } from "@/lib/formatName";
 import { calculateAge } from "@/lib/category";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 
 type Person = {
   id: string;
@@ -87,9 +88,7 @@ export function RegoFormsReview({ forms, people, linkedCount }: { forms: FormFil
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "var(--space-3) var(--space-3) 40px" }}>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 4 }}>
-        Link Registration Forms
-      </h2>
+      <AdminPageHeader title="Link Registration Forms" marginBottom={4} />
       <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "var(--space-4)" }}>
         {remaining.length} to review, {linkedCount + linkedThisSession} already linked. Each suggestion is a guess —
         check it&rsquo;s the right person before confirming.

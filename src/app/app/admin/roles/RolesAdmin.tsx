@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toggleRole, deleteRoleHistoryEntry, getRoleManagementData, type RoleRow } from "./actions";
 import { getRoleLabels } from "@/lib/activityRoleLabels";
 import { formatFullName } from "@/lib/formatName";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(iso: string): string {
@@ -59,9 +60,7 @@ export function RolesAdmin({ initialRows }: { initialRows: RoleRow[] }) {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "var(--space-3) var(--space-3) 40px" }}>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 4 }}>
-        Teacher / Co-Teacher Roles
-      </h2>
+      <AdminPageHeader title="Teacher / Co-Teacher Roles" marginBottom={4} />
       <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "var(--space-4)" }}>
         Who&rsquo;s currently classified which way, and why — this informs who needs child protection training.
         Toggling here records a dated change; it doesn&rsquo;t rewrite what past reports already showed.

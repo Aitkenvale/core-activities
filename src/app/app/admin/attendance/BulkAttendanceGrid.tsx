@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { setAttendance, setLockStatus, setCancelledStatus } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/actions";
 import { addAttendanceDate } from "./actions";
 import { EnrolAttendeesModal, type Attendee } from "@/components/EnrolAttendeesModal";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 type DateCol = { sessionDate: string; locked: boolean; cancelled: boolean };
 type Status = "present" | "absent";
 
@@ -176,9 +177,7 @@ export function BulkAttendanceGrid({ initialActivities }: { initialActivities: A
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
       <div style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--page-bg)", padding: "0 9px var(--space-3)" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 12 }}>
-          Edit Attendance
-        </h2>
+        <AdminPageHeader title="Edit Attendance" />
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <input
             placeholder="Search by activity, category, attendee…"

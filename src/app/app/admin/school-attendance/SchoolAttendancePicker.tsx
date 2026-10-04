@@ -1,17 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 import type { SchoolActivityOption } from "@/lib/reports/schoolAttendanceReport";
 
 // A dedicated route (matching every other admin report/tool) styled and
 // behaving like the initial dialog it's meant to be — pick which PSEC/JYSEP
-// activities to include, then generate. The X in the corner backs out to
+// activities to include, then generate. The X beside the title backs out to
 // Admin Functions rather than discarding anything, since nothing here is
 // saved until Generate Report is clicked.
 export function SchoolAttendancePicker({ options }: { options: SchoolActivityOption[] }) {
-  const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const groups = useMemo(() => {
@@ -51,7 +49,6 @@ export function SchoolAttendancePicker({ options }: { options: SchoolActivityOpt
   return (
     <div
       style={{
-        position: "relative",
         maxWidth: 560,
         margin: "var(--space-4) auto",
         background: "var(--card-bg)",
@@ -60,10 +57,7 @@ export function SchoolAttendancePicker({ options }: { options: SchoolActivityOpt
         padding: "var(--space-6)",
       }}
     >
-      <ModalCloseButton onClick={() => router.push("/app/admin")} />
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 4, paddingRight: 28 }}>
-        Attendance for Schools
-      </h2>
+      <AdminPageHeader title="Attendance for Schools" marginBottom={4} />
       <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "var(--space-5)" }}>
         Select which PSEC/JYSEP activities to include — generates an Excel file with one row per active participant
         (Participant Name, Household Name, Household Contact Full Name, Class Name), for informing schools

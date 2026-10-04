@@ -360,7 +360,10 @@ input[type="radio"] {
   gap: 8px;
 }
 
-.study-cancel {
+/* The Cancel on the study screen, and the same button on the Admin screens'
+   title rows (AdminPageHeader). */
+.study-cancel,
+.page-cancel {
   min-height: var(--tap-min);
   padding: 0 14px;
   border-radius: var(--radius-pill);
@@ -371,7 +374,8 @@ input[type="radio"] {
   cursor: pointer;
 }
 
-.study-cancel:disabled {
+.study-cancel:disabled,
+.page-cancel:disabled {
   opacity: 0.6;
   cursor: default;
 }

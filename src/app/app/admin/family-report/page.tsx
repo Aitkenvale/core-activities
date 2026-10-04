@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 
 export const metadata: Metadata = { title: "Family Visit Planner" };
 
@@ -25,9 +26,7 @@ export default async function FamilyReportPage() {
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", paddingTop: "var(--space-3)", paddingBottom: 24 }}>
       <div style={{ maxWidth: 640, padding: "0 9px" }}>
-        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", margin: "0 0 var(--space-3)" }}>
-          Family Visit Planner
-        </h2>
+        <AdminPageHeader title="Family Visit Planner" marginBottom="var(--space-3)" />
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: "0 0 var(--space-5)" }}>
           Households with a participant who&rsquo;s attended in the last 3 months, grouped by suburb — participant
           names, their class, and the household&rsquo;s address and contact. PSEC and JYSEP are separate downloads.

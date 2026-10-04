@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
 import { db } from "@/db/client";
 import { registrationSubmissions } from "@/db/schema/registrationSubmissions";
 import { households } from "@/db/schema/households";
@@ -35,9 +36,7 @@ export default async function RegistrationsPage() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "var(--space-3) var(--space-3) 40px" }}>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", marginBottom: 4 }}>
-        Registrations
-      </h2>
+      <AdminPageHeader title="Registrations" marginBottom={4} />
       <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "var(--space-4)" }}>
         Every /register submission, most recent first — a permanent record of what was actually submitted and
         agreed to, kept separately from the People/Household records it created (those get edited and merged over
