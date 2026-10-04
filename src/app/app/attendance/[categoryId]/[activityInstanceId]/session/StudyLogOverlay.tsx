@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CloseButton } from "@/components/CloseButton";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   STUDY_SECTIONS,
-  isRegress,
   nextStudyStatus,
   studyCellKey,
   studyTrackFor,
@@ -15,7 +13,7 @@ import {
   type StudyTrack,
   type StudyTrackId,
 } from "@/lib/studyTracks";
-import { STATUS_TEXT, StudyLogGrid, studyGridWidth, studySwatchStyle, type StudyParticipant } from "./StudyLogGrid";
+import { StudyLogGrid, studyGridWidth, studySwatchStyle, type StudyParticipant } from "./StudyLogGrid";
 
 // statusDate is the hidden day the box reached its state: no screen shows it,
 // but Cancel needs it to put a box back exactly as it was.
@@ -52,10 +50,6 @@ type CellSync = {
   // copy (its date, too) may no longer be how it was found.
   sent: boolean;
 };
-
-// A box that went backwards, as the question on the way out lists it.
-type SetBack = { what: string; from: StudyStatus; to: StudyStatus };
-const SET_BACK_SHOWN = 6;
 
 // How long Cancel waits for saves still on their way before giving up.
 const IDLE_TIMEOUT_MS = 10_000;
@@ -160,8 +154,6 @@ export function StudyLogOverlay({
   const [saveError, setSaveError] = useState<string | null>(null);
   // Putting boxes back: taps and the buttons wait until it's done.
   const [busy, setBusy] = useState(false);
-  // The question on the way out, while it is open: which boxes went backwards.
-  const [asking, setAsking] = useState<SetBack[] | null>(null);
 
   // The latest maps, readable synchronously — a tap needs "what is this box
   // showing right now" even when two taps land before React re-renders.
@@ -238,8 +230,8 @@ export function StudyLogOverlay({
         sync = { inFlight: false, desired: current, server: current, trackId, personId, item, unit, what, sent: false };
         syncRef.current.set(syncKey, sync);
       }
-      // No question asked here, however far a box is taken: the one check is
-      // on the way out (requestClose), against how things stood when this opened.
+      // No question is asked, however far a box is taken (a completed one back to
+      // not studied, say): Cancel is the way back.
       sync.desired = nextStudyStatus(sync.desired);
       setSaveError(null);
       setCell(trackId, key, sync.desired);
@@ -324,26 +316,15 @@ export function StudyLogOverlay({
     [onClose, opened, restoreStatuses, whenIdle],
   );
 
-  // Leaving with the changes kept. A box tapped away and back was dated today
-  // on the way, though it has not moved: give it its own date again.
-  const closeKeeping = useCallback(async () => {
+  // Close: leaves with the changes kept, and asks nothing. A box tapped away and
+  // back was dated today on the way, though it has not moved: give it its own
+  // date again.
+  const close = useCallback(async () => {
+    if (busyRef.current) return;
     const tappedRound = [...syncRef.current.values()].filter((s) => s.sent && s.desired === opened(s).status && s.desired !== "none");
     if (tappedRound.length === 0) return onClose();
     await putBack(tappedRound, "Couldn't finish up — your changes are saved, but a date couldn't be put back. Try closing again.");
   }, [onClose, opened, putBack]);
-
-  // Close. Every tap has already been saved; the one question is whether any
-  // box ended up behind where it started — judged on the whole visit, not tap
-  // by tap, so tapping a box round the cycle and back to where it began asks
-  // nothing. Asked in the app's own dialog, not the browser's (see ConfirmDialog).
-  const requestClose = useCallback(() => {
-    if (busyRef.current) return;
-    const setBack = [...syncRef.current.values()]
-      .filter((s) => isRegress(opened(s).status, s.desired))
-      .map((s): SetBack => ({ what: s.what, from: opened(s).status, to: s.desired }));
-    if (setBack.length > 0) setAsking(setBack);
-    else void closeKeeping();
-  }, [closeKeeping, opened]);
 
   // Cancel: everything done since this opened goes back as it was.
   const cancelEdits = useCallback(async () => {
@@ -370,13 +351,12 @@ export function StudyLogOverlay({
           <span>Tap a box to cycle</span>
           <span className="study-rotate-hint">Rotate for a wider view</span>
         </div>
-        {/* Close keeps what's been done (asking once if anything went
-            backwards); Cancel undoes all of it. */}
+        {/* Close keeps what's been done; Cancel undoes all of it. */}
         <div className="study-head-actions">
           <button type="button" className="study-cancel" onClick={() => void cancelEdits()} disabled={busy} title="Undo everything changed since this was opened">
             Cancel
           </button>
-          <CloseButton onClick={requestClose} />
+          <CloseButton onClick={() => void close()} />
         </div>
       </div>
 
@@ -417,31 +397,6 @@ export function StudyLogOverlay({
           </div>
         )}
       </div>
-
-      {asking && (
-        <ConfirmDialog
-          title="Leave with these changes?"
-          confirmLabel="Leave"
-          cancelLabel="Keep editing"
-          onConfirm={() => {
-            setAsking(null);
-            void closeKeeping();
-          }}
-          onCancel={() => setAsking(null)}
-        >
-          <p style={{ margin: 0 }}>
-            {asking.length === 1 ? "1 box has" : `${asking.length} boxes have`} been set back since you opened this screen:
-          </p>
-          <ul style={{ listStyle: "none", margin: "var(--space-2) 0 0", padding: 0 }}>
-            {asking.slice(0, SET_BACK_SHOWN).map((box, i) => (
-              <li key={`${i}:${box.what}`} style={{ margin: "4px 0" }}>
-                {box.what}: {STATUS_TEXT[box.from]} → {STATUS_TEXT[box.to]}
-              </li>
-            ))}
-          </ul>
-          {asking.length > SET_BACK_SHOWN && <p style={{ margin: "var(--space-2) 0 0" }}>…and {asking.length - SET_BACK_SHOWN} more</p>}
-        </ConfirmDialog>
-      )}
     </div>
   );
 }

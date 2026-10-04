@@ -2,12 +2,10 @@
 
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { setStudyStatus } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/studyActions";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { studySwatchStyle } from "@/app/app/attendance/[categoryId]/[activityInstanceId]/session/StudyLogGrid";
 import { CATEGORY_LABELS, formatCategoryLabel, getCategoryLabel } from "@/lib/category";
 import { formatFullName } from "@/lib/formatName";
 import {
-  isRegress,
   nextStudyStatus,
   studyTrackFor,
   studyUnits,
@@ -204,8 +202,6 @@ export function CourseGrid({
   const [ageFilter, setAgeFilter] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState(() => buildProgress(initialProgress));
   const [error, setError] = useState<string | null>(null);
-  // A click that would take a completed box back to not studied waits here for an answer.
-  const [asking, setAsking] = useState<{ personId: string; col: Column } | null>(null);
 
   // The latest map, readable synchronously — a click needs "what is this box
   // showing right now" even when two clicks land before React re-renders.
@@ -284,10 +280,10 @@ export function CourseGrid({
     [saveStatus, setCell],
   );
 
-  const displayById = useMemo(() => new Map(rows.map((r) => [r.id, r.display])), [rows]);
-
-  // Moves a box on to the next state in the cycle, however far that takes it.
-  const step = useCallback(
+  // Moves a box on to the next state in the cycle — not studied, partly,
+  // completed, back to not studied — and saves it. No question is asked, however
+  // far a click takes a box.
+  const cycle = useCallback(
     (personId: string, col: Column) => {
       const syncKey = `${personId}:${col.key}`;
       let sync = syncRef.current.get(syncKey);
@@ -302,19 +298,6 @@ export function CourseGrid({
       void flush(col, personId, syncKey);
     },
     [flush, setCell],
-  );
-
-  // The last click in the cycle takes a completed box back to not studied — ask
-  // first, so a stray click can't quietly undo someone's progress. (In the
-  // app's own dialog, not the browser's: see ConfirmDialog.) Keeping it leaves
-  // the box exactly as it was.
-  const cycle = useCallback(
-    (personId: string, col: Column) => {
-      const current = syncRef.current.get(`${personId}:${col.key}`)?.desired ?? progressRef.current[personId]?.[col.key] ?? "none";
-      if (isRegress(current, nextStudyStatus(current))) setAsking({ personId, col });
-      else step(personId, col);
-    },
-    [step],
   );
 
   // One handler for the whole table rather than one per box: each of the
@@ -444,24 +427,6 @@ export function CourseGrid({
         </table>
         {visible.length === 0 && <p style={{ padding: "var(--space-4)", color: "var(--muted)", fontSize: "0.85rem" }}>No matching people.</p>}
       </div>
-
-      {asking && (
-        <ConfirmDialog
-          title="Set back to not studied?"
-          confirmLabel="Set back"
-          cancelLabel="Keep it"
-          onConfirm={() => {
-            step(asking.personId, asking.col);
-            setAsking(null);
-          }}
-          onCancel={() => setAsking(null)}
-        >
-          <p style={{ margin: 0 }}>
-            {displayById.get(asking.personId) ?? "This person"}, {asking.col.item.label}
-            {asking.col.track.units > 1 ? ` Unit ${asking.col.unit}` : ""} is marked completed.
-          </p>
-        </ConfirmDialog>
-      )}
     </div>
   );
 }

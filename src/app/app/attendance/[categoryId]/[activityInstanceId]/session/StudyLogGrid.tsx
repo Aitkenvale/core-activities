@@ -33,7 +33,7 @@ const LONG_BODY_ROW_H = 46;
 const ROW_LINE = "1px solid var(--disabled-bg)";
 const GROUP_LINE = "1px solid var(--border)";
 
-export const STATUS_TEXT: Record<StudyStatus, string> = {
+const STATUS_TEXT: Record<StudyStatus, string> = {
   none: "not studied",
   partial: "partly studied",
   complete: "completed",
