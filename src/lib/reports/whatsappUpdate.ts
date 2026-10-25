@@ -124,20 +124,6 @@ export function buildRows(attended: WhatsappPerson[]): WhatsappRow[] {
   return [...withContact, ...withoutContact];
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// The group ids a download asks for ("id,id,id" in the link): each a real id,
-// none repeated. null when there are none or any isn't an id, so a hand-edited
-// link gets a plain "pick a group" answer rather than a database error.
-export function parseActivityIds(raw: string | null): string[] | null {
-  const ids = (raw ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (ids.length === 0 || !ids.every((id) => UUID.test(id))) return null;
-  return [...new Set(ids.map((id) => id.toLowerCase()))];
-}
-
 // A session of a group.
 type Lesson = { id: string; activityInstanceId: string };
 

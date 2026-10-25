@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
-import { and, asc, eq, exists, gte, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, exists, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import { activityEnrollments } from "@/db/schema/activityEnrollments";
@@ -8,8 +8,11 @@ import { attendanceEvents } from "@/db/schema/attendanceEvents";
 import { attendanceRecords } from "@/db/schema/attendanceRecords";
 import { people } from "@/db/schema/people";
 import { households } from "@/db/schema/households";
+import { fitColumns, fitText, textWidth } from "@/lib/reports/pdfText";
 
-export type FamilyReportCategory = "psec" | "jysep";
+// The kinds of class the report can cover (Children's Class and Junior Youth
+// Group), whatever ids a download asks for.
+const REPORT_CATEGORIES = ["psec", "jysep"];
 
 type ParticipantRow = { participantName: string; className: string };
 
@@ -21,6 +24,14 @@ type FamilyGroup = {
   contactMobile: string | null;
   suburb: string;
   participants: ParticipantRow[];
+};
+
+export type FamilyReport = {
+  // Which kinds of class were chosen: "PSEC", "JYSEP" or "PSEC and JYSEP".
+  label: string;
+  // How many classes were chosen.
+  classCount: number;
+  groups: FamilyGroup[];
 };
 
 // Addresses are one free-text field ("88 Anne St, Aitkenvale", or
@@ -51,14 +62,15 @@ function threeMonthsAgoIso(): string {
   return d.toISOString().slice(0, 10);
 }
 
-// Every participant in the given category, grouped by household — but only
+// Every participant in the chosen classes, grouped by household — but only
 // those who've actually attended (a real "present" mark) that specific
 // class within the last 3 months, not just anyone still enrolled. A
 // household with no address on file still gets its own group (filed under
 // "No Address"), and a participant with no household at all becomes their
 // own singleton group rather than being silently dropped or merged with
-// unrelated no-household children.
-async function getFamilyGroups(categoryId: FamilyReportCategory): Promise<FamilyGroup[]> {
+// unrelated no-household children. A household with a child in each kind of
+// class is one group, with both children listed.
+async function getFamilyGroups(activityIds: string[]): Promise<FamilyGroup[]> {
   const householdContacts = alias(people, "household_contacts");
   const cutoff = threeMonthsAgoIso();
 
@@ -80,7 +92,8 @@ async function getFamilyGroups(categoryId: FamilyReportCategory): Promise<Family
     .leftJoin(householdContacts, eq(householdContacts.id, households.contactPersonId))
     .where(
       and(
-        eq(activityInstances.categoryId, categoryId),
+        inArray(activityInstances.id, activityIds),
+        inArray(activityInstances.categoryId, REPORT_CATEGORIES),
         eq(activityEnrollments.role, "participant"),
         eq(activityEnrollments.active, true),
         eq(people.hidden, false),
@@ -134,16 +147,28 @@ async function getFamilyGroups(categoryId: FamilyReportCategory): Promise<Family
   );
 }
 
+// The report for the classes with these ids: what kinds of class they are (for the
+// title and the file name), how many, and the households. Ids that aren't a PSEC
+// or JYSEP class are ignored; none left is an error.
+export async function getFamilyReport(activityIds: string[]): Promise<FamilyReport> {
+  const classes = await db
+    .select({ categoryId: activityInstances.categoryId })
+    .from(activityInstances)
+    .where(and(inArray(activityInstances.id, activityIds), inArray(activityInstances.categoryId, REPORT_CATEGORIES)));
+  if (classes.length === 0) throw new Error("Select at least one class.");
+  const kinds = REPORT_CATEGORIES.filter((c) => classes.some((k) => k.categoryId === c));
+  return { label: kinds.map((k) => k.toUpperCase()).join(" and "), classCount: classes.length, groups: await getFamilyGroups(activityIds) };
+}
+
 function csvField(value: string | null): string {
   const s = value ?? "";
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export async function generateFamilyReportCsv(categoryId: FamilyReportCategory): Promise<string> {
-  const groups = await getFamilyGroups(categoryId);
+export function familyReportCsv(report: FamilyReport): string {
   const header = ["Suburb", "Participant", "Class", "Household", "Contact", "Mobile", "Address"];
   const lines = [header.join(",")];
-  for (const g of groups) {
+  for (const g of report.groups) {
     for (const p of g.participants) {
       lines.push(
         [g.suburb, p.participantName, p.className, g.householdName, g.contactName ?? "", g.contactMobile ?? "", g.address ?? ""]
@@ -166,62 +191,118 @@ const styles = StyleSheet.create({
   cell: { padding: "2pt 4pt", borderRight: "1pt solid #D9C9A8", borderBottom: "1pt solid #D9C9A8" },
 });
 
-// Column widths (portrait A4, 539pt usable) — sized so 6 columns of real
-// content fit at a small-but-legible size without wrapping onto a second
-// line per cell, which is what actually keeps this to a handful of pages.
-const COL = { household: 90, address: 128, contact: 82, mobile: 68, participant: 92, className: 79 };
+// --- Fitting the table to the page -------------------------------------------------
+// Every person is one line: nothing in the table is ever allowed to wrap. Each
+// column is given the width its longest cell needs, so far as the page allows;
+// when the page can't take all of them, the widest columns share the squeeze
+// (see fitColumns) and only their longest cells are cut short, to an ellipsis, by
+// fitText. Short columns such as the mobile number are never touched.
+const A4_WIDTH = 595.28;
+const PAGE_PADDING = 28;
+const CELL_FONT = 7.5;
+const HEADER_FONT = 7;
+// A cell's padding (4 each side) and its right border (1).
+const CELL_PADDING = 9;
+// The table's left border is 1, and a little breathing room keeps rounding from
+// pushing the last column off the page.
+const TABLE_WIDTH = A4_WIDTH - 2 * PAGE_PADDING - 1 - 0.5;
+// No column is squeezed below this, or below its heading.
+const MIN_COLUMN = 36;
 
-function ColumnHeader() {
-  return (
-    <View style={styles.row} fixed>
-      <Text style={{ ...styles.headerCell, width: COL.participant }}>Participant</Text>
-      <Text style={{ ...styles.headerCell, width: COL.className }}>Class</Text>
-      <Text style={{ ...styles.headerCell, width: COL.household }}>Household</Text>
-      <Text style={{ ...styles.headerCell, width: COL.contact }}>Contact</Text>
-      <Text style={{ ...styles.headerCell, width: COL.mobile }}>Mobile</Text>
-      <Text style={{ ...styles.headerCell, width: COL.address }}>Address</Text>
-    </View>
-  );
-}
+type ColumnKey = "participant" | "className" | "household" | "contact" | "mobile" | "address";
+// keep: how much a column is worth protecting when the page can't fit them all (see
+// fitColumns). The class name is what tells the classes apart, so it holds on to its
+// text longest; the household name mostly repeats the surname, and an address ends
+// with the suburb, which is already the heading above it, so those are cut first.
+const COLUMNS: { key: ColumnKey; header: string; keep: number }[] = [
+  { key: "participant", header: "Participant", keep: 1 },
+  { key: "className", header: "Class", keep: 1.3 },
+  { key: "household", header: "Household", keep: 0.7 },
+  { key: "contact", header: "Contact", keep: 1 },
+  { key: "mobile", header: "Mobile", keep: 1 },
+  { key: "address", header: "Address", keep: 0.9 },
+];
 
-export async function generateFamilyReportPdf(categoryId: FamilyReportCategory): Promise<Buffer> {
-  const groups = await getFamilyGroups(categoryId);
+type TableRow = Record<ColumnKey, string>;
+type Section = { suburb: string; rows: TableRow[] };
 
+// One table row per person. The household's own details (household, contact,
+// mobile, address) are on the first row of its people only.
+export function toSections(groups: FamilyGroup[]): Section[] {
   // Suburb is a section break, not a repeated column — saves a whole
   // column's width, and reads more clearly than the same suburb name
   // repeated down dozens of rows.
-  const bySuburb = new Map<string, FamilyGroup[]>();
+  const bySuburb = new Map<string, Section>();
   for (const g of groups) {
-    if (!bySuburb.has(g.suburb)) bySuburb.set(g.suburb, []);
-    bySuburb.get(g.suburb)!.push(g);
+    if (!bySuburb.has(g.suburb)) bySuburb.set(g.suburb, { suburb: g.suburb, rows: [] });
+    g.participants.forEach((p, i) => {
+      bySuburb.get(g.suburb)!.rows.push({
+        participant: p.participantName,
+        className: p.className,
+        household: i === 0 ? g.householdName : "",
+        contact: i === 0 ? (g.contactName ?? "—") : "",
+        mobile: i === 0 ? (g.contactMobile ?? "—") : "",
+        address: i === 0 ? (g.address ?? "—") : "",
+      });
+    });
   }
+  return Array.from(bySuburb.values());
+}
 
-  const label = categoryId.toUpperCase();
+export function columnWidths(sections: Section[]): number[] {
+  const rows = sections.flatMap((s) => s.rows);
+  const heading = COLUMNS.map((c) => textWidth(c.header, HEADER_FONT) + CELL_PADDING);
+  const needs = COLUMNS.map((c, i) => Math.max(heading[i], ...rows.map((r) => textWidth(r[c.key], CELL_FONT) + CELL_PADDING)));
+  const floors = heading.map((h) => Math.max(h, MIN_COLUMN));
+  return fitColumns(needs, floors, TABLE_WIDTH, COLUMNS.map((c) => c.keep));
+}
+
+// A row of the table: a person on one line. maxLines is only the last safety net
+// (the text has already been cut to fit); it can't be the main way, because
+// react-pdf cuts at a word and then adds its ellipsis after the line is full.
+const oneLine = { maxLines: 1, textOverflow: "ellipsis" } as const;
+
+export async function familyReportPdf(report: FamilyReport): Promise<Buffer> {
+  const sections = toSections(report.groups);
+  const widths = columnWidths(sections);
+  const classes = report.classCount === 1 ? "the selected class" : `one of the ${report.classCount} selected classes`;
+
+  const personRow = (row: TableRow, key: number) => (
+    <View key={key} style={styles.row} wrap={false}>
+      {COLUMNS.map((c, i) => (
+        <Text key={c.key} style={{ ...styles.cell, width: widths[i], ...oneLine }}>
+          {fitText(row[c.key], widths[i] - CELL_PADDING, CELL_FONT)}
+        </Text>
+      ))}
+    </View>
+  );
 
   return renderToBuffer(
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>{label} Family Visit Planner</Text>
+        <Text style={styles.title}>{report.label} Family Visit Planner</Text>
         <Text style={styles.subtitle}>
-          Every household with a {label} participant who&rsquo;s attended in the last 3 months, grouped by suburb.
+          Every household with a participant who&rsquo;s attended {classes} in the last 3 months, grouped by suburb.
         </Text>
-        <ColumnHeader />
+        <View style={styles.row} fixed>
+          {COLUMNS.map((c, i) => (
+            <Text key={c.key} style={{ ...styles.headerCell, width: widths[i], ...oneLine }}>
+              {c.header}
+            </Text>
+          ))}
+        </View>
         <View style={styles.table}>
-          {Array.from(bySuburb.entries()).map(([suburb, householdsInSuburb]) => (
-            <View key={suburb}>
-              <Text style={styles.suburbHeader}>{suburb}</Text>
-              {householdsInSuburb.map((g) =>
-                g.participants.map((p, i) => (
-                  <View key={`${g.key}-${i}`} style={styles.row} wrap={false}>
-                    <Text style={{ ...styles.cell, width: COL.participant }}>{p.participantName}</Text>
-                    <Text style={{ ...styles.cell, width: COL.className }}>{p.className}</Text>
-                    <Text style={{ ...styles.cell, width: COL.household }}>{i === 0 ? g.householdName : ""}</Text>
-                    <Text style={{ ...styles.cell, width: COL.contact }}>{i === 0 ? (g.contactName ?? "—") : ""}</Text>
-                    <Text style={{ ...styles.cell, width: COL.mobile }}>{i === 0 ? (g.contactMobile ?? "—") : ""}</Text>
-                    <Text style={{ ...styles.cell, width: COL.address }}>{i === 0 ? (g.address ?? "—") : ""}</Text>
-                  </View>
-                )),
-              )}
+          {sections.map((section) => (
+            <View key={section.suburb}>
+              {/* The heading and the first person are one unbreakable piece, so a
+                  suburb's heading is never left alone at the foot of a page with its
+                  rows on the next (react-pdf's minPresenceAhead can't do this: it only
+                  acts on an element that has a sibling before it). */}
+              <View wrap={false}>
+                <Text style={styles.suburbHeader}>{section.suburb}</Text>
+                {personRow(section.rows[0], 0)}
+              </View>
+              {section.rows.slice(1).map((row, ri) => personRow(row, ri + 1))}
             </View>
           ))}
         </View>

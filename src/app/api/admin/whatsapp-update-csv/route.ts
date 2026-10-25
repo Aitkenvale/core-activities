@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { generateWhatsappUpdateCsv, parseActivityIds } from "@/lib/reports/whatsappUpdate";
+import { parseActivityIds } from "@/lib/reports/activityIds";
+import { generateWhatsappUpdateCsv } from "@/lib/reports/whatsappUpdate";
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });

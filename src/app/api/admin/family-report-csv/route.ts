@@ -1,25 +1,22 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { generateFamilyReportCsv, type FamilyReportCategory } from "@/lib/reports/familyReport";
-
-function isValidCategory(value: string | null): value is FamilyReportCategory {
-  return value === "psec" || value === "jysep";
-}
+import { parseActivityIds } from "@/lib/reports/activityIds";
+import { familyReportCsv, getFamilyReport } from "@/lib/reports/familyReport";
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.role !== "admin") return new Response("Admin only", { status: 403 });
 
   const { searchParams } = new URL(request.url);
-  const category = searchParams.get("category");
-  if (!isValidCategory(category)) return new Response("Missing or invalid category (psec or jysep)", { status: 400 });
+  const activityIds = parseActivityIds(searchParams.get("activityIds"));
+  if (!activityIds) return new Response("Select at least one class", { status: 400 });
 
   try {
-    const csv = await generateFamilyReportCsv(category);
-    return new Response(csv, {
+    const report = await getFamilyReport(activityIds);
+    return new Response(familyReportCsv(report), {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${category.toUpperCase()} Family Visit Planner.csv"`,
+        "Content-Disposition": `attachment; filename="${report.label} Family Visit Planner.csv"`,
       },
     });
   } catch (e) {
