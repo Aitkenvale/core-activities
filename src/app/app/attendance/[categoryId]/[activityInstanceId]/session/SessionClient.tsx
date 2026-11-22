@@ -27,7 +27,7 @@ import {
 } from "./actions";
 import { getStudyProgress, restoreStudyStatuses, setStudyStatus } from "./studyActions";
 import { StudyLogOverlay } from "./StudyLogOverlay";
-import { AddPersonScreen } from "./AddPersonScreen";
+import { AddPersonScreen, type RosterState } from "./AddPersonScreen";
 import type { StudyTrackId } from "@/lib/studyTracks";
 import { buttonGridStyle, plainButtonStyle, toggleButtonStyle } from "./statusButtons";
 import { ActivityTitle } from "./ActivityTitle";
@@ -227,18 +227,41 @@ export function SessionClient({
   // activityRoleLabels.ts.
   const roleLabels = getRoleLabels(categoryId);
 
+  // Which of the four buttons are on offer. Once a session is confirmed, calling
+  // the class off is no longer a choice, and neither is changing who is in it; a
+  // cancelled class likewise has nothing to confirm and nobody to edit. The button
+  // that is on stays, so the session can be reinstated, and Edit Study History is
+  // always there. (Were both ever on, both show, so that either can be turned off.)
+  const showConfirm = !cancelled || locked;
+  const showCancel = !locked || cancelled;
+  const showEdit = !locked && !cancelled;
+
   // The roster's sections: Participants, then the leaders, then their co-leaders.
-  // The Attendance screen lists only the people currently on the roster; the
-  // full-screen Edit Attendees mode (`editing`) also lists anyone who has been
-  // hidden, so they can be brought back. Each section ends with its add button in
-  // both.
+  // The Attendance screen lists the people currently on the roster, and nobody who
+  // has been hidden from it, with one exception: once the session's attendance is
+  // confirmed, anyone who attended it is listed (as attended) even if they have been
+  // hidden since, so the record of who was there stays whole. The full-screen Edit
+  // Attendees mode (`editing`) lists everyone who has been hidden too, so they can be
+  // brought back. Each section ends with its add button in all of them.
   function rosterSections(editing: boolean) {
-    const shown = (r: RosterRow) => editing || activeByPersonId[r.personId];
+    const attendedWhileHidden = (r: RosterRow) => locked && statuses[r.personId] === "present";
+    const shown = (r: RosterRow) => editing || activeByPersonId[r.personId] || attendedWhileHidden(r);
     const inRole = (role: RosterRow["role"]) => roster.filter((r) => r.role === role && shown(r)).sort(byDisplayName);
+    // Who the add screen won't take on again, which would only re-set their role to
+    // the section's. Everyone listed on the screen being added from, and, while
+    // Edit Attendees is available to bring them back with Show, everyone hidden from
+    // the roster too. Once the session is confirmed or cancelled (no Edit
+    // Attendees) a hidden person who isn't listed can still be added back here.
+    const onRoster = new Map<string, RosterState>();
+    for (const r of roster) {
+      if (activeByPersonId[r.personId] || attendedWhileHidden(r)) onRoster.set(r.personId, "listed");
+      else if (showEdit) onRoster.set(r.personId, "hidden");
+    }
     const shared = {
       statuses,
       onToggle: toggle,
       activityInstanceId,
+      onRoster,
       onChanged: () => router.refresh(),
       editMode: editing,
       activeByPersonId,
@@ -272,14 +295,6 @@ export function SessionClient({
     );
   }
 
-  // Which of the four buttons are on offer. Once a session is confirmed, calling
-  // the class off is no longer a choice, and neither is changing who is in it; a
-  // cancelled class likewise has nothing to confirm and nobody to edit. The button
-  // that is on stays, so the session can be reinstated, and Edit Study History is
-  // always there. (Were both ever on, both show, so that either can be turned off.)
-  const showConfirm = !cancelled || locked;
-  const showCancel = !locked || cancelled;
-  const showEdit = !locked && !cancelled;
   // The study log grid covers every participant the activity has ever had —
   // current ones first, then anyone since hidden from the roster, whose log is
   // still theirs to fill in (the grid greys their names). Not facilitators or
@@ -761,6 +776,7 @@ function RosterSection({
   onToggle,
   activityInstanceId,
   role,
+  onRoster,
   onChanged,
   editMode,
   activeByPersonId,
@@ -777,6 +793,9 @@ function RosterSection({
   onToggle: (personId: string, status: Status) => void;
   activityInstanceId: string;
   role: "participant" | "facilitator" | "assistant";
+  // Who has a place on the roster already, and how (see rosterSections), for the
+  // add screen.
+  onRoster: ReadonlyMap<string, RosterState>;
   onChanged: () => void;
   editMode: boolean;
   activeByPersonId: Record<string, boolean>;
@@ -945,6 +964,7 @@ function RosterSection({
       {adding && (
         <AddPersonScreen
           roleLabel={singularTitle}
+          alreadyOnRoster={onRoster}
           search={searchPeople}
           createNew={(name) => quickAddPerson(activityInstanceId, name, role)}
           addExisting={(personId) => enrollExistingPerson(activityInstanceId, personId, role)}

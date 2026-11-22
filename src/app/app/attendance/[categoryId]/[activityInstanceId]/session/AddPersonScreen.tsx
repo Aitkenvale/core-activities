@@ -6,6 +6,12 @@ import { formatFullName } from "@/lib/formatName";
 
 export type PersonMatch = { id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" };
 
+// How someone already on the roster stands, as the Attendance screen shows them.
+// "listed": they are on the screen being added from. "hidden": they have been
+// hidden from the roster, and are brought back with Show in Edit Attendees, not by
+// being added again.
+export type RosterState = "listed" | "hidden";
+
 // fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
 // whole page on focus, and it doesn't reliably zoom back out on blur.
 const searchFieldStyle: React.CSSProperties = {
@@ -32,8 +38,16 @@ const searchFieldStyle: React.CSSProperties = {
 // way the screen then closes (onDone). Reading and writing are passed in rather
 // than imported so the screen doesn't care where its data comes from — the
 // Attendance screen hands it the real server actions.
+//
+// Adding someone who is already on the roster would only re-set their role to this
+// section's (a Co-Teacher picked under Teachers would become a Teacher, with nothing
+// written to the dated role history the Attendance Records PDF reads), so the
+// people in `alreadyOnRoster` are marked in the results and can't be picked: the
+// same protection as the admin Enrol Attendees popup, which sets them aside with a
+// note (see EnrolAttendeesModal).
 export function AddPersonScreen({
   roleLabel,
+  alreadyOnRoster,
   search,
   createNew,
   addExisting,
@@ -43,6 +57,9 @@ export function AddPersonScreen({
   // What the section calls the people being added ("Participant", "Co-Teacher"),
   // for the field's prompt: this screen has no section heading of its own.
   roleLabel: string;
+  // The people (by id) who can't be added because they already have a place on the
+  // roster this screen is adding to.
+  alreadyOnRoster?: ReadonlyMap<string, RosterState>;
   search: (query: string) => Promise<PersonMatch[]>;
   createNew: (name: string) => Promise<unknown>;
   addExisting: (personId: string) => Promise<unknown>;
@@ -134,28 +151,34 @@ export function AddPersonScreen({
               + Create new: &quot;{name}&quot;
             </button>
           )}
-          {results.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => void add(() => addExisting(r.id))}
-              disabled={busy}
-              style={{
-                textAlign: "left",
-                minHeight: "var(--tap-min)",
-                padding: "8px 10px",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--border)",
-                background: "var(--card-bg)",
-                color: "var(--text)",
-                fontSize: "0.85rem",
-                cursor: busy ? "default" : "pointer",
-                opacity: busy ? 0.6 : 1,
-              }}
-            >
-              {formatFullName(r.name, r.preferredName)}
-              {r.linkStatus === "pending" && <span style={{ color: "var(--muted)" }}> (not linked)</span>}
-            </button>
-          ))}
+          {results.map((r) => {
+            const rosterState = alreadyOnRoster?.get(r.id);
+            const onRoster = rosterState !== undefined;
+            return (
+              <button
+                key={r.id}
+                onClick={() => void add(() => addExisting(r.id))}
+                disabled={busy || onRoster}
+                style={{
+                  textAlign: "left",
+                  minHeight: "var(--tap-min)",
+                  padding: "8px 10px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border)",
+                  background: "var(--card-bg)",
+                  color: "var(--text)",
+                  fontSize: "0.85rem",
+                  cursor: busy || onRoster ? "default" : "pointer",
+                  opacity: busy || onRoster ? 0.6 : 1,
+                }}
+              >
+                {formatFullName(r.name, r.preferredName)}
+                {r.linkStatus === "pending" && <span style={{ color: "var(--muted)" }}> (not linked)</span>}
+                {rosterState === "listed" && <span style={{ color: "var(--muted)" }}> (already on this roster)</span>}
+                {rosterState === "hidden" && <span style={{ color: "var(--muted)" }}> (hidden from this roster)</span>}
+              </button>
+            );
+          })}
           {error && (
             <p role="alert" style={{ color: "var(--red)", fontSize: "0.78rem", margin: "var(--space-2) 0 0" }}>
               {error}
