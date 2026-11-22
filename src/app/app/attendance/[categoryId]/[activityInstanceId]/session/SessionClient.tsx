@@ -27,7 +27,7 @@ import {
 } from "./actions";
 import { getStudyProgress, restoreStudyStatuses, setStudyStatus } from "./studyActions";
 import { StudyLogOverlay } from "./StudyLogOverlay";
-import { formatFullName } from "@/lib/formatName";
+import { AddPersonScreen } from "./AddPersonScreen";
 import type { StudyTrackId } from "@/lib/studyTracks";
 import { buttonGridStyle, plainButtonStyle, toggleButtonStyle } from "./statusButtons";
 import { ActivityTitle } from "./ActivityTitle";
@@ -344,7 +344,7 @@ export function SessionClient({
                 onClick={toggleLocked}
                 disabled={!canToggleLock}
                 aria-pressed={locked}
-                style={toggleButtonStyle({ on: locked, noPermission: !canToggleLock })}
+                style={toggleButtonStyle({ tone: "green", on: locked, noPermission: !canToggleLock })}
               >
                 {locked ? "Attendance Confirmed" : "Confirm Attendance"}
               </button>
@@ -357,7 +357,7 @@ export function SessionClient({
                 onClick={toggleCancelled}
                 disabled={!canToggleLock}
                 aria-pressed={cancelled}
-                style={toggleButtonStyle({ on: cancelled, noPermission: !canToggleLock })}
+                style={toggleButtonStyle({ tone: "red", on: cancelled, noPermission: !canToggleLock })}
               >
                 {cancelled ? "Class Cancelled" : "Cancel Class"}
               </button>
@@ -635,63 +635,39 @@ function DatePicker({
                 {/* Ad-hoc activities never have quick-pick pills (no cadence
                     to suggest a date from), and this list is only ever
                     already-held dates — this is the only way to reach a
-                    genuinely new date otherwise. */}
+                    genuinely new date otherwise. Room above and below the
+                    dividing line; the Add button only appears once a date has
+                    been chosen. */}
                 <div
                   style={{
-                    marginTop: 4,
-                    paddingTop: 6,
+                    // 10 + the card's 2px gap above the line, 12 below it.
+                    marginTop: heldDates.length > 0 ? 10 : 4,
+                    paddingTop: heldDates.length > 0 ? 12 : 6,
                     borderTop: heldDates.length > 0 ? "1px solid var(--border)" : undefined,
                   }}
                 >
-                  <span style={{ display: "block", fontSize: "0.7rem", color: "var(--muted)", marginBottom: 4 }}>Or add new event date</span>
-                  {/* overflow:hidden here is a hard backstop: width:100% +
-                      box-sizing:border-box + min-width:0 should already
-                      constrain the input, but a native date control's
-                      internal rendering has proven unreliable enough in this
-                      exact spot that it's worth guaranteeing it can never
-                      visually bleed past this wrapper regardless of why. */}
-                  <div style={{ overflow: "hidden", width: "100%" }}>
-                    <input
-                      type="date"
-                      value={newEventDate}
-                      onChange={(e) => setNewEventDate(e.target.value)}
+                  <NewDateField value={newEventDate} onChange={setNewEventDate} />
+                  {newEventDate && (
+                    <button
+                      onClick={handleAddEventDate}
+                      disabled={addPending}
                       style={{
-                        display: "block",
+                        marginTop: 6,
                         width: "100%",
-                        minWidth: 0,
-                        boxSizing: "border-box",
-                        // >= 16px (not the 0.8rem every other pill in this
-                        // popover uses) — smaller makes iOS Safari auto-zoom
-                        // on focus.
-                        fontSize: 16,
-                        textAlign: "left",
-                        padding: "6px 8px",
-                        border: "1px solid var(--border)",
+                        minHeight: 36,
+                        padding: "0 12px",
                         borderRadius: "var(--radius-sm)",
-                        background: "var(--card-bg)",
-                        color: "var(--text)",
+                        border: "none",
+                        background: "var(--deep)",
+                        color: "var(--cream)",
+                        fontSize: "0.8rem",
+                        cursor: addPending ? "default" : "pointer",
+                        opacity: addPending ? 0.6 : 1,
                       }}
-                    />
-                  </div>
-                  <button
-                    onClick={handleAddEventDate}
-                    disabled={!newEventDate || addPending}
-                    style={{
-                      marginTop: 6,
-                      width: "100%",
-                      minHeight: 36,
-                      padding: "0 12px",
-                      borderRadius: "var(--radius-sm)",
-                      border: "none",
-                      background: "var(--deep)",
-                      color: "var(--cream)",
-                      fontSize: "0.8rem",
-                      cursor: newEventDate && !addPending ? "pointer" : "default",
-                      opacity: newEventDate && !addPending ? 1 : 0.6,
-                    }}
-                  >
-                    {addPending ? "Adding…" : "Add"}
-                  </button>
+                    >
+                      {addPending ? "Adding…" : "Add"}
+                    </button>
+                  )}
                   {addError && <p style={{ color: "var(--red)", fontSize: "0.7rem", marginTop: 4 }}>{addError}</p>}
                 </div>
                 <button
@@ -713,6 +689,57 @@ function DatePicker({
             document.body,
           )}
       </div>
+    </div>
+  );
+}
+
+// The entry field for a date that isn't in the list. A native date input can't
+// show a prompt of its own, so while it is empty and not being used, "Add new
+// Date" is drawn over it and the input's own "dd/mm/yyyy" is made invisible. The
+// prompt ignores taps, so they still reach the input and the native picker opens
+// as usual; once the field is in use (or has a date) the prompt steps aside and
+// the input shows what is being typed.
+function NewDateField({ value, onChange }: { value: string; onChange: (date: string) => void }) {
+  const [focused, setFocused] = useState(false);
+  const showPrompt = !value && !focused;
+  return (
+    // overflow:hidden here is a hard backstop: width:100% + box-sizing:border-box
+    // + min-width:0 should already constrain the input, but a native date
+    // control's internal rendering has proven unreliable enough in this exact
+    // spot that it's worth guaranteeing it can never visually bleed past this
+    // wrapper regardless of why.
+    <div style={{ position: "relative", overflow: "hidden", width: "100%" }}>
+      <input
+        type="date"
+        aria-label="Add new Date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          display: "block",
+          width: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
+          // >= 16px (not the 0.8rem every other pill in this popover uses) —
+          // smaller makes iOS Safari auto-zoom on focus.
+          fontSize: 16,
+          textAlign: "left",
+          padding: "6px 8px",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--card-bg)",
+          color: showPrompt ? "transparent" : "var(--text)",
+        }}
+      />
+      {showPrompt && (
+        <span
+          aria-hidden
+          style={{ position: "absolute", left: 9, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 16, color: "var(--muted)", pointerEvents: "none" }}
+        >
+          Add new Date
+        </span>
+      )}
     </div>
   );
 }
@@ -896,41 +923,41 @@ function RosterSection({
       </div>
 
       {/* At the foot of each section, on the Attendance screen and in Edit
-          Attendees alike. */}
-      {adding ? (
-        <AddPersonForm
-          activityInstanceId={activityInstanceId}
-          role={role}
+          Attendees alike. It opens a whole-screen search (search field at the
+          top left, X at the top right) rather than a form in the list. */}
+      <button
+        onClick={() => setAdding(true)}
+        style={{
+          marginTop: "var(--space-2)",
+          width: "100%",
+          minHeight: "var(--tap-min)",
+          background: "none",
+          border: "1px dashed var(--border)",
+          borderRadius: "var(--radius-md)",
+          padding: "var(--space-3)",
+          fontSize: "0.8rem",
+          color: "var(--heading)",
+          cursor: "pointer",
+        }}
+      >
+        + Add New {singularTitle}
+      </button>
+      {adding && (
+        <AddPersonScreen
+          roleLabel={singularTitle}
+          search={searchPeople}
+          createNew={(name) => quickAddPerson(activityInstanceId, name, role)}
+          addExisting={(personId) => enrollExistingPerson(activityInstanceId, personId, role)}
           onDone={() => {
             setAdding(false);
             onChanged();
           }}
           onCancel={() => setAdding(false)}
         />
-      ) : (
-        <button
-          onClick={() => setAdding(true)}
-          style={{
-            marginTop: "var(--space-2)",
-            width: "100%",
-            minHeight: "var(--tap-min)",
-            background: "none",
-            border: "1px dashed var(--border)",
-            borderRadius: "var(--radius-md)",
-            padding: "var(--space-3)",
-            fontSize: "0.8rem",
-            color: "var(--heading)",
-            cursor: "pointer",
-          }}
-        >
-          + Add New {singularTitle}
-        </button>
       )}
     </section>
   );
 }
-
-type SearchResult = { id: string; name: string; preferredName: string | null; linkStatus: "linked" | "pending" };
 
 // fontSize must be >= 16px — anything smaller makes iOS Safari auto-zoom the
 // whole page on focus, and it doesn't reliably zoom back out on blur (the
@@ -1479,104 +1506,5 @@ function ModalField({ label, children }: { label: string; children: React.ReactN
       <span style={{ fontSize: "0.7rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</span>
       {children}
     </label>
-  );
-}
-
-function AddPersonForm({
-  activityInstanceId,
-  role,
-  onDone,
-  onCancel,
-}: {
-  activityInstanceId: string;
-  role: "participant" | "facilitator" | "assistant";
-  onDone: () => void;
-  onCancel: () => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [busy, setBusy] = useState(false);
-
-  async function handleChange(value: string) {
-    setQuery(value);
-    if (value.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    const r = await searchPeople(value);
-    setResults(r);
-  }
-
-  async function handleCreateNew() {
-    if (!query.trim()) return;
-    setBusy(true);
-    await quickAddPerson(activityInstanceId, query.trim(), role);
-    setBusy(false);
-    onDone();
-  }
-
-  async function handlePick(personId: string) {
-    setBusy(true);
-    await enrollExistingPerson(activityInstanceId, personId, role);
-    setBusy(false);
-    onDone();
-  }
-
-  return (
-    <div style={{ marginTop: "var(--space-2)", background: "var(--card-bg)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card)", padding: "var(--space-3)" }}>
-      <input
-        autoFocus
-        placeholder="Type a name…"
-        value={query}
-        onChange={(e) => handleChange(e.target.value)}
-        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, minHeight: "var(--tap-min)", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}
-      />
-      <div style={{ marginTop: "var(--space-2)", display: "grid", gap: "var(--space-1)" }}>
-        <button
-          onClick={handleCreateNew}
-          disabled={busy || !query.trim()}
-          style={{
-            textAlign: "left",
-            minHeight: "var(--tap-min)",
-            padding: "8px 10px",
-            borderRadius: "var(--radius-sm)",
-            border: "1px dashed var(--gold)",
-            background: "var(--cream2)",
-            color: "var(--warm)",
-            fontSize: "0.85rem",
-            cursor: "pointer",
-          }}
-        >
-          + Create new{query.trim() ? `: "${query.trim()}"` : "…"}
-        </button>
-        {results.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => handlePick(r.id)}
-            disabled={busy}
-            style={{
-              textAlign: "left",
-              minHeight: "var(--tap-min)",
-              padding: "8px 10px",
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--border)",
-              background: "var(--card-bg)",
-              color: "var(--text)",
-              fontSize: "0.85rem",
-              cursor: "pointer",
-            }}
-          >
-            {formatFullName(r.name, r.preferredName)}
-            {r.linkStatus === "pending" && <span style={{ color: "var(--muted)" }}> (not linked)</span>}
-          </button>
-        ))}
-      </div>
-      <button
-        onClick={onCancel}
-        style={{ marginTop: "var(--space-2)", background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer" }}
-      >
-        Cancel
-      </button>
-    </div>
   );
 }

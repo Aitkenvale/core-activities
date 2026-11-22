@@ -62,17 +62,77 @@ function LegendItem({ status, text, tone }: { status: StudyStatus; text: string;
   );
 }
 
-// The one section of study history (Children's Grades, Junior Youth Texts, the
-// Ruhi main sequence, Discourse courses) that belongs to the activity's category,
-// for its participants — current and former — as a whole-screen overlay (same
-// shape as Add Info and Search). Its header never scrolls and holds two buttons,
-// Done Editing and Cancel, either of which returns to the Attendance screen.
-// Reading and writing are passed in rather than imported so the screen doesn't
-// care where its data comes from — the Attendance page hands it the real server
-// actions.
+// The screen's title, which is also where you choose which section of study
+// history to edit for the participants: any of them, whatever kind of activity
+// this is. A menu of our own rather than a native <select>, so it looks like
+// the heading it replaces and matches the app in both themes. It sits centred
+// under the buttons, and its menu opens centred beneath it.
+function SectionPicker({ value, onChange, disabled }: { value: StudyTrackId; onChange: (id: StudyTrackId) => void; disabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const current = STUDY_SECTIONS.find((s) => s.id === value) ?? STUDY_SECTIONS[0];
+
+  // A tap anywhere else, or Escape, closes the menu.
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="study-picker">
+      <button type="button" className="study-picker-button" aria-haspopup="menu" aria-expanded={open} disabled={disabled} onClick={() => setOpen((v) => !v)}>
+        <span>{current.title}</span>
+        <svg className="study-picker-triangle" aria-hidden width="11" height="7" viewBox="0 0 11 7">
+          <path d="M0 0h11L5.5 7z" fill="currentColor" />
+        </svg>
+      </button>
+      {open && (
+        <div role="menu" aria-label="Section of study history to edit" className="study-picker-menu">
+          {STUDY_SECTIONS.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={section.id === value}
+              className="study-picker-item"
+              onClick={() => {
+                setOpen(false);
+                onChange(section.id);
+              }}
+            >
+              {section.title}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// One section of study history (Children's Grades, Junior Youth Texts, the Ruhi
+// main sequence or branches, Discourse courses) for an activity's participants
+// — current and former — as a whole-screen overlay (same shape as Add Info and
+// Search). It opens on the section that belongs to the activity's category, and
+// the title is a menu for switching to any other. Its header never scrolls and
+// holds two buttons, Done Editing and Cancel, either of which returns to the
+// Attendance screen. Reading and writing are passed in rather than imported so
+// the screen doesn't care where its data comes from — the Attendance page hands
+// it the real server actions.
 //
 // Taps are saved as they are made. Done Editing keeps them; Cancel puts
-// everything done since the screen opened back as it was.
+// everything done since the screen opened back as it was, in every section
+// visited.
 export function StudyLogOverlay({
   initialSection,
   participants,
@@ -89,10 +149,9 @@ export function StudyLogOverlay({
   // Puts boxes back exactly as they were, date and all — all or nothing.
   restoreStatuses: (boxes: StudyRestoreBox[]) => Promise<unknown>;
 }) {
-  // There is just the one section on this screen.
-  const sectionId = initialSection;
+  const [sectionId, setSectionId] = useState<StudyTrackId>(initialSection);
   const [progress, setProgress] = useState<ProgressByTrack>({});
-  // The sections whose boxes have arrived.
+  // The sections whose boxes have arrived — a section is fetched the first time it is shown.
   const [loadedIds, setLoadedIds] = useState<StudyTrackId[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -221,6 +280,12 @@ export function StudyLogOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function selectSection(id: StudyTrackId) {
+    setSectionId(id);
+    setLoadError(null);
+    if (!progressRef.current[id]) load(id);
+  }
+
   const onCycle = useCallback(
     (personId: string, item: number, unit: number, what: string) => cycle(sectionId, personId, item, unit, what),
     [cycle, sectionId],
@@ -290,7 +355,9 @@ export function StudyLogOverlay({
             Cancel
           </button>
         </div>
-        <h3 className="study-head-title">{track.title}</h3>
+        <h3 className="study-head-title">
+          <SectionPicker value={sectionId} onChange={selectSection} disabled={busy} />
+        </h3>
         <div className="study-legend">
           <LegendItem status="none" text="Not studied" tone={track.legendTone} />
           <LegendItem status="partial" text="Partly" tone={track.legendTone} />

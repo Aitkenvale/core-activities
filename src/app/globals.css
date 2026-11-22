@@ -253,12 +253,12 @@ input[type="radio"] {
 
 /* Study log overlay header (StudyLogOverlay.tsx: Ruhi units, Grades, Texts). It never
    scrolls. In portrait the two buttons, Done Editing and Cancel, are together and
-   centred on the first line, the section's name is on the next and the legend
-   below it. In landscape width is plentiful and height is the scarce thing (a
-   phone on its side has well under 400px), so everything shares one line (the
-   name at the left, the legend in the middle, the buttons at the right) and the
-   padding tightens, leaving the room for the grid itself. The "rotate" hint only
-   appears on a portrait phone. */
+   centred on the first line, the section's name (a menu of the sections) is on the
+   next and the legend below it, with room above, between and below. In landscape
+   width is plentiful and height is the scarce thing (a phone on its side has well
+   under 400px), so everything shares one line (the name at the left, the legend in
+   the middle, the buttons at the right) and the padding tightens, leaving the room
+   for the grid itself. The "rotate" hint only appears on a portrait phone. */
 .study-head {
   flex-shrink: 0;
   display: flex;
@@ -266,8 +266,8 @@ input[type="radio"] {
   align-items: center;
   justify-content: center;
   column-gap: 12px;
-  row-gap: 6px;
-  padding: 16px 5% 8px;
+  row-gap: 14px;
+  padding: 24px 5% 18px;
 }
 
 .study-head-title {
@@ -278,6 +278,86 @@ input[type="radio"] {
   font-family: 'Cormorant Garamond', serif;
   font-size: 1.1rem;
   color: var(--heading);
+}
+
+/* The heading is a button that opens a menu of the sections of study history
+   (SectionPicker in StudyLogOverlay.tsx): the section's name and a triangle,
+   centred, with the menu opening centred beneath it. */
+.study-picker {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.study-picker-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: var(--tap-min);
+  padding: 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.1rem;
+  color: var(--heading);
+  cursor: pointer;
+}
+
+.study-picker-button:disabled {
+  cursor: default;
+}
+
+.study-picker-triangle {
+  flex-shrink: 0;
+}
+
+.study-picker-menu {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: grid;
+  min-width: max-content;
+  padding: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevated);
+}
+
+.study-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap-min);
+  padding: 0 14px 0 8px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* A tick marks the section being edited; the others keep the space so the names line up. */
+.study-picker-item::before {
+  content: "";
+  width: 1em;
+  flex-shrink: 0;
+  color: var(--heading);
+}
+
+.study-picker-item[aria-checked="true"]::before {
+  content: "✓";
+}
+
+.study-picker-item[aria-checked="true"] {
+  background: var(--table-header-bg);
 }
 
 /* Done Editing and Cancel, kept together and centred. */
@@ -409,6 +489,11 @@ input[type="radio"] {
     order: 1;
     flex: 0 0 auto;
     text-align: left;
+  }
+  /* The name is at the left edge here, so the menu opens from it, not centred. */
+  .study-picker-menu {
+    left: 0;
+    transform: none;
   }
   .study-legend {
     order: 2;
