@@ -5,6 +5,7 @@ import { setAttendance, setLockStatus, setCancelledStatus } from "@/app/app/atte
 import { addAttendanceDate } from "./actions";
 import { EnrolAttendeesModal, type Attendee } from "@/components/EnrolAttendeesModal";
 import { AdminPageHeader } from "@/components/AdminPageHeader";
+import { groupAttendees, mergeAttendees } from "@/lib/attendeeGroups";
 type DateCol = { sessionDate: string; locked: boolean; cancelled: boolean };
 type Status = "present" | "absent";
 
@@ -48,6 +49,40 @@ const dateCellStyle: React.CSSProperties = {
   textAlign: "center",
   borderBottom: "1px solid var(--border)",
   height: ROW_HEIGHT,
+};
+
+// The thin heading row above each kind of attendee (Participants, Teachers,
+// Co-Teachers...). Its label sits in the sticky name column, so it stays in view
+// when the dates are scrolled sideways; the rest of the row is the same tint.
+const GROUP_ROW_HEIGHT = 22;
+const groupHeadStyle: React.CSSProperties = {
+  ...nameCellStyle,
+  height: GROUP_ROW_HEIGHT,
+  padding: "2px 8px",
+  background: "var(--table-header-bg)",
+  color: "var(--heading)",
+  fontSize: "0.65rem",
+  fontWeight: 500,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  textAlign: "left",
+};
+const groupFillStyle: React.CSSProperties = {
+  height: GROUP_ROW_HEIGHT,
+  padding: 0,
+  background: "var(--table-header-bg)",
+  borderBottom: "1px solid var(--border)",
+};
+
+// The dashed "+ Add ..." buttons under each activity's table.
+const dashedButtonStyle: React.CSSProperties = {
+  padding: "4px 12px",
+  border: "1px dashed var(--gold)",
+  borderRadius: "var(--radius-sm)",
+  background: "none",
+  color: "var(--heading)",
+  fontSize: "0.75rem",
+  cursor: "pointer",
 };
 
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -165,13 +200,7 @@ export function BulkAttendanceGrid({ initialActivities }: { initialActivities: A
   }
 
   function addAttendeesLocal(activityId: string, newAttendees: Attendee[]) {
-    setActivities((acts) =>
-      acts.map((a) => {
-        if (a.id !== activityId) return a;
-        const merged = [...a.attendees, ...newAttendees].sort((x, y) => (x.preferredName || x.name).localeCompare(y.preferredName || y.name));
-        return { ...a, attendees: merged };
-      }),
-    );
+    setActivities((acts) => acts.map((a) => (a.id === activityId ? { ...a, attendees: mergeAttendees(a.attendees, newAttendees) } : a)));
   }
 
   return (
@@ -240,6 +269,9 @@ export function BulkAttendanceGrid({ initialActivities }: { initialActivities: A
         <EnrolAttendeesModal
           activityId={enrolModalFor.id}
           activityName={enrolModalFor.name}
+          // From the full list, not from enrolModalFor: that is a copy of what was
+          // on screen, which a search may have cut down to a few of the people.
+          alreadyEnrolled={(activities.find((a) => a.id === enrolModalFor.id)?.attendees ?? []).map((p) => p.personId)}
           onClose={() => setEnrolModalFor(null)}
           onEnrolled={(newAttendees) => {
             addAttendeesLocal(enrolModalFor.id, newAttendees);
@@ -268,6 +300,10 @@ function ActivitySection({
   onToggleCancelled: (activityId: string, sessionDate: string, next: boolean) => void;
   onOpenEnrol: (activity: ActivityBlock) => void;
 }) {
+  // Participants, then the leaders, then their co-leaders, each A to Z, with a thin
+  // heading row above each.
+  const groups = groupAttendees(activity.attendees, activity.categoryId);
+
   return (
     // minWidth: 0 overrides the grid item's default min-width:auto — without
     // it, a wide table (long attendance history) forces this whole section
@@ -350,43 +386,57 @@ function ActivitySection({
                     })}
                   </tr>
                 </thead>
-                <tbody>
-                  {activity.attendees.map((p) => {
-                    const presentCount = activity.dates.filter((d) => statusByDatePerson[d.sessionDate]?.[p.personId] === "present").length;
-                    return (
-                      <tr key={p.personId}>
-                        <td style={nameCellStyle}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{p.preferredName || p.name}</span>
-                            <span style={{ flexShrink: 0, color: "var(--muted)", fontSize: "0.75rem" }}>{presentCount}</span>
-                          </div>
-                        </td>
-                        {activity.dates.map((d) => {
-                          const status = statusByDatePerson[d.sessionDate]?.[p.personId];
-                          return (
-                            <td key={d.sessionDate} style={dateCellStyle}>
-                              {d.cancelled ? (
-                                <span style={{ color: "var(--muted)", fontSize: "0.7rem" }} title="Class cancelled">
-                                  —
-                                </span>
-                              ) : (
-                                <input
-                                  type="checkbox"
-                                  checked={status === "present"}
-                                  onChange={() => onToggle(activity.id, d.sessionDate, p.personId)}
-                                />
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
+                {groups.map((group) => (
+                  <tbody key={group.role}>
+                    <tr>
+                      <th scope="rowgroup" style={groupHeadStyle}>
+                        {group.label}
+                      </th>
+                      <td colSpan={activity.dates.length} style={groupFillStyle} />
+                    </tr>
+                    {group.people.map((p) => {
+                      const presentCount = activity.dates.filter((d) => statusByDatePerson[d.sessionDate]?.[p.personId] === "present").length;
+                      return (
+                        <tr key={p.personId}>
+                          <td style={nameCellStyle}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{p.preferredName || p.name}</span>
+                              <span style={{ flexShrink: 0, color: "var(--muted)", fontSize: "0.75rem" }}>{presentCount}</span>
+                            </div>
+                          </td>
+                          {activity.dates.map((d) => {
+                            const status = statusByDatePerson[d.sessionDate]?.[p.personId];
+                            return (
+                              <td key={d.sessionDate} style={dateCellStyle}>
+                                {d.cancelled ? (
+                                  <span style={{ color: "var(--muted)", fontSize: "0.7rem" }} title="Class cancelled">
+                                    —
+                                  </span>
+                                ) : (
+                                  <input
+                                    type="checkbox"
+                                    checked={status === "present"}
+                                    onChange={() => onToggle(activity.id, d.sessionDate, p.personId)}
+                                  />
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                ))}
               </table>
             </div>
           )}
-          <AddDateControl activityId={activity.id} onAddDate={onAddDate} />
+          {/* Dates and attendees can both be added after the fact, side by side. */}
+          <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <AddDateControl activityId={activity.id} onAddDate={onAddDate} />
+            <button onClick={() => onOpenEnrol(activity)} style={dashedButtonStyle}>
+              + Add Attendee
+            </button>
+          </div>
         </>
       )}
     </section>
@@ -402,26 +452,14 @@ function AddDateControl({ activityId, onAddDate }: { activityId: string; onAddDa
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        style={{
-          marginTop: 8,
-          padding: "4px 12px",
-          border: "1px dashed var(--gold)",
-          borderRadius: "var(--radius-sm)",
-          background: "none",
-          color: "var(--heading)",
-          fontSize: "0.75rem",
-          cursor: "pointer",
-        }}
-      >
+      <button onClick={() => setOpen(true)} style={dashedButtonStyle}>
         + Add Date
       </button>
     );
   }
 
   return (
-    <div style={{ marginTop: 8, display: "flex", gap: 6, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
       <input
         type="date"
         value={date}

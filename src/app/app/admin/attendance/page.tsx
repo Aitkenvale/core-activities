@@ -27,14 +27,16 @@ export default async function AdminBulkAttendancePage() {
       .leftJoin(activityCategories, eq(activityCategories.id, activityInstances.categoryId))
       .where(eq(activityInstances.hidden, false))
       .orderBy(asc(activityInstances.name)),
-    // Attendees = participants + facilitators — both get marked present/
-    // absent in the regular session view, so both belong here too.
+    // Attendees = participants + facilitators + assistants — all of them get
+    // marked present/absent in the regular session view, so all belong here
+    // too. The role comes along so the grid can say which is which.
     db
       .select({
         activityInstanceId: activityEnrollments.activityInstanceId,
         personId: people.id,
         name: people.name,
         preferredName: people.preferredName,
+        role: activityEnrollments.role,
       })
       .from(activityEnrollments)
       .innerJoin(people, eq(people.id, activityEnrollments.personId))
@@ -70,7 +72,7 @@ export default async function AdminBulkAttendancePage() {
   );
 
   for (const e of enrollments) {
-    blockById.get(e.activityInstanceId)?.attendees.push({ personId: e.personId, name: e.name, preferredName: e.preferredName });
+    blockById.get(e.activityInstanceId)?.attendees.push({ personId: e.personId, name: e.name, preferredName: e.preferredName, role: e.role });
   }
   for (const block of blockById.values()) {
     block.attendees.sort(byDisplayName);
