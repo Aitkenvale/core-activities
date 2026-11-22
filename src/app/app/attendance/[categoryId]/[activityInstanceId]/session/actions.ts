@@ -95,7 +95,7 @@ export async function getLockStatus(activityInstanceId: string, sessionDate: str
   return existing?.locked ?? false;
 }
 
-// Confirm = lock (attendance becomes read-only). Clicking the status pill
+// Confirm = lock (attendance becomes read-only). Pressing Attendance Confirmed
 // while locked unlocks it again so edits can be made — gated the same as
 // setAttendance, otherwise a facilitator could just unlock an old session
 // to get around the edit window. A cancelled class can't be confirmed: it

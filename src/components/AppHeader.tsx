@@ -61,8 +61,6 @@ export function AppHeader() {
         )}
       </Link>
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-        {/* SessionClient portals its lock-status pill in here when viewing a session; empty everywhere else. */}
-        <div id="lock-status-slot" />
         {(isHome || isListPage) && <SearchButton />}
         {isHome && <AccountMenu />}
         {isPeoplePage && <CloseButton onClick={() => router.back()} />}

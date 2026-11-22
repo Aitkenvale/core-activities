@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-// The look the four buttons under the roster share; each adds its own colours.
+// The look the four buttons above the roster share; each adds its own colours.
 // Each fills its cell of buttonGridStyle, so all four are exactly the same
 // width whatever their words — and stay that width as a toggle changes state.
 // The padding is slim and the words may wrap, so the longest ("Attendance
@@ -16,7 +16,7 @@ export const actionButtonStyle: CSSProperties = {
 };
 
 // Two equal columns, centred: Confirm Attendance and Cancel Class above Edit
-// Participants and Edit Study History, so they line up as a block.
+// Attendees and Edit Study History, so they line up as a block.
 export const buttonGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",

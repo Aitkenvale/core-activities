@@ -110,7 +110,6 @@ export function SessionClient({
   const [locked, setLocked] = useState(false);
   const [cancelled, setCancelled] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [pillSlot, setPillSlot] = useState<HTMLElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [studyOpen, setStudyOpen] = useState(false);
 
@@ -139,10 +138,6 @@ export function SessionClient({
     getLockStatus(activityInstanceId, selectedDate).then(setLocked);
     getCancelledStatus(activityInstanceId, selectedDate).then(setCancelled);
   }, [activityInstanceId, selectedDate]);
-
-  useEffect(() => {
-    setPillSlot(document.getElementById("lock-status-slot"));
-  }, []);
 
   function goToDate(date: string) {
     router.push(`/app/attendance/${categoryId}/${activityInstanceId}/session?date=${date}`);
@@ -230,12 +225,10 @@ export function SessionClient({
 
   return (
     <>
-      {pillSlot && createPortal(<LockStatusPill locked={locked} cancelled={cancelled} onToggle={toggleLocked} disabled={!canToggleLock} />, pillSlot)}
-
-      {/* Sticky, right below AppHeader — the roster below scrolls
-          underneath this instead of the title/date pills scrolling away
-          with everything else. */}
-      <div style={{ position: "sticky", top: "var(--app-header-height)", zIndex: 30, background: "var(--page-bg)", paddingTop: "var(--space-2)" }}>
+      {/* Not sticky: the title and the date pills (and the buttons under them)
+          are ordinary content that scrolls up with the roster. Only the app
+          header above stays in place. */}
+      <div style={{ paddingTop: "var(--space-2)" }}>
         <ActivityTitle activityInstanceId={activityInstanceId} name={activityName} onRenamed={() => router.refresh()} />
 
         <DatePicker
@@ -262,6 +255,52 @@ export function SessionClient({
         </>
       ) : (
         <>
+          {/* A light line between the date pills and the buttons. */}
+          <div role="separator" style={{ height: 1, background: "var(--border)", marginBottom: "var(--space-4)" }} />
+
+          {/* A block of four equal buttons, two by two: what happens to this
+              session (confirm it, or call it off), then what is being edited
+              (who is in the activity, and their study history). */}
+          <div style={{ ...buttonGridStyle, marginBottom: "var(--space-4)" }}>
+            {/* Pressing it again takes the confirmation back. Greyed while
+                the class is cancelled: a class that didn't happen has no
+                attendance to confirm. */}
+            <button
+              onClick={toggleLocked}
+              disabled={!canToggleLock || (cancelled && !locked)}
+              aria-pressed={locked}
+              style={toggleButtonStyle({ tone: "green", on: locked, blocked: cancelled, noPermission: !canToggleLock })}
+            >
+              {locked ? "Attendance Confirmed" : "Confirm Attendance"}
+            </button>
+            {/* An admin-editable, no-checkbox state: the facilitator is
+                saying no session happened at all, distinct from marking
+                everyone absent. Pressing it again reinstates the class;
+                it can't overrule confirmed attendance, so it is greyed
+                while that is on. */}
+            <button
+              onClick={toggleCancelled}
+              disabled={!canToggleLock || (locked && !cancelled)}
+              aria-pressed={cancelled}
+              style={toggleButtonStyle({ tone: "red", on: cancelled, blocked: locked, noPermission: !canToggleLock })}
+            >
+              {cancelled ? "Class Cancelled" : "Cancel Class"}
+            </button>
+            <button
+              onClick={() => setEditMode((v) => !v)}
+              style={{
+                ...actionButtonStyle,
+                border: "1px solid var(--border)",
+                background: editMode ? "var(--deep)" : "var(--card-bg)",
+                color: editMode ? "var(--cream)" : "var(--text)",
+                cursor: "pointer",
+              }}
+            >
+              {editMode ? "Done Editing" : "Edit Attendees"}
+            </button>
+            <StudyLogButton onClick={() => setStudyOpen(true)} />
+          </div>
+
           {!isAdmin && !canToggleLock && (
             <p style={{ color: "var(--muted)", fontSize: "0.78rem", marginBottom: "var(--space-4)" }}>
               This session is more than {editWindowMonths} months old — only an admin can make changes.
@@ -319,49 +358,6 @@ export function SessionClient({
               onMove={moveRole}
             />
           )}
-
-          {/* A block of four equal buttons, two by two: what happens to this
-              session (confirm it, or call it off), then what is being edited
-              (who is in the activity, and their study history). */}
-          <div style={{ ...buttonGridStyle, marginTop: "var(--space-4)" }}>
-            {/* Pressing it again takes the confirmation back. Greyed while
-                the class is cancelled: a class that didn't happen has no
-                attendance to confirm. */}
-            <button
-              onClick={toggleLocked}
-              disabled={!canToggleLock || (cancelled && !locked)}
-              aria-pressed={locked}
-              style={toggleButtonStyle({ tone: "green", on: locked, blocked: cancelled, noPermission: !canToggleLock })}
-            >
-              {locked ? "Attendance Confirmed" : "Confirm Attendance"}
-            </button>
-            {/* An admin-editable, no-checkbox state: the facilitator is
-                saying no session happened at all, distinct from marking
-                everyone absent. Pressing it again reinstates the class;
-                it can't overrule confirmed attendance, so it is greyed
-                while that is on. */}
-            <button
-              onClick={toggleCancelled}
-              disabled={!canToggleLock || (locked && !cancelled)}
-              aria-pressed={cancelled}
-              style={toggleButtonStyle({ tone: "red", on: cancelled, blocked: locked, noPermission: !canToggleLock })}
-            >
-              {cancelled ? "Class Cancelled" : "Cancel Class"}
-            </button>
-            <button
-              onClick={() => setEditMode((v) => !v)}
-              style={{
-                ...actionButtonStyle,
-                border: "1px solid var(--border)",
-                background: editMode ? "var(--deep)" : "var(--card-bg)",
-                color: editMode ? "var(--cream)" : "var(--text)",
-                cursor: "pointer",
-              }}
-            >
-              {editMode ? "Done Editing" : "Edit Participants"}
-            </button>
-            <StudyLogButton onClick={() => setStudyOpen(true)} />
-          </div>
         </>
       )}
 
@@ -388,41 +384,6 @@ function StudyLogButton({ onClick, style }: { onClick: () => void; style?: React
   return (
     <button onClick={onClick} style={{ ...actionButtonStyle, border: "1px solid var(--blue)", background: "var(--card-bg)", color: "var(--blue)", cursor: "pointer", ...style }}>
       Edit Study History
-    </button>
-  );
-}
-
-function LockStatusPill({
-  locked,
-  cancelled,
-  onToggle,
-  disabled,
-}: {
-  locked: boolean;
-  cancelled: boolean;
-  onToggle: () => void;
-  disabled: boolean;
-}) {
-  const isDisabled = disabled || cancelled;
-  return (
-    <button
-      onClick={onToggle}
-      disabled={isDisabled}
-      style={{
-        padding: "6px 14px",
-        borderRadius: "var(--radius-pill)",
-        border: `1px solid ${cancelled ? "var(--muted)" : "var(--green)"}`,
-        background: cancelled ? "var(--disabled-bg)" : locked ? "var(--green)" : "var(--card-bg)",
-        color: cancelled ? "var(--muted)" : locked ? "var(--card-bg)" : "var(--green)",
-        fontSize: "0.7rem",
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-        cursor: isDisabled ? "default" : "pointer",
-        opacity: isDisabled ? 0.6 : 1,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {cancelled ? "Cancelled" : locked ? "Confirmed" : "Unconfirmed"}
     </button>
   );
 }
@@ -564,8 +525,7 @@ function DatePicker({
         {open &&
           createPortal(
             <>
-              {/* Portaled to document.body (same as the lock-status pill
-                  above) rather than rendered in place — this popover lives
+              {/* Portaled to document.body rather than rendered in place — this popover lives
                   inside <main>'s scrolling container, and position:fixed
                   nested inside a scrolling ancestor is unreliable on iOS
                   (already the reason AppLayout locks the whole shell to the
