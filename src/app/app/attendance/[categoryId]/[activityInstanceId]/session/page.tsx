@@ -129,6 +129,11 @@ export default async function SessionPage({
       heldDates={heldDates}
       roster={roster}
       statusByPersonId={statusByPersonId}
+      // Whether this date's session is confirmed or cancelled, known from the first
+      // draw: which buttons the screen shows depends on it, so it must not start
+      // out wrong and correct itself a moment later.
+      initialLocked={existingEvent?.locked ?? false}
+      initialCancelled={existingEvent?.cancelled ?? false}
       isAdmin={isAdmin}
       editWindowMonths={editWindowMonths}
       needsDateConfirmation={needsDateConfirmation}

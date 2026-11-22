@@ -251,112 +251,42 @@ input[type="radio"] {
   display: none;
 }
 
-/* Study log overlay header (StudyLogOverlay.tsx — Ruhi Units, Grades, Texts). Title and close button
-   share the first line, with the legend wrapping onto its own line below in
-   portrait. In landscape, width is plentiful and height is the scarce thing
-   (a phone on its side has well under 400px), so the legend slides up
-   inline between them and the padding tightens — leaving the room for the
-   grid itself. The "rotate" hint only appears on a portrait phone. */
+/* Study log overlay header (StudyLogOverlay.tsx: Ruhi units, Grades, Texts). It never
+   scrolls. In portrait the two buttons, Done Editing and Cancel, are together and
+   centred on the first line, the section's name is on the next and the legend
+   below it. In landscape width is plentiful and height is the scarce thing (a
+   phone on its side has well under 400px), so everything shares one line (the
+   name at the left, the legend in the middle, the buttons at the right) and the
+   padding tightens, leaving the room for the grid itself. The "rotate" hint only
+   appears on a portrait phone. */
 .study-head {
   flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   column-gap: 12px;
   row-gap: 6px;
   padding: 16px 5% 8px;
 }
 
 .study-head-title {
-  /* A basis of 0, so a title too long for the room beside the buttons wraps
-     onto a second line rather than pushing the buttons down. */
-  flex: 1 1 0;
+  order: 2;
+  flex: 1 1 100%;
   min-width: 0;
-}
-
-/* The heading is a button that opens a menu of the sections of study history
-   (SectionPicker in StudyLogOverlay.tsx): the section's name and a triangle. */
-.study-picker {
-  position: relative;
-  display: inline-block;
-  max-width: 100%;
-}
-
-.study-picker-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 100%;
-  min-height: var(--tap-min);
-  padding: 0;
-  background: none;
-  border: 0;
-  text-align: left;
+  text-align: center;
   font-family: 'Cormorant Garamond', serif;
   font-size: 1.1rem;
   color: var(--heading);
-  cursor: pointer;
 }
 
-.study-picker-button:disabled {
-  cursor: default;
-}
-
-.study-picker-triangle {
-  flex-shrink: 0;
-}
-
-.study-picker-menu {
-  position: absolute;
-  left: 0;
-  top: 100%;
-  z-index: 20;
-  display: grid;
-  min-width: max-content;
-  padding: 6px;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-elevated);
-}
-
-.study-picker-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--tap-min);
-  padding: 0 14px 0 8px;
-  background: none;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 0.9rem;
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-/* A tick marks the section being edited; the others keep the space so the names line up. */
-.study-picker-item::before {
-  content: "";
-  width: 1em;
-  flex-shrink: 0;
-  color: var(--heading);
-}
-
-.study-picker-item[aria-checked="true"]::before {
-  content: "✓";
-}
-
-.study-picker-item[aria-checked="true"] {
-  background: var(--table-header-bg);
-}
-
-/* Cancel and Close, kept together at the right of the heading. */
+/* Done Editing and Cancel, kept together and centred. */
 .study-head-actions {
-  flex-shrink: 0;
+  order: 1;
+  flex: 1 1 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
 }
 
@@ -380,12 +310,32 @@ input[type="radio"] {
   cursor: default;
 }
 
+/* Done Editing: the way out of a full-screen editing mode that keeps what has been
+   done. Filled, the way a pressed button is drawn elsewhere in the app. Used in
+   the study screen's header and in Edit Attendees' (SessionClient.tsx). */
+.header-done {
+  min-height: var(--tap-min);
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--deep);
+  color: var(--cream);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.header-done:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .study-legend {
   order: 3;
   flex: 1 1 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 4px 14px;
   font-size: 0.72rem;
   color: var(--muted);
@@ -456,12 +406,17 @@ input[type="radio"] {
     padding-bottom: 6px;
   }
   .study-head-title {
+    order: 1;
     flex: 0 0 auto;
+    text-align: left;
   }
   .study-legend {
-    order: 0;
+    order: 2;
     flex: 1 1 auto;
-    justify-content: center;
+  }
+  .study-head-actions {
+    order: 3;
+    flex: 0 0 auto;
   }
 }
 

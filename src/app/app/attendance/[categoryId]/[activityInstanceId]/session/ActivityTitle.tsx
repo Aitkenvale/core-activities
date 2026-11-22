@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { renameActivity } from "@/app/app/activities/actions";
 
-// The activity's name, drawn exactly as it always was; clicking it turns it into
-// a text box to rename the activity (Enter, or tapping away, saves; Escape puts
-// it back). Open to anyone signed in, the same as Edit Activity.
+// The activity's name, in the same face and colour it always had, as the title in
+// the Attendance screen's header: at the left, and 20% smaller than the 1.5rem it
+// had when it sat centred under the header. Clicking it turns it into a text box
+// to rename the activity (Enter, or tapping away, saves; Escape puts it back).
+// Open to anyone signed in, the same as Edit Activity.
 export function ActivityTitle({
   activityInstanceId,
   name,
@@ -74,7 +76,7 @@ export function ActivityTitle({
   }
 
   return (
-    <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "var(--heading)", textAlign: "center", margin: "0 0 var(--space-4)" }}>
+    <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.2rem", lineHeight: 1.2, color: "var(--heading)", textAlign: "left", margin: 0 }}>
       {editing ? (
         <>
           <input
@@ -100,7 +102,7 @@ export function ActivityTitle({
               outline: "none",
               font: "inherit",
               color: "inherit",
-              textAlign: "center",
+              textAlign: "left",
               opacity: saving ? 0.6 : 1,
             }}
           />
@@ -115,6 +117,6 @@ export function ActivityTitle({
           {shown}
         </button>
       )}
-    </h2>
+    </h1>
   );
 }

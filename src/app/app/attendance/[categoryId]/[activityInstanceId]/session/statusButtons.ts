@@ -1,10 +1,10 @@
 import type { CSSProperties } from "react";
 
-// The look the four buttons above the roster share; each adds its own colours.
-// Each fills its cell of buttonGridStyle, so all four are exactly the same
-// width whatever their words — and stay that width as a toggle changes state.
-// The padding is slim and the words may wrap, so the longest ("Attendance
-// Confirmed") still fits two across on a narrow phone.
+// The shape the buttons above the roster share. Each fills its cell of
+// buttonGridStyle, so they are all exactly the same width whatever their words —
+// and stay that width as a toggle changes state. The padding is slim and the words
+// may wrap, so the longest ("Attendance Confirmed") still fits two across on a
+// narrow phone.
 export const actionButtonStyle: CSSProperties = {
   width: "100%",
   minHeight: "var(--tap-min)",
@@ -15,8 +15,8 @@ export const actionButtonStyle: CSSProperties = {
   textAlign: "center",
 };
 
-// Two equal columns, centred: Confirm Attendance and Cancel Class above Edit
-// Attendees and Edit Study History, so they line up as a block.
+// Two equal columns, centred: up to four buttons, two by two. A session that is
+// confirmed or cancelled shows just two, side by side in the first row.
 export const buttonGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
@@ -26,31 +26,28 @@ export const buttonGridStyle: CSSProperties = {
   marginRight: "auto",
 };
 
-// Confirm Attendance and Cancel Class. Each presses on and, pressed again,
-// off — so "on" is drawn solid in its colour — and they are alternatives: while
-// one is on the other is greyed out (`blocked`) and can't be pressed. Neither
-// can be pressed at all when the session is out of the edit window
-// (`noPermission`), though the one that is on still shows it.
-export function toggleButtonStyle({
-  tone,
-  on,
-  blocked,
-  noPermission,
-}: {
-  tone: "green" | "red";
-  on: boolean;
-  blocked: boolean;
-  noPermission: boolean;
-}): CSSProperties {
-  const colour = tone === "green" ? "var(--green)" : "var(--red)";
-  if (blocked && !on) {
-    return { ...actionButtonStyle, border: "1px solid var(--border)", background: "var(--disabled-bg)", color: "var(--muted)", cursor: "default", opacity: 0.7 };
-  }
+// What every one of those buttons looks like: a thin border, the card's colour and
+// the ordinary text colour (the look Edit Attendees always had). Confirm
+// Attendance used to be green, Cancel Class red and Edit Study History blue.
+export const plainButtonStyle: CSSProperties = {
+  ...actionButtonStyle,
+  border: "1px solid var(--border)",
+  background: "var(--card-bg)",
+  color: "var(--text)",
+  cursor: "pointer",
+};
+
+// Confirm Attendance and Cancel Class. Each presses on and, pressed again, off,
+// and "on" is drawn filled the way a pressed toggle is elsewhere in the app (the
+// deep brown with cream text), so Confirm Attendance and Attendance Confirmed are
+// easy to tell apart. They are alternatives, so only the one that is on is shown
+// once either is pressed. Neither can be pressed at all when the session is out of
+// the edit window (`noPermission`), though the one that is on still shows it.
+export function toggleButtonStyle({ on, noPermission }: { on: boolean; noPermission: boolean }): CSSProperties {
   return {
-    ...actionButtonStyle,
-    border: `1px solid ${colour}`,
-    background: on ? colour : "var(--card-bg)",
-    color: on ? "var(--card-bg)" : colour,
+    ...plainButtonStyle,
+    background: on ? "var(--deep)" : "var(--card-bg)",
+    color: on ? "var(--cream)" : "var(--text)",
     cursor: noPermission ? "default" : "pointer",
     opacity: noPermission ? 0.6 : 1,
   };

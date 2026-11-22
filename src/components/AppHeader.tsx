@@ -7,15 +7,31 @@ import { BackButton, getParentPath } from "@/components/BackButton";
 import { SearchButton } from "@/components/SearchButton";
 import { CloseButton } from "@/components/CloseButton";
 import { isAdminWidePage } from "@/lib/adminWidePages";
+import { isAttendanceSessionPage } from "@/lib/attendanceSession";
 import { getPageTitle } from "@/lib/pageTitle";
+
+// The bar itself: pinned to the top of the scrolling page, over whatever scrolls
+// beneath it. The Attendance session screen draws its own header in the same bar.
+export const appHeaderBarStyle: React.CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 50,
+  background: "var(--page-bg)",
+  minHeight: "var(--app-header-height)",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "16px 0",
+};
 
 // The admin data grids need the vertical space for the spreadsheet — this
 // header (title, back button, account menu) would just be redundant there,
-// so it hides itself on those routes only.
+// so it hides itself on those routes. The Attendance session screen has its own
+// header, with the activity's name as the title, so it hides itself there too.
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  if (isAdminWidePage(pathname)) return null;
+  if (isAdminWidePage(pathname) || isAttendanceSessionPage(pathname)) return null;
   const title = getPageTitle(pathname);
 
   // The login icon is only needed on Home — everywhere else its top-right
@@ -28,19 +44,7 @@ export function AppHeader() {
   const isActivityOrAttendanceSubpage = (pathname.startsWith("/app/activities") || pathname.startsWith("/app/attendance")) && !isListPage;
 
   return (
-    <div
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-        background: "var(--page-bg)",
-        minHeight: "var(--app-header-height)",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "16px 0",
-      }}
-    >
+    <div style={appHeaderBarStyle}>
       {/* Absolutely positioned — an overlay tap zone, not a flex sibling,
           so it doesn't push the title rightward out of alignment. */}
       <BackButton />

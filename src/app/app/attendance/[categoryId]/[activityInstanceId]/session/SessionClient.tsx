@@ -29,11 +29,12 @@ import { getStudyProgress, restoreStudyStatuses, setStudyStatus } from "./studyA
 import { StudyLogOverlay } from "./StudyLogOverlay";
 import { formatFullName } from "@/lib/formatName";
 import type { StudyTrackId } from "@/lib/studyTracks";
-import { actionButtonStyle, buttonGridStyle, toggleButtonStyle } from "./statusButtons";
+import { buttonGridStyle, plainButtonStyle, toggleButtonStyle } from "./statusButtons";
 import { ActivityTitle } from "./ActivityTitle";
 import { getPersonCompletenessLevel, type CompletenessLevel } from "@/lib/personCompleteness";
 import { calculateAge } from "@/lib/category";
 import { getRoleLabels } from "@/lib/activityRoleLabels";
+import { appHeaderBarStyle } from "@/components/AppHeader";
 import { CloseButton } from "@/components/CloseButton";
 import { MapsLinkButton } from "@/components/MapsLinkButton";
 import { PhoneLinkButton } from "@/components/PhoneLinkButton";
@@ -80,6 +81,8 @@ export function SessionClient({
   heldDates,
   roster,
   statusByPersonId,
+  initialLocked,
+  initialCancelled,
   isAdmin,
   editWindowMonths,
   needsDateConfirmation,
@@ -93,12 +96,16 @@ export function SessionClient({
   heldDates: string[];
   roster: RosterRow[];
   statusByPersonId: Record<string, Status>;
+  // Whether the selected date's session is confirmed or cancelled, as the server
+  // found it. They are where the screen starts, so the right buttons show from the
+  // first draw; pressing the buttons then moves them.
+  initialLocked: boolean;
+  initialCancelled: boolean;
   isAdmin: boolean;
   editWindowMonths: number;
   needsDateConfirmation: boolean;
-  // The section of study history the study screen opens on — the one that
-  // belongs to the activity's own category, decided server-side, not from the
-  // URL. The screen can switch to any other section from its title.
+  // The section of study history the study screen shows: the one that belongs to
+  // the activity's own category, decided server-side, not from the URL.
   defaultStudySection: StudyTrackId;
 }) {
   const router = useRouter();
@@ -107,11 +114,24 @@ export function SessionClient({
     Object.fromEntries(roster.map((r) => [r.personId, r.active])),
   );
   const [editMode, setEditMode] = useState(false);
-  const [locked, setLocked] = useState(false);
-  const [cancelled, setCancelled] = useState(false);
+  const [locked, setLocked] = useState(initialLocked);
+  const [cancelled, setCancelled] = useState(initialCancelled);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [studyOpen, setStudyOpen] = useState(false);
+
+  // Switching the date pill re-renders this component with the new date's session
+  // (same instance, not a remount). Take its confirmed/cancelled state at once,
+  // while drawing, rather than showing the last date's buttons until the check
+  // below comes back. (Adjusting state in the render this way is how React says to
+  // reset it when a prop changes, and it keeps a pending change to the same date
+  // from being overwritten by a refresh.)
+  const [shownDate, setShownDate] = useState(selectedDate);
+  if (shownDate !== selectedDate) {
+    setShownDate(selectedDate);
+    setLocked(initialLocked);
+    setCancelled(initialCancelled);
+  }
 
   // Facilitators can't edit sessions past the window at all, regardless of
   // the locked flag (locked can still be toggled off by an admin later).
@@ -201,15 +221,65 @@ export function SessionClient({
     });
   }
 
-  const visible = (r: RosterRow) => editMode || activeByPersonId[r.personId];
   const byDisplayName = (a: RosterRow, b: RosterRow) => (a.preferredName || a.name).localeCompare(b.preferredName || b.name);
-  const participants = roster.filter((r) => r.role === "participant" && visible(r)).sort(byDisplayName);
-  const facilitators = roster.filter((r) => r.role === "facilitator" && visible(r)).sort(byDisplayName);
-  const assistants = roster.filter((r) => r.role === "assistant" && visible(r)).sort(byDisplayName);
   // PSEC calls these Teachers/Co-Teachers, JYSEP calls them Animators/
   // Co-Animators, and Study Circles don't split the role at all — see
   // activityRoleLabels.ts.
   const roleLabels = getRoleLabels(categoryId);
+
+  // The roster's sections: Participants, then the leaders, then their co-leaders.
+  // The Attendance screen lists only the people currently on the roster; the
+  // full-screen Edit Attendees mode (`editing`) also lists anyone who has been
+  // hidden, so they can be brought back. Each section ends with its add button in
+  // both.
+  function rosterSections(editing: boolean) {
+    const shown = (r: RosterRow) => editing || activeByPersonId[r.personId];
+    const inRole = (role: RosterRow["role"]) => roster.filter((r) => r.role === role && shown(r)).sort(byDisplayName);
+    const shared = {
+      statuses,
+      onToggle: toggle,
+      activityInstanceId,
+      onChanged: () => router.refresh(),
+      editMode: editing,
+      activeByPersonId,
+      onToggleActive: toggleActive,
+      readOnly,
+      cancelled,
+      isAdmin,
+    };
+    return (
+      <>
+        <RosterSection {...shared} title="Participants" rows={inRole("participant")} role="participant" />
+        <RosterSection
+          {...shared}
+          title={roleLabels.facilitator}
+          rows={inRole("facilitator")}
+          role="facilitator"
+          moveTo={roleLabels.showAssistants ? { role: "assistant", label: roleLabels.assistant } : undefined}
+          onMove={moveRole}
+        />
+        {roleLabels.showAssistants && (
+          <RosterSection
+            {...shared}
+            title={roleLabels.assistant}
+            rows={inRole("assistant")}
+            role="assistant"
+            moveTo={{ role: "facilitator", label: roleLabels.facilitator }}
+            onMove={moveRole}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Which of the four buttons are on offer. Once a session is confirmed, calling
+  // the class off is no longer a choice, and neither is changing who is in it; a
+  // cancelled class likewise has nothing to confirm and nobody to edit. The button
+  // that is on stays, so the session can be reinstated, and Edit Study History is
+  // always there. (Were both ever on, both show, so that either can be turned off.)
+  const showConfirm = !cancelled || locked;
+  const showCancel = !locked || cancelled;
+  const showEdit = !locked && !cancelled;
   // The study log grid covers every participant the activity has ever had —
   // current ones first, then anyone since hidden from the roster, whose log is
   // still theirs to fill in (the grid greys their names). Not facilitators or
@@ -225,21 +295,25 @@ export function SessionClient({
 
   return (
     <>
-      {/* Not sticky: the title and the date pills (and the buttons under them)
-          are ordinary content that scrolls up with the roster. Only the app
-          header above stays in place. */}
-      <div style={{ paddingTop: "var(--space-2)" }}>
-        <ActivityTitle activityInstanceId={activityInstanceId} name={activityName} onRenamed={() => router.refresh()} />
-
-        <DatePicker
-          activityInstanceId={activityInstanceId}
-          selectedDate={selectedDate}
-          recentDates={recentDates}
-          heldDates={heldDates}
-          onPick={goToDate}
-          awaitingConfirmation={needsDateConfirmation}
-        />
+      {/* This screen's own header, in place of the app's usual one (AppHeader steps
+          aside on this route): the activity's name at the left, and Close. It stays
+          pinned as the page scrolls; the date pills and the buttons below it are
+          ordinary content that scrolls away with the roster. */}
+      <div style={{ ...appHeaderBarStyle, gap: "var(--space-3)" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <ActivityTitle activityInstanceId={activityInstanceId} name={activityName} onRenamed={() => router.refresh()} />
+        </div>
+        <CloseButton onClick={() => router.push(`/app/attendance/${categoryId}`)} />
       </div>
+
+      <DatePicker
+        activityInstanceId={activityInstanceId}
+        selectedDate={selectedDate}
+        recentDates={recentDates}
+        heldDates={heldDates}
+        onPick={goToDate}
+        awaitingConfirmation={needsDateConfirmation}
+      />
 
       {needsDateConfirmation ? (
         <>
@@ -258,46 +332,42 @@ export function SessionClient({
           {/* A light line between the date pills and the buttons. */}
           <div role="separator" style={{ height: 1, background: "var(--border)", marginBottom: "var(--space-4)" }} />
 
-          {/* A block of four equal buttons, two by two: what happens to this
-              session (confirm it, or call it off), then what is being edited
-              (who is in the activity, and their study history). */}
+          {/* Up to four equal buttons, two by two: what happens to this session
+              (confirm it, or call it off), then what is being edited (who is in
+              the activity, and their study history). Once the session is
+              confirmed or cancelled only the one that is on remains, with Edit
+              Study History (see showConfirm and the others above). */}
           <div style={{ ...buttonGridStyle, marginBottom: "var(--space-4)" }}>
-            {/* Pressing it again takes the confirmation back. Greyed while
-                the class is cancelled: a class that didn't happen has no
-                attendance to confirm. */}
-            <button
-              onClick={toggleLocked}
-              disabled={!canToggleLock || (cancelled && !locked)}
-              aria-pressed={locked}
-              style={toggleButtonStyle({ tone: "green", on: locked, blocked: cancelled, noPermission: !canToggleLock })}
-            >
-              {locked ? "Attendance Confirmed" : "Confirm Attendance"}
-            </button>
+            {/* Pressing it again takes the confirmation back. */}
+            {showConfirm && (
+              <button
+                onClick={toggleLocked}
+                disabled={!canToggleLock}
+                aria-pressed={locked}
+                style={toggleButtonStyle({ on: locked, noPermission: !canToggleLock })}
+              >
+                {locked ? "Attendance Confirmed" : "Confirm Attendance"}
+              </button>
+            )}
             {/* An admin-editable, no-checkbox state: the facilitator is
                 saying no session happened at all, distinct from marking
-                everyone absent. Pressing it again reinstates the class;
-                it can't overrule confirmed attendance, so it is greyed
-                while that is on. */}
-            <button
-              onClick={toggleCancelled}
-              disabled={!canToggleLock || (locked && !cancelled)}
-              aria-pressed={cancelled}
-              style={toggleButtonStyle({ tone: "red", on: cancelled, blocked: locked, noPermission: !canToggleLock })}
-            >
-              {cancelled ? "Class Cancelled" : "Cancel Class"}
-            </button>
-            <button
-              onClick={() => setEditMode((v) => !v)}
-              style={{
-                ...actionButtonStyle,
-                border: "1px solid var(--border)",
-                background: editMode ? "var(--deep)" : "var(--card-bg)",
-                color: editMode ? "var(--cream)" : "var(--text)",
-                cursor: "pointer",
-              }}
-            >
-              {editMode ? "Done Editing" : "Edit Attendees"}
-            </button>
+                everyone absent. Pressing it again reinstates the class. */}
+            {showCancel && (
+              <button
+                onClick={toggleCancelled}
+                disabled={!canToggleLock}
+                aria-pressed={cancelled}
+                style={toggleButtonStyle({ on: cancelled, noPermission: !canToggleLock })}
+              >
+                {cancelled ? "Class Cancelled" : "Cancel Class"}
+              </button>
+            )}
+            {/* Opens the full-screen Edit Attendees mode. */}
+            {showEdit && (
+              <button onClick={() => setEditMode(true)} style={plainButtonStyle}>
+                Edit Attendees
+              </button>
+            )}
             <StudyLogButton onClick={() => setStudyOpen(true)} />
           </div>
 
@@ -307,57 +377,7 @@ export function SessionClient({
             </p>
           )}
 
-          <RosterSection
-            title="Participants"
-            rows={participants}
-            statuses={statuses}
-            onToggle={toggle}
-            activityInstanceId={activityInstanceId}
-            role="participant"
-            onChanged={() => router.refresh()}
-            editMode={editMode}
-            activeByPersonId={activeByPersonId}
-            onToggleActive={toggleActive}
-            readOnly={readOnly}
-            cancelled={cancelled}
-            isAdmin={isAdmin}
-          />
-          <RosterSection
-            title={roleLabels.facilitator}
-            rows={facilitators}
-            statuses={statuses}
-            onToggle={toggle}
-            activityInstanceId={activityInstanceId}
-            role="facilitator"
-            onChanged={() => router.refresh()}
-            editMode={editMode}
-            activeByPersonId={activeByPersonId}
-            onToggleActive={toggleActive}
-            readOnly={readOnly}
-            cancelled={cancelled}
-            isAdmin={isAdmin}
-            moveTo={roleLabels.showAssistants ? { role: "assistant", label: roleLabels.assistant } : undefined}
-            onMove={moveRole}
-          />
-          {roleLabels.showAssistants && (
-            <RosterSection
-              title={roleLabels.assistant}
-              rows={assistants}
-              statuses={statuses}
-              onToggle={toggle}
-              activityInstanceId={activityInstanceId}
-              role="assistant"
-              onChanged={() => router.refresh()}
-              editMode={editMode}
-              activeByPersonId={activeByPersonId}
-              onToggleActive={toggleActive}
-              readOnly={readOnly}
-              cancelled={cancelled}
-              isAdmin={isAdmin}
-              moveTo={{ role: "facilitator", label: roleLabels.facilitator }}
-              onMove={moveRole}
-            />
-          )}
+          {rosterSections(false)}
         </>
       )}
 
@@ -374,15 +394,36 @@ export function SessionClient({
           restoreStatuses={restoreStudyStatuses}
         />
       )}
+
+      {/* Edit Attendees takes the whole screen, the app header and tab bar
+          included, and the only way out is Done Editing: centred in a header
+          that never scrolls, so it is always there and it is always plain that
+          this is editing. Everything is saved as it is done, so Done just
+          returns to the Attendance screen. (Same layer as the study screen and
+          the Add Info screen; the Add Info screen opens above this one.) */}
+      {editMode && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "var(--page-bg)", display: "flex", flexDirection: "column" }}>
+          <div style={{ flexShrink: 0, padding: "16px 5%", display: "flex", justifyContent: "center" }}>
+            <button type="button" className="header-done" onClick={() => setEditMode(false)}>
+              Done Editing
+            </button>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
+            {/* The same width as the Attendance screen has on a big window. */}
+            <div style={{ maxWidth: 430, margin: "0 auto" }}>
+              <div style={{ padding: "0 5% 32px" }}>{rosterSections(true)}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
-// Blue rather than the green/red the buttons beside it use, since those two
-// carry meaning (confirm / cancel) and this one is just a way into the history.
+// Looks like the other buttons above the roster (see plainButtonStyle).
 function StudyLogButton({ onClick, style }: { onClick: () => void; style?: React.CSSProperties }) {
   return (
-    <button onClick={onClick} style={{ ...actionButtonStyle, border: "1px solid var(--blue)", background: "var(--card-bg)", color: "var(--blue)", cursor: "pointer", ...style }}>
+    <button onClick={onClick} style={{ ...plainButtonStyle, ...style }}>
       Edit Study History
     </button>
   );
@@ -854,36 +895,37 @@ function RosterSection({
         })}
       </div>
 
-      {!editMode &&
-        (adding ? (
-          <AddPersonForm
-            activityInstanceId={activityInstanceId}
-            role={role}
-            onDone={() => {
-              setAdding(false);
-              onChanged();
-            }}
-            onCancel={() => setAdding(false)}
-          />
-        ) : (
-          <button
-            onClick={() => setAdding(true)}
-            style={{
-              marginTop: "var(--space-2)",
-              width: "100%",
-              minHeight: "var(--tap-min)",
-              background: "none",
-              border: "1px dashed var(--border)",
-              borderRadius: "var(--radius-md)",
-              padding: "var(--space-3)",
-              fontSize: "0.8rem",
-              color: "var(--heading)",
-              cursor: "pointer",
-            }}
-          >
-            + Add New {singularTitle}
-          </button>
-        ))}
+      {/* At the foot of each section, on the Attendance screen and in Edit
+          Attendees alike. */}
+      {adding ? (
+        <AddPersonForm
+          activityInstanceId={activityInstanceId}
+          role={role}
+          onDone={() => {
+            setAdding(false);
+            onChanged();
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          style={{
+            marginTop: "var(--space-2)",
+            width: "100%",
+            minHeight: "var(--tap-min)",
+            background: "none",
+            border: "1px dashed var(--border)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--space-3)",
+            fontSize: "0.8rem",
+            color: "var(--heading)",
+            cursor: "pointer",
+          }}
+        >
+          + Add New {singularTitle}
+        </button>
+      )}
     </section>
   );
 }

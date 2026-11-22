@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import { isAttendanceSessionPage } from "@/lib/attendanceSession";
 
 // One level up the menu hierarchy (not browser history) — same logic the
 // old swipe-back gesture used before it was removed in favour of the
@@ -8,8 +9,7 @@ import { useRouter, usePathname } from "next/navigation";
 export function getParentPath(pathname: string): string | null {
   if (pathname === "/app") return null; // already top level
 
-  const sessionMatch = pathname.match(/^\/app\/attendance\/[^/]+\/[^/]+\/session$/);
-  if (sessionMatch) {
+  if (isAttendanceSessionPage(pathname)) {
     const [categoryId] = pathname.split("/attendance/")[1].split("/");
     return `/app/attendance/${categoryId}`;
   }
